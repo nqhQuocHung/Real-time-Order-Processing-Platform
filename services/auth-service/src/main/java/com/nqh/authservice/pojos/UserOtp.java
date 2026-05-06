@@ -30,7 +30,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class UserOtp {
+public class UserOtp extends BasePojo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -61,3 +61,4 @@ public class UserOtp {
     @Column(name = "used", nullable = false)
     private Boolean used;
 }
+
