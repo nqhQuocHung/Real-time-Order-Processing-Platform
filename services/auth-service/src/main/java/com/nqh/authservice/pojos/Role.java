@@ -27,7 +27,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Role {
+public class Role extends BasePojo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -45,3 +45,4 @@ public class Role {
     @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
     private Set<User> users = new HashSet<>();
 }
+

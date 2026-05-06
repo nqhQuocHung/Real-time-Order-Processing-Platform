@@ -30,7 +30,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class RefreshToken {
+public class RefreshToken extends BasePojo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -55,3 +55,4 @@ public class RefreshToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 }
+

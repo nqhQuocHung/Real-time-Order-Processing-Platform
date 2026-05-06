@@ -35,7 +35,7 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class User {
+public class User extends BasePojo {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
