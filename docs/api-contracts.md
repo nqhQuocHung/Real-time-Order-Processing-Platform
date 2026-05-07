@@ -218,6 +218,24 @@ Request:
 - `POST /api/v1/orders/{orderCode}/shipping-confirm`: Callback giao hang, chuyen sang `COMPLETED`.
 - `GET /api/v1/orders/{orderCode}/timeline`: Lay lich su chuyen trang thai don hang.
 
+## 10. Inventory Endpoint Contract (Core)
+
+- `GET /api/v1/inventories/{productId}`: Lay ton kho hien tai theo san pham.
+- `POST /api/v1/inventories/check`: Kiem tra kha nang dat hang cho danh sach item.
+- `POST /api/v1/inventories/reserve`: Giu hang cho order (`orderCode` + danh sach item). Idempotent theo `orderCode`.
+- `POST /api/v1/inventories/release`: Nha giu hang (rollback reserve) cho order.
+- `POST /api/v1/inventories/confirm-deduct`: Chot tru ton kho sau khi thanh toan thanh cong.
+- `POST /api/v1/inventories/adjust`: Cong/tru ton kho thu cong (restock hoac correction).
+
+## 11. Payment Endpoint Contract (Core Demo)
+
+- `POST /api/v1/payments/intents`: Tao payment intent cho order voi nhieu `method` (`VNPAY`, `MOMO`, `ZALOPAY`, `COD`, `BANK_TRANSFER`).
+- `GET /api/v1/payments/{orderCode}`: Lay chi tiet giao dich thanh toan theo order code.
+- `POST /api/v1/payments/confirm`: Xac nhan thanh toan thanh cong/khong thanh cong.
+  - Trong demo hien tai: chi `VNPAY` co the chuyen `SUCCESS`.
+  - Cac method khac khi confirm se duoc danh dau `FAILED`.
+- `POST /api/v1/payments/fail`: Danh dau giao dich thanh toan that bai.
+
 Success (`201`):
 
 ```json
