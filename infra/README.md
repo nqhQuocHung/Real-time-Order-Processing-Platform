@@ -14,6 +14,8 @@ docker compose version
 
 ## 2) Khoi dong stack
 
+### 2.1 Infra only
+
 Chay trong thu muc `infra/`:
 
 ```powershell
@@ -28,16 +30,35 @@ Compose se khoi dong:
 - `kafka-ui` (8088)
 - `kafka-init` (job 1 lan de tao topics)
 
+### 2.2 Full stack (infra + backend services)
+
+Khoi dong nhanh toan bo backend:
+
+```powershell
+docker compose up -d --build
+```
+
+Compose se dung them:
+
+- `auth-service` (8081)
+- `order-service` (8082)
+- `inventory-service` (8083)
+- `payment-service` (8084)
+- `notification-service` (8085)
+- `api-gateway` (8080)
+
 ## 3) Kiem tra health
 
 ```powershell
 docker compose ps
 ```
 
-Trang thai mong doi:
+Trang thai mong doi (infra):
 
 - `postgres`, `redis`, `kafka`, `kafka-ui` la `Up`
 - `kafka-init` la `Exited (0)` sau khi tao topic
+
+Neu chay full stack, cac service backend se o trang thai `Up` sau khi build xong.
 
 ## 4) Verify PostgreSQL DB/schema
 
