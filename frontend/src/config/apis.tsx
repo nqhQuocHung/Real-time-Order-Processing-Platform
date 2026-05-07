@@ -1,7 +1,59 @@
 import axios from 'axios'
-import type { AxiosResponse } from 'axios'
+import type {
+  AxiosError,
+  AxiosResponse,
+  InternalAxiosRequestConfig,
+} from 'axios'
+import type { AppRole } from '../constants/roles'
 
-const BASE_URL = 'http://localhost:8080'
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
+  'http://localhost:8080'
+
+type ValidationError = {
+  field: string
+  message: string
+}
+
+type ApiResponseEnvelope<T> = {
+  timestamp?: string
+  status: number
+  code?: string
+  message?: string
+  traceId?: string
+  data: T
+  errors?: ValidationError[]
+}
+
+type AuthSession = {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  userId: string
+  username: string
+  email: string
+  role?: AppRole
+  backendRoles?: string[]
+}
+
+type RefreshTokenPayload = {
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
+  refreshExpiresIn?: number
+}
+
+const storageKeys = {
+  isLoggedIn: 'isLoggedIn',
+  accessToken: 'accessToken',
+  refreshToken: 'refreshToken',
+  tokenType: 'tokenType',
+  username: 'username',
+  userId: 'userId',
+  user: 'user',
+  role: 'role',
+  backendRoles: 'backendRoles',
+}
 
 const endpoints = {
   auth: {
@@ -12,42 +64,311 @@ const endpoints = {
     changePassword: '/api/v1/auth/change-password',
     otpForgotPassword: '/api/v1/auth/otp-forgot-password',
     otpChangePassword: '/api/v1/auth/otp-change-password',
+    me: '/api/v1/auth/me',
     getUserById: (id: number | string) => `/api/v1/auth/user/${id}`,
-    patchUserById: (id: number | string) => `/api/v1/auth/user/${id}`,
-    putUserById: (id: number | string) => `/api/v1/auth/user/${id}`,
+    checkRole: (roleCode: string) => `/api/v1/auth/check-role/${roleCode}`,
+    grantPermission: '/api/v1/auth/grant-permission',
+    activateUser: (id: number | string) => `/api/v1/auth/activate/${id}`,
+    deactivateUser: (id: number | string) => `/api/v1/auth/deactivate/${id}`,
+  },
+  orders: {
+    create: '/api/v1/orders',
+    list: '/api/v1/orders',
+    detail: (orderCode: string) => `/api/v1/orders/${orderCode}`,
+    timeline: (orderCode: string) => `/api/v1/orders/${orderCode}/timeline`,
+    cancel: (orderCode: string) => `/api/v1/orders/${orderCode}/cancel`,
+    updateStatus: (orderCode: string) => `/api/v1/orders/${orderCode}/status`,
+    paymentConfirm: (orderCode: string) =>
+      `/api/v1/orders/${orderCode}/payment-confirm`,
+    paymentFail: (orderCode: string) => `/api/v1/orders/${orderCode}/payment-fail`,
+    shippingConfirm: (orderCode: string) =>
+      `/api/v1/orders/${orderCode}/shipping-confirm`,
+  },
+  inventories: {
+    stock: (productId: string) => `/api/v1/inventories/${productId}`,
+    check: '/api/v1/inventories/check',
+    reserve: '/api/v1/inventories/reserve',
+    release: '/api/v1/inventories/release',
+    confirmDeduct: '/api/v1/inventories/confirm-deduct',
+    adjust: '/api/v1/inventories/adjust',
+  },
+  payments: {
+    createIntent: '/api/v1/payments/intents',
+    getByOrderCode: (orderCode: string) => `/api/v1/payments/${orderCode}`,
+    confirm: '/api/v1/payments/confirm',
+    fail: '/api/v1/payments/fail',
+  },
+  notifications: {
+    create: '/api/v1/notifications',
+    list: '/api/v1/notifications',
+    detail: (notificationCode: string) =>
+      `/api/v1/notifications/${notificationCode}`,
+    updateStatus: (notificationCode: string) =>
+      `/api/v1/notifications/${notificationCode}/status`,
   },
 }
 
-type ApiResponseEnvelope<T> = {
-  status?: number
-  message?: string
-  data: T
+function getLocalStorageValue(key: string): string {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  return localStorage.getItem(key) || ''
 }
 
-const apis = (accessToken?: string) => {
+function parseUserEmail(): string {
+  const rawUser = getLocalStorageValue(storageKeys.user)
+
+  if (!rawUser) {
+    return ''
+  }
+
+  try {
+    const parsed = JSON.parse(rawUser) as { email?: string }
+    return parsed.email || ''
+  } catch {
+    return ''
+  }
+}
+
+function parseBackendRoles(): string[] {
+  const rawRoles = getLocalStorageValue(storageKeys.backendRoles)
+  if (!rawRoles) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(rawRoles) as string[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function setLocalStorageValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  localStorage.setItem(key, value)
+}
+
+function removeLocalStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  localStorage.removeItem(key)
+}
+
+function createCorrelationId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+
+  return `cid-${Date.now()}-${Math.floor(Math.random() * 1000000)}`
+}
+
+function getAuthSession(): AuthSession | null {
+  const accessToken = getLocalStorageValue(storageKeys.accessToken)
+  const refreshToken = getLocalStorageValue(storageKeys.refreshToken)
+
+  if (!accessToken || !refreshToken) {
+    return null
+  }
+
+  return {
+    accessToken,
+    refreshToken,
+    tokenType: getLocalStorageValue(storageKeys.tokenType) || 'Bearer',
+    userId: getLocalStorageValue(storageKeys.userId),
+    username: getLocalStorageValue(storageKeys.username),
+    email: parseUserEmail(),
+    role: (getLocalStorageValue(storageKeys.role) as AppRole) || undefined,
+    backendRoles: parseBackendRoles(),
+  }
+}
+
+function setAuthSession(session: Partial<AuthSession>) {
+  const current = getAuthSession()
+
+  const next: AuthSession = {
+    accessToken: session.accessToken || current?.accessToken || '',
+    refreshToken: session.refreshToken || current?.refreshToken || '',
+    tokenType: session.tokenType || current?.tokenType || 'Bearer',
+    userId: session.userId || current?.userId || '',
+    username: session.username || current?.username || '',
+    email: session.email || current?.email || '',
+    role: session.role || current?.role,
+    backendRoles: session.backendRoles || current?.backendRoles || [],
+  }
+
+  if (!next.accessToken || !next.refreshToken) {
+    clearAuthSession()
+    return
+  }
+
+  setLocalStorageValue(storageKeys.isLoggedIn, 'true')
+  setLocalStorageValue(storageKeys.accessToken, next.accessToken)
+  setLocalStorageValue(storageKeys.refreshToken, next.refreshToken)
+  setLocalStorageValue(storageKeys.tokenType, next.tokenType)
+  setLocalStorageValue(storageKeys.userId, next.userId)
+  setLocalStorageValue(storageKeys.username, next.username)
+  setLocalStorageValue(storageKeys.backendRoles, JSON.stringify(next.backendRoles))
+
+  if (next.role) {
+    setLocalStorageValue(storageKeys.role, next.role)
+  }
+
+  if (next.userId || next.username || next.email) {
+    setLocalStorageValue(
+      storageKeys.user,
+      JSON.stringify({
+        id: next.userId,
+        username: next.username,
+        email: next.email,
+      }),
+    )
+  }
+}
+
+function clearAuthSession() {
+  removeLocalStorageValue(storageKeys.isLoggedIn)
+  removeLocalStorageValue(storageKeys.accessToken)
+  removeLocalStorageValue(storageKeys.refreshToken)
+  removeLocalStorageValue(storageKeys.tokenType)
+  removeLocalStorageValue(storageKeys.username)
+  removeLocalStorageValue(storageKeys.userId)
+  removeLocalStorageValue(storageKeys.user)
+  removeLocalStorageValue(storageKeys.role)
+  removeLocalStorageValue(storageKeys.backendRoles)
+}
+
+function isAuthenticated() {
+  return Boolean(getLocalStorageValue(storageKeys.accessToken))
+}
+
+function shouldSkipRefresh(url?: string) {
+  if (!url) {
+    return false
+  }
+
+  return (
+    url.includes(endpoints.auth.login) ||
+    url.includes(endpoints.auth.refreshToken) ||
+    url.includes(endpoints.auth.register) ||
+    url.includes(endpoints.auth.forgotPassword) ||
+    url.includes(endpoints.auth.otpForgotPassword) ||
+    url.includes(endpoints.auth.changePassword) ||
+    url.includes(endpoints.auth.otpChangePassword)
+  )
+}
+
+async function requestRefreshToken(
+  refreshToken: string,
+): Promise<RefreshTokenPayload | null> {
+  try {
+    const response = await axios.post<
+      ApiResponseEnvelope<RefreshTokenPayload>
+    >(`${BASE_URL}${endpoints.auth.refreshToken}`, {
+      refreshToken,
+    })
+
+    return response.data.data
+  } catch {
+    return null
+  }
+}
+
+let refreshPromise: Promise<string | null> | null = null
+
+function createApiInstance(accessToken?: string) {
   const instance = axios.create({
     baseURL: BASE_URL,
     headers: {
       'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
+  })
+
+  instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    const token = accessToken || getAuthSession()?.accessToken
+
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
+    if (!config.headers['X-Correlation-Id']) {
+      config.headers['X-Correlation-Id'] = createCorrelationId()
+    }
+
+    return config
   })
 
   instance.interceptors.response.use(
     (response) => response,
-    (error) => {
-      if (error.response) {
-        console.error('Lỗi từ server:', error.response)
-      } else if (error.request) {
-        console.error('Không nhận được phản hồi từ server:', error.request)
-      } else {
-        console.error('Lỗi không xác định:', error.message)
+    async (error: AxiosError<ApiResponseEnvelope<unknown>>) => {
+      const originalRequest = error.config as
+        | (InternalAxiosRequestConfig & { _retry?: boolean })
+        | undefined
+
+      const status = error.response?.status
+      const canRefresh =
+        status === 401 &&
+        originalRequest &&
+        !originalRequest._retry &&
+        !shouldSkipRefresh(originalRequest.url)
+
+      if (canRefresh) {
+        originalRequest._retry = true
+
+        const refreshToken = getAuthSession()?.refreshToken
+
+        if (!refreshToken) {
+          clearAuthSession()
+          return Promise.reject(error)
+        }
+
+        if (!refreshPromise) {
+          refreshPromise = requestRefreshToken(refreshToken).then((payload) => {
+            if (!payload?.accessToken || !payload.refreshToken) {
+              clearAuthSession()
+              return null
+            }
+
+            setAuthSession({
+              accessToken: payload.accessToken,
+              refreshToken: payload.refreshToken,
+              tokenType: payload.tokenType,
+            })
+
+            return payload.accessToken
+          })
+        }
+
+        const newAccessToken = await refreshPromise
+        refreshPromise = null
+
+        if (newAccessToken) {
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+          return instance(originalRequest)
+        }
       }
+
       return Promise.reject(error)
     },
   )
 
   return instance
+}
+
+const sharedApi = createApiInstance()
+
+const apis = (accessToken?: string) => {
+  if (!accessToken) {
+    return sharedApi
+  }
+
+  return createApiInstance(accessToken)
 }
 
 function extractApiData<T>(response: AxiosResponse<ApiResponseEnvelope<T>>): T {
@@ -60,4 +381,39 @@ function extractApiMessage<T>(
   return response.data.message || ''
 }
 
-export { apis, endpoints, extractApiData, extractApiMessage }
+function extractApiErrorMessage(
+  error: unknown,
+  fallback = 'Request failed. Please try again.',
+): string {
+  const typedError = error as AxiosError<ApiResponseEnvelope<unknown>>
+
+  const firstValidationError = typedError.response?.data?.errors?.[0]
+  if (firstValidationError?.message) {
+    return firstValidationError.message
+  }
+
+  if (typedError.response?.data?.message) {
+    return typedError.response.data.message
+  }
+
+  if (typedError.message) {
+    return typedError.message
+  }
+
+  return fallback
+}
+
+export {
+  apis,
+  BASE_URL,
+  clearAuthSession,
+  endpoints,
+  extractApiData,
+  extractApiErrorMessage,
+  extractApiMessage,
+  getAuthSession,
+  isAuthenticated,
+  setAuthSession,
+}
+
+export type { ApiResponseEnvelope, AuthSession, ValidationError }
