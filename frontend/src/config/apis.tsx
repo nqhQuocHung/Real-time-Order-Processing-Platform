@@ -24,6 +24,14 @@ type ApiResponseEnvelope<T> = {
   errors?: ValidationError[]
 }
 
+type BackendMenuItem = {
+  key: string
+  label: string
+  path: string
+  displayOrder?: number
+  permission?: string
+}
+
 type AuthSession = {
   accessToken: string
   refreshToken: string
@@ -33,6 +41,8 @@ type AuthSession = {
   email: string
   role?: AppRole
   backendRoles?: string[]
+  backendPermissions?: string[]
+  backendMenus?: BackendMenuItem[]
 }
 
 type RefreshTokenPayload = {
@@ -53,6 +63,8 @@ const storageKeys = {
   user: 'user',
   role: 'role',
   backendRoles: 'backendRoles',
+  backendPermissions: 'backendPermissions',
+  backendMenus: 'backendMenus',
 }
 
 const endpoints = {
@@ -66,6 +78,8 @@ const endpoints = {
     otpChangePassword: '/api/v1/auth/otp-change-password',
     me: '/api/v1/auth/me',
     getUserById: (id: number | string) => `/api/v1/auth/user/${id}`,
+    updateUser: (id: number | string) => `/api/v1/auth/user/${id}`,
+    uploadUserAvatar: (id: number | string) => `/api/v1/auth/user/${id}/avatar`,
     checkRole: (roleCode: string) => `/api/v1/auth/check-role/${roleCode}`,
     grantPermission: '/api/v1/auth/grant-permission',
     activateUser: (id: number | string) => `/api/v1/auth/activate/${id}`,
@@ -145,6 +159,34 @@ function parseBackendRoles(): string[] {
   }
 }
 
+function parseBackendPermissions(): string[] {
+  const rawPermissions = getLocalStorageValue(storageKeys.backendPermissions)
+  if (!rawPermissions) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(rawPermissions) as string[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function parseBackendMenus(): BackendMenuItem[] {
+  const rawMenus = getLocalStorageValue(storageKeys.backendMenus)
+  if (!rawMenus) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(rawMenus) as BackendMenuItem[]
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 function setLocalStorageValue(key: string, value: string) {
   if (typeof window === 'undefined') {
     return
@@ -186,6 +228,8 @@ function getAuthSession(): AuthSession | null {
     email: parseUserEmail(),
     role: (getLocalStorageValue(storageKeys.role) as AppRole) || undefined,
     backendRoles: parseBackendRoles(),
+    backendPermissions: parseBackendPermissions(),
+    backendMenus: parseBackendMenus(),
   }
 }
 
@@ -201,6 +245,9 @@ function setAuthSession(session: Partial<AuthSession>) {
     email: session.email || current?.email || '',
     role: session.role || current?.role,
     backendRoles: session.backendRoles || current?.backendRoles || [],
+    backendPermissions:
+      session.backendPermissions || current?.backendPermissions || [],
+    backendMenus: session.backendMenus || current?.backendMenus || [],
   }
 
   if (!next.accessToken || !next.refreshToken) {
@@ -215,6 +262,11 @@ function setAuthSession(session: Partial<AuthSession>) {
   setLocalStorageValue(storageKeys.userId, next.userId)
   setLocalStorageValue(storageKeys.username, next.username)
   setLocalStorageValue(storageKeys.backendRoles, JSON.stringify(next.backendRoles))
+  setLocalStorageValue(
+    storageKeys.backendPermissions,
+    JSON.stringify(next.backendPermissions),
+  )
+  setLocalStorageValue(storageKeys.backendMenus, JSON.stringify(next.backendMenus))
 
   if (next.role) {
     setLocalStorageValue(storageKeys.role, next.role)
@@ -242,6 +294,8 @@ function clearAuthSession() {
   removeLocalStorageValue(storageKeys.user)
   removeLocalStorageValue(storageKeys.role)
   removeLocalStorageValue(storageKeys.backendRoles)
+  removeLocalStorageValue(storageKeys.backendPermissions)
+  removeLocalStorageValue(storageKeys.backendMenus)
 }
 
 function isAuthenticated() {
@@ -416,4 +470,4 @@ export {
   setAuthSession,
 }
 
-export type { ApiResponseEnvelope, AuthSession, ValidationError }
+export type { ApiResponseEnvelope, AuthSession, BackendMenuItem, ValidationError }
