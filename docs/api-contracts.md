@@ -181,6 +181,83 @@ Success (`200`):
 }
 ```
 
+### 8.4 RBAC Payload (`/auth/me`)
+
+`/api/v1/auth/me` hien tra ve day du du lieu RBAC de frontend render menu va an/hien chuc nang:
+
+- `roles`: danh sach role code.
+- `permissions`: danh sach permission code.
+- `menus`: danh sach menu da duoc loc theo role mapping.
+
+Vi du:
+
+```json
+{
+  "timestamp": "2026-05-07T11:00:00+07:00",
+  "status": 200,
+  "data": {
+    "userId": "3f4af5f3-7e92-4c5e-bd35-4d4f26ea45fa",
+    "username": "admin",
+    "email": "admin@example.com",
+    "roles": ["ADMIN"],
+    "permissions": [
+      "VIEW_ADMIN_DASHBOARD",
+      "MANAGE_USERS",
+      "MANAGE_ALL_ORDERS"
+    ],
+    "menus": [
+      {
+        "key": "admin-dashboard",
+        "label": "Admin Dashboard",
+        "path": "/admin/dashboard",
+        "displayOrder": 10,
+        "permission": "VIEW_ADMIN_DASHBOARD"
+      }
+    ]
+  },
+  "traceId": "req-2e5de8d7b6d74893"
+}
+```
+
+### 8.5 Update User
+
+- `PATCH /api/v1/auth/user/{userId}`
+- Header: `Authorization: Bearer <jwt>`
+- Permission required: `MANAGE_USERS`
+
+Request (cac field deu optional):
+
+```json
+{
+  "email": "new-email@example.com",
+  "phone": "0987654321",
+  "firstName": "Nguyen",
+  "lastName": "Van A",
+  "status": "ACTIVE",
+  "isActive": true,
+  "roleCodes": ["USER", "SHOPEE_PARTNER"]
+}
+```
+
+Success (`200`):
+
+```json
+{
+  "timestamp": "2026-05-07T11:00:00+07:00",
+  "status": 200,
+  "data": {
+    "userId": "3f4af5f3-7e92-4c5e-bd35-4d4f26ea45fa",
+    "profile": {
+      "userId": "3f4af5f3-7e92-4c5e-bd35-4d4f26ea45fa",
+      "email": "new-email@example.com",
+      "roles": ["USER", "SHOPEE_PARTNER"],
+      "permissions": ["VIEW_PARTNER_DASHBOARD"]
+    }
+  },
+  "traceId": "req-2e5de8d7b6d74893"
+}
+```
+
 ## 9. Order Endpoint Contract (MVP)
 
 ### 9.1 Create Order

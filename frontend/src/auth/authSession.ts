@@ -1,6 +1,7 @@
 import { AppRole, resolvePrimaryRole } from '../constants/roles'
 import {
   apis,
+  type BackendMenuItem,
   clearAuthSession,
   endpoints,
   extractApiData,
@@ -19,6 +20,8 @@ export type UserProfileResponse = {
   status?: string
   isActive?: boolean
   roles?: string[]
+  permissions?: string[]
+  menus?: BackendMenuItem[]
   createdAt?: string
   updatedAt?: string
 }
@@ -64,6 +67,8 @@ export async function completeLoginSession(loginData: LoginResponseData) {
     email: profile.email || loginData.email,
     role,
     backendRoles,
+    backendPermissions: profile.permissions || [],
+    backendMenus: profile.menus || [],
   })
 
   return { role, profile }
@@ -90,6 +95,8 @@ export async function hydrateAuthSession(): Promise<AuthSnapshot> {
       email: profile.email || session.email,
       role,
       backendRoles,
+      backendPermissions: profile.permissions || [],
+      backendMenus: profile.menus || [],
     })
 
     return {

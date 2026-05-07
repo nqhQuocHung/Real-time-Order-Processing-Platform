@@ -21,6 +21,9 @@ import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
+import com.nqh.authservice.dtos.MenuItemResponse;
+import com.nqh.authservice.dtos.UpdateUserRequest;
+import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
 import com.nqh.authservice.enums.GenderEnum;
 import com.nqh.authservice.enums.OtpPurposeEnum;
@@ -28,6 +31,7 @@ import com.nqh.authservice.enums.TokenTypeEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
 import com.nqh.authservice.pojos.RefreshToken;
 import com.nqh.authservice.pojos.Role;
+import com.nqh.authservice.pojos.Menu;
 import com.nqh.authservice.pojos.User;
 import com.nqh.authservice.pojos.UserOtp;
 import com.nqh.authservice.repositories.RefreshTokenRepository;
@@ -45,10 +49,13 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -170,7 +177,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request) {
         User user = userRepository
-                .findByUsernameIgnoreCaseOrEmailIgnoreCase(request.getUsernameOrEmail(), request.getUsernameOrEmail())
+                .findGraphByUsernameIgnoreCaseOrEmailIgnoreCase(request.getUsernameOrEmail(), request.getUsernameOrEmail())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_CREDENTIALS));
 
         if (user.getStatus() == UserStatusEnum.LOCKED || user.getStatus() == UserStatusEnum.DISABLED) {
@@ -418,7 +425,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
         }
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findGraphById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN));
 
         if (!jwtTokenProvider.isTokenValid(rawRefreshToken, userId)) {
@@ -473,7 +480,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public UserProfileResponse getUserById(UUID userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findGraphById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         return mapToUserProfile(user);
@@ -533,7 +540,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ActivateUserResponse activateUser(UUID userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findGraphById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         user.setIsActive(Boolean.TRUE);
@@ -553,7 +560,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public ActivateUserResponse deactivateUser(UUID userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findGraphById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         LocalDateTime now = LocalDateTime.now();
@@ -570,6 +577,119 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .isActive(user.getIsActive())
                 .status(user.getStatus())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public UpdateUserResponse updateUser(String authorizationHeader, UUID userId, UpdateUserRequest request) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasPermission(authenticatedUser, "MANAGE_USERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        User user = userRepository.findGraphById(userId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        if (StringUtils.hasText(request.getEmail())) {
+            String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
+            boolean emailExists = userRepository.existsByEmailIgnoreCase(normalizedEmail)
+                    && !normalizedEmail.equalsIgnoreCase(user.getEmail());
+            if (emailExists) {
+                throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_EMAIL_ALREADY_EXISTS);
+            }
+            user.setEmail(normalizedEmail);
+        }
+
+        if (request.getPhone() != null) {
+            String normalizedPhone = StringUtils.hasText(request.getPhone()) ? request.getPhone().trim() : null;
+            boolean phoneExists = StringUtils.hasText(normalizedPhone)
+                    && userRepository.existsByPhone(normalizedPhone)
+                    && !normalizedPhone.equals(user.getPhone());
+            if (phoneExists) {
+                throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_PHONE_ALREADY_EXISTS);
+            }
+            user.setPhone(normalizedPhone);
+        }
+
+        if (request.getFirstName() != null) {
+            user.setFirstName(StringUtils.hasText(request.getFirstName()) ? request.getFirstName().trim() : null);
+        }
+        if (request.getLastName() != null) {
+            user.setLastName(StringUtils.hasText(request.getLastName()) ? request.getLastName().trim() : null);
+        }
+        if (request.getAvatar() != null) {
+            user.setAvatar(StringUtils.hasText(request.getAvatar()) ? request.getAvatar().trim() : null);
+        }
+        if (request.getGender() != null) {
+            user.setGender(request.getGender());
+        }
+        if (request.getStatus() != null) {
+            user.setStatus(request.getStatus());
+        }
+        if (request.getEmailVerified() != null) {
+            user.setEmailVerified(request.getEmailVerified());
+        }
+        if (request.getIsActive() != null) {
+            user.setIsActive(request.getIsActive());
+            if (Boolean.FALSE.equals(request.getIsActive()) && user.getStatus() != UserStatusEnum.DISABLED) {
+                user.setStatus(UserStatusEnum.DISABLED);
+            }
+            if (Boolean.TRUE.equals(request.getIsActive()) && user.getStatus() == UserStatusEnum.DISABLED) {
+                user.setStatus(UserStatusEnum.ACTIVE);
+            }
+        }
+
+        if (request.getRoleCodes() != null) {
+            Set<Role> roles = new HashSet<>();
+            for (String roleCode : request.getRoleCodes()) {
+                String normalizedRoleCode = normalizeRoleCode(roleCode);
+                Role role = roleRepository.findByCodeIgnoreCase(normalizedRoleCode)
+                        .orElseGet(() -> roleRepository.save(Role.builder()
+                                .code(normalizedRoleCode)
+                                .name(normalizedRoleCode)
+                                .build()));
+                roles.add(role);
+            }
+            user.setRoles(roles);
+        }
+
+        User savedUser = userRepository.save(user);
+        LocalDateTime now = LocalDateTime.now();
+        revokeActiveAccessTokens(savedUser.getId(), now);
+        revokeActiveRefreshTokens(savedUser.getId(), now);
+
+        User reloadedUser = userRepository.findGraphById(savedUser.getId())
+                .orElse(savedUser);
+
+        return UpdateUserResponse.builder()
+                .userId(reloadedUser.getId())
+                .profile(mapToUserProfile(reloadedUser))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public UpdateUserResponse updateUserAvatar(String authorizationHeader, UUID userId, MultipartFile avatar) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        boolean isOwner = authenticatedUser.getId().equals(userId);
+        if (!isOwner && !hasPermission(authenticatedUser, "MANAGE_USERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        User user = userRepository.findGraphById(userId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        String avatarUrl = uploadService.uploadAvatar(avatar);
+        user.setAvatar(avatarUrl);
+
+        User savedUser = userRepository.save(user);
+        User reloadedUser = userRepository.findGraphById(savedUser.getId())
+                .orElse(savedUser);
+
+        return UpdateUserResponse.builder()
+                .userId(reloadedUser.getId())
+                .profile(mapToUserProfile(reloadedUser))
                 .build();
     }
 
@@ -604,7 +724,7 @@ public class AuthServiceImpl implements AuthService {
 
     private User findUserByUsernameOrEmail(String usernameOrEmail) {
         String value = usernameOrEmail == null ? null : usernameOrEmail.trim();
-        return userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(value, value)
+        return userRepository.findGraphByUsernameIgnoreCaseOrEmailIgnoreCase(value, value)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
     }
 
@@ -635,7 +755,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
         }
 
-        User user = userRepository.findById(userId)
+        User user = userRepository.findGraphById(userId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         if (user.getStatus() == UserStatusEnum.LOCKED || user.getStatus() == UserStatusEnum.DISABLED) {
@@ -656,6 +776,17 @@ public class AuthServiceImpl implements AuthService {
         return user.getRoles().stream()
                 .map(Role::getCode)
                 .anyMatch(code -> roleCode.equalsIgnoreCase(code));
+    }
+
+    private boolean hasPermission(User user, String permissionCode) {
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> permission.getCode())
+                .filter(Objects::nonNull)
+                .anyMatch(code -> permissionCode.equalsIgnoreCase(code));
     }
 
     private String normalizeRoleCode(String roleCode) {
@@ -700,6 +831,36 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private UserProfileResponse mapToUserProfile(User user) {
+        List<String> permissions = user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> permission.getCode())
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        Set<Menu> uniqueMenus = user.getRoles().stream()
+                .flatMap(role -> role.getMenus().stream())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<MenuItemResponse> menus = uniqueMenus.stream()
+                .sorted((first, second) -> {
+                    int firstOrder = first.getDisplayOrder() == null ? Integer.MAX_VALUE : first.getDisplayOrder();
+                    int secondOrder = second.getDisplayOrder() == null ? Integer.MAX_VALUE : second.getDisplayOrder();
+                    if (firstOrder != secondOrder) {
+                        return Integer.compare(firstOrder, secondOrder);
+                    }
+                    return String.valueOf(first.getMenuKey()).compareToIgnoreCase(String.valueOf(second.getMenuKey()));
+                })
+                .map(menu -> MenuItemResponse.builder()
+                        .key(menu.getMenuKey())
+                        .label(menu.getLabel())
+                        .path(menu.getPath())
+                        .displayOrder(menu.getDisplayOrder())
+                        .permission(menu.getPermission() != null ? menu.getPermission().getCode() : null)
+                        .build())
+                .toList();
+
         return UserProfileResponse.builder()
                 .userId(user.getId())
                 .uuid(user.getUuid())
@@ -718,6 +879,8 @@ public class AuthServiceImpl implements AuthService {
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .roles(user.getRoles().stream().map(Role::getCode).sorted().toList())
+                .permissions(permissions)
+                .menus(menus)
                 .build();
     }
 

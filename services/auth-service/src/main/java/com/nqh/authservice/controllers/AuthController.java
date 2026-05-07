@@ -21,6 +21,8 @@ import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
+import com.nqh.authservice.dtos.UpdateUserRequest;
+import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
 import com.nqh.authservice.services.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,7 +40,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -164,6 +168,28 @@ public class AuthController {
             HttpServletRequest httpServletRequest
     ) {
         ActivateUserResponse response = authService.deactivateUser(userId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PatchMapping("/user/{userId}")
+    public ResponseEntity<BaseResponse<UpdateUserResponse>> updateUser(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable UUID userId,
+            @Valid @RequestBody UpdateUserRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        UpdateUserResponse response = authService.updateUser(authorizationHeader, userId, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping(value = "/user/{userId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse<UpdateUserResponse>> updateUserAvatar(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable UUID userId,
+            @RequestParam("avatar") MultipartFile avatar,
+            HttpServletRequest httpServletRequest
+    ) {
+        UpdateUserResponse response = authService.updateUserAvatar(authorizationHeader, userId, avatar);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 }
