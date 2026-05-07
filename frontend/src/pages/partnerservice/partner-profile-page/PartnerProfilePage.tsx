@@ -68,7 +68,7 @@ function PartnerProfilePage() {
         setProfile(data)
         setForm(toForm(data))
       } catch (err) {
-        setError(extractApiErrorMessage(err, 'KhÃ´ng táº£i Ä‘Æ°á»£c há»“ sÆ¡ partner.'))
+        setError(extractApiErrorMessage(err, 'Cannot load partner profile.'))
       } finally {
         setLoading(false)
       }
@@ -114,7 +114,7 @@ function PartnerProfilePage() {
 
       setProfile(nextProfile)
       setForm(toForm(nextProfile))
-      setSuccess('Cáº­p nháº­t há»“ sÆ¡ Ä‘á»‘i tÃ¡c thÃ nh cÃ´ng.')
+      setSuccess('Partner profile updated successfully.')
       setAuthSession({
         userId: nextProfile.userId,
         username: nextProfile.username,
@@ -128,7 +128,7 @@ function PartnerProfilePage() {
         }),
       )
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'KhÃ´ng thá»ƒ cáº­p nháº­t há»“ sÆ¡ partner.'))
+      setError(extractApiErrorMessage(err, 'Cannot update partner profile.'))
     } finally {
       setSaving(false)
     }
@@ -220,13 +220,13 @@ function PartnerProfilePage() {
   }
 
   if (loading) {
-    return <p className="role-muted">Äang táº£i há»“ sÆ¡ partner...</p>
+    return <p className="role-muted">Loading partner profile...</p>
   }
 
   return (
     <section className="partner-profile-page role-page-stack">
       <article className="role-card">
-        <h2>Há»“ sÆ¡ Ä‘á»‘i tÃ¡c</h2>
+        <h2>Partner Profile</h2>
         {error && <p className="role-error">{error}</p>}
         {success && <p className="role-muted">{success}</p>}
         {profile && form ? (
@@ -280,7 +280,7 @@ function PartnerProfilePage() {
                 />
               </label>
               <label>
-                Äiá»‡n thoáº¡i
+                Phone
                 <input
                   value={form.phone}
                   onChange={(event) =>
@@ -291,11 +291,11 @@ function PartnerProfilePage() {
                 />
               </label>
               <label>
-                NgÃ y sinh
-                <input value="ChÆ°a há»— trá»£ tá»« backend" disabled />
+                Date of birth
+                <input value="Not supported by backend yet" disabled />
               </label>
               <label>
-                Tráº¡ng thÃ¡i
+                Status
                 <input value={profile.status || '-'} disabled />
               </label>
               <label>
@@ -312,13 +312,13 @@ function PartnerProfilePage() {
                   onClick={() => void handleUpdateProfile()}
                   disabled={saving}
                 >
-                  {saving ? 'Äang cáº­p nháº­t...' : 'Cáº­p nháº­t'}
+                  {saving ? 'Updating...' : 'Update'}
                 </button>
               )}
             </div>
           </>
         ) : (
-          <p className="role-muted">KhÃ´ng cÃ³ dá»¯ liá»‡u há»“ sÆ¡.</p>
+          <p className="role-muted">No profile data available.</p>
         )}
       </article>
 
