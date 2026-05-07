@@ -20,5 +20,8 @@ public class PaymentActionRequest {
     private String actor;
 
     @Size(max = 255)
+    private String idempotencyKey;
+
+    @Size(max = 255)
     private String note;
 }
