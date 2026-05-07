@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-import { apis, endpoints, extractApiData } from '../../config/apis'
+import { completeLoginSession, type LoginResponseData } from '../../auth/authSession'
+import { getDefaultPathByRole } from '../../config/roleConfig'
+import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../config/apis'
 import vnptLogo from '../../assets/logo/vnpt_logo.png'
 import vnptBackground from '../../assets/logo/vnpt_bg.png'
 import Loading from '../../components/loading/Loading'
@@ -10,16 +12,6 @@ import './AuthLoginPage.css'
 
 type LoginLocationState = {
   toastMessage?: string
-}
-
-type AuthLoginResponseData = {
-  accessToken: string
-  refreshToken: string
-  tokenType: string
-  expiresIn: number
-  userId: string
-  username: string
-  email: string
 }
 
 function AuthLoginPage() {
@@ -35,57 +27,33 @@ function AuthLoginPage() {
     const state = location.state as LoginLocationState | null
 
     if (state?.toastMessage) {
-      toast.success(state.toastMessage, {
-        toastId: 'forgot-password-success',
-      })
-
-      navigate(location.pathname, {
-        replace: true,
-        state: null,
-      })
+      toast.success(state.toastMessage, { toastId: 'login-toast-message' })
+      navigate(location.pathname, { replace: true, state: null })
     }
   }, [location, navigate])
 
-  const handleLogin: React.FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault()
+  const handleLogin: React.FormEventHandler<HTMLFormElement> = async (event) => {
+    event.preventDefault()
     setError('')
 
     if (!username.trim() || !password.trim()) {
-      setError('Vui lòng nhập đầy đủ tài khoản và mật khẩu')
+      setError('Vui lòng nhập đầy đủ tài khoản và mật khẩu.')
       return
     }
 
     try {
       setLoading(true)
-
       const response = await apis().post(endpoints.auth.login, {
         usernameOrEmail: username.trim(),
         password: password.trim(),
       })
 
-      const data = extractApiData<AuthLoginResponseData>(response)
+      const loginData = extractApiData<LoginResponseData>(response)
+      const { role } = await completeLoginSession(loginData)
 
-      localStorage.setItem('isLoggedIn', 'true')
-      localStorage.setItem('accessToken', data.accessToken)
-      localStorage.setItem('refreshToken', data.refreshToken)
-      localStorage.setItem('tokenType', data.tokenType)
-      localStorage.setItem('username', data.username)
-      localStorage.setItem('userId', data.userId)
-
-      localStorage.setItem(
-        'user',
-        JSON.stringify({
-          id: data.userId,
-          username: data.username,
-          email: data.email,
-        }),
-      )
-
-      navigate('/home')
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message || 'Tài khoản hoặc mật khẩu không đúng',
-      )
+      navigate(getDefaultPathByRole(role), { replace: true })
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Tài khoản hoặc mật khẩu không đúng.'))
     } finally {
       setLoading(false)
     }
