@@ -1,0 +1,743 @@
+.register-vh-100 {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.register-page-bg {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  position: relative;
+}
+
+.register-bg-overlay {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: rgba(7, 25, 60, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+.register-container-fluid {
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
+.register-h-custom {
+  flex: 1;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.register-h-100 {
+  height: 100%;
+}
+
+.register-row {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-left: -10px;
+  margin-right: -10px;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.register-row > div {
+  padding-left: 10px;
+  padding-right: 10px;
+  box-sizing: border-box;
+}
+
+.register-d-flex {
+  display: flex;
+}
+
+.register-flex-column {
+  flex-direction: column;
+}
+
+.register-flex-md-row {
+  flex-direction: row;
+}
+
+.register-justify-content-center {
+  justify-content: center;
+}
+
+.register-justify-content-between {
+  justify-content: space-between;
+}
+
+.register-align-items-center {
+  align-items: center;
+}
+
+.register-text-center {
+  text-align: center;
+}
+
+.register-text-md-start,
+.register-text-lg-start {
+  text-align: left;
+}
+
+.register-fw-bold {
+  font-weight: 700;
+}
+
+.register-mb-0 {
+  margin-bottom: 0;
+}
+
+.register-mb-3 {
+  margin-bottom: 0.55rem;
+}
+
+.register-mb-4 {
+  margin-bottom: 1.5rem;
+}
+
+.register-mt-4 {
+  margin-top: 0.4rem;
+}
+
+.register-my-4 {
+  margin-top: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.register-mx-3 {
+  margin-left: 1rem;
+  margin-right: 1rem;
+}
+
+.register-me-2 {
+  margin-right: 0.5rem;
+}
+
+.register-me-4 {
+  margin-right: 1.5rem;
+}
+
+.register-pt-2 {
+  padding-top: 0.1rem;
+}
+
+.register-py-4 {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.register-px-4 {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.register-px-xl-5 {
+  padding-left: 3rem;
+  padding-right: 3rem;
+}
+
+.register-text-white {
+  color: #fff;
+}
+
+.register-text-body {
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.register-text-body:hover {
+  color: #dbeafe;
+}
+
+.register-img-fluid {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.register-col-md-8,
+.register-col-md-9,
+.register-col-lg-6,
+.register-col-xl-4,
+.register-col-xl-5,
+.register-offset-xl-1 {
+  width: 100%;
+}
+
+.register-col-xl-4 {
+  display: flex;
+  justify-content: center;
+}
+
+.register-form-card {
+  width: 100%;
+  max-width: 460px;
+  background: rgb(245 241 241 / 16%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 18px;
+  padding: 12px 16px 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.register-logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.register-brand-image {
+  width: 180px;
+  max-width: 70%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  filter:
+    drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+    drop-shadow(0 0 22px rgba(255, 255, 255, 0.75))
+    drop-shadow(0 4px 12px rgba(0, 0, 0, 0.18));
+}
+
+.register-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.register-divider::before,
+.register-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.register-divider p {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.register-form-outline {
+  position: relative;
+}
+
+.register-form-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.register-form-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.register-form-col-sm {
+  flex: 0.9;
+}
+
+.register-form-col-lg {
+  flex: 1.1;
+}
+
+.register-form-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.register-form-control {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  outline: none;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.18);
+  transition: all 0.2s ease;
+  color: #ffffff;
+}
+
+.register-form-control:focus {
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+}
+
+.register-form-control::placeholder {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.register-form-control-lg {
+  padding: 8px 11px;
+  font-size: 14px;
+  min-height: 38px;
+}
+
+.register-form-control option {
+  color: #111827;
+}
+
+.register-file-input {
+  padding: 7px 9px;
+  line-height: 1.3;
+}
+
+.register-file-input::-webkit-file-upload-button {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.register-file-input::file-selector-button {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.register-form-options {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.register-form-register,
+.register-form-forget {
+  display: flex;
+  align-items: center;
+}
+
+.register-link-action,
+.register-link-action:link,
+.register-link-action:visited,
+.register-link-action:hover,
+.register-link-action:active,
+.register-link-action:focus {
+  color: #ffffff;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.register-link-action:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+}
+
+.register-link-action:active {
+  transform: scale(0.98);
+}
+
+.register-link-action:focus {
+  outline: none;
+}
+
+.register-btn {
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+.register-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.register-btn-primary {
+  background: linear-gradient(90deg, #0da4e6 0%, #4db438 100%);
+  color: #000000;
+  box-shadow: 0 10px 20px rgba(13, 110, 253, 0.2);
+}
+
+.register-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 24px rgba(13, 110, 253, 0.28);
+}
+
+.register-btn-secondary {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 10px 18px;
+}
+
+.register-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.register-btn-lg {
+  width: auto;
+  min-width: 160px;
+  min-height: 38px;
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.register-alert-danger {
+  background: rgba(180, 35, 24, 0.18);
+  border: 1px solid rgba(254, 205, 202, 0.4);
+  color: #fff5f4;
+  padding: 9px 11px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.register-alert-success {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(187, 247, 208, 0.4);
+  color: #f0fdf4;
+  padding: 9px 11px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.register-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+.register-avatar-input-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.register-avatar-preview-wrap {
+  margin-top: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.register-avatar-preview-inline {
+  flex-shrink: 0;
+}
+
+.register-avatar-preview {
+  width: 62px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.register-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.register-avatar-crop-text {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.register-avatar-remove {
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.register-crop-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.register-crop-modal {
+  width: min(92vw, 540px);
+  background: rgba(18, 27, 78, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.register-crop-header {
+  margin-bottom: 12px;
+}
+
+.register-crop-title {
+  margin: 0;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.register-crop-container {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  background: #111827;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.register-crop-zoom {
+  margin-top: 16px;
+  color: #fff;
+}
+
+.register-crop-zoom label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.register-crop-zoom input {
+  width: 100%;
+}
+
+.register-crop-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* Tablet */
+@media (min-width: 768px) {
+  .register-container-fluid {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .register-col-md-8 {
+    width: 66.666667%;
+  }
+
+  .register-col-md-9 {
+    width: 75%;
+  }
+
+  .register-form-card {
+    max-width: 470px;
+    padding: 13px 17px 15px;
+  }
+
+  .register-brand-image {
+    width: 180px;
+    max-width: 100%;
+  }
+
+  .register-divider p {
+    font-size: 19px;
+  }
+}
+
+/* Laptop */
+@media (min-width: 992px) {
+  .register-col-lg-6 {
+    width: 50%;
+  }
+
+  .register-form-card {
+    max-width: 480px;
+  }
+
+  .register-brand-image {
+    width: 125px;
+  }
+
+  .register-divider p {
+    font-size: 20px;
+  }
+}
+
+/* Desktop lớn */
+@media (min-width: 1200px) {
+  .register-col-xl-4 {
+    width: 33.333333%;
+  }
+
+  .register-col-xl-5 {
+    width: 41.666667%;
+  }
+
+  .register-offset-xl-1 {
+    margin-left: 8.333333%;
+  }
+}
+
+@media (max-width: 768px) {
+  .register-form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .register-form-col {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .register-crop-actions {
+    flex-direction: column;
+  }
+
+  .register-crop-actions .register-btn {
+    width: 100%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .register-container-fluid {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .register-bg-overlay {
+    padding: 8px 0;
+  }
+
+  .register-h-custom {
+    padding: 6px 0;
+  }
+
+  .register-form-card {
+    max-width: 330px;
+    padding: 12px 12px 14px;
+    border-radius: 16px;
+  }
+
+  .register-logo-wrap {
+    margin-bottom: 2px;
+  }
+
+  .register-brand-image {
+    width: 180px;
+    max-width: 100%;
+  }
+
+  .register-divider p {
+    font-size: 16px;
+  }
+
+  .register-my-4 {
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .register-mb-3 {
+    margin-bottom: 0.5rem;
+  }
+
+  .register-form-label,
+  .register-text-body,
+  .register-alert-danger,
+  .register-alert-success {
+    font-size: 12px;
+  }
+
+  .register-form-control-lg,
+  .register-btn-lg {
+    min-height: 36px;
+    font-size: 13px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .register-file-input {
+    padding: 6px 8px;
+  }
+
+  .register-form-options {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .register-link-action {
+    width: auto;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .register-avatar-row {
+    align-items: center;
+    gap: 8px;
+  }
+
+  .register-avatar-preview {
+    width: 56px;
+    height: 56px;
+  }
+
+  .register-avatar-crop-text,
+  .register-avatar-remove {
+    font-size: 11px;
+  }
+
+  .register-crop-modal {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .register-crop-title {
+    font-size: 18px;
+  }
+
+  .register-crop-container {
+    height: 260px;
+  }
+}
