@@ -4,10 +4,17 @@ import com.nqh.authservice.common.exception.AppException;
 import com.nqh.authservice.common.messages.MessageCode;
 import com.nqh.authservice.configurations.MailTemplateProperties;
 import com.nqh.authservice.dtos.ActivateUserResponse;
+import com.nqh.authservice.dtos.CheckRoleResponse;
 import com.nqh.authservice.dtos.ChangePasswordOtpRequest;
 import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
+import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
+import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
+import com.nqh.authservice.dtos.ForgotPasswordRequest;
+import com.nqh.authservice.dtos.ForgotPasswordResponse;
+import com.nqh.authservice.dtos.GrantPermissionRequest;
+import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
@@ -37,7 +44,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
@@ -61,9 +70,11 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final MailTemplateProperties mailTemplateProperties;
     private final String defaultRoleCode;
+    private final String adminRoleCode;
     private final String defaultAvatarUrl;
     private final int maxOtpFailedAttempts;
     private final int changePasswordOtpExpirationMinutes;
+    private final int forgotPasswordOtpExpirationMinutes;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -78,9 +89,11 @@ public class AuthServiceImpl implements AuthService {
             EmailService emailService,
             MailTemplateProperties mailTemplateProperties,
             @Value("${app.default-role:USER}") String defaultRoleCode,
+            @Value("${app.admin-role:ADMIN}") String adminRoleCode,
             @Value("${app.avatar.default-url:}") String defaultAvatarUrl,
             @Value("${MAX.OTP.FAILED.ATTEMPTS:5}") int maxOtpFailedAttempts,
-            @Value("${app.otp.change-password-expiration-minutes:5}") int changePasswordOtpExpirationMinutes
+            @Value("${app.otp.change-password-expiration-minutes:5}") int changePasswordOtpExpirationMinutes,
+            @Value("${app.otp.forgot-password-expiration-minutes:10}") int forgotPasswordOtpExpirationMinutes
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -92,9 +105,11 @@ public class AuthServiceImpl implements AuthService {
         this.emailService = emailService;
         this.mailTemplateProperties = mailTemplateProperties;
         this.defaultRoleCode = defaultRoleCode;
+        this.adminRoleCode = adminRoleCode;
         this.defaultAvatarUrl = defaultAvatarUrl;
         this.maxOtpFailedAttempts = maxOtpFailedAttempts;
         this.changePasswordOtpExpirationMinutes = changePasswordOtpExpirationMinutes;
+        this.forgotPasswordOtpExpirationMinutes = forgotPasswordOtpExpirationMinutes;
     }
 
     @Override
@@ -306,6 +321,90 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
+    public ForgotPasswordOtpResponse sendForgotPasswordOtp(ForgotPasswordOtpRequest request) {
+        User user = findUserByUsernameOrEmail(request.getUsernameOrEmail());
+
+        String otp = generateNumericOtp(6);
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(forgotPasswordOtpExpirationMinutes);
+
+        UserOtp userOtp = userOtpRepository
+                .findByUserIdAndPurpose(user.getId(), OtpPurposeEnum.FORGOT_PASSWORD)
+                .orElseGet(() -> UserOtp.builder()
+                        .user(user)
+                        .purpose(OtpPurposeEnum.FORGOT_PASSWORD)
+                        .failedAttempts(0)
+                        .resendCount(0)
+                        .used(false)
+                        .build());
+
+        int resendCount = userOtp.getResendCount() == null ? 0 : userOtp.getResendCount();
+        userOtp.setResendCount(userOtp.getId() == null ? 0 : resendCount + 1);
+        userOtp.setFailedAttempts(0);
+        userOtp.setUsed(false);
+        userOtp.setOtpCodeHash(passwordEncoder.encode(otp));
+        userOtp.setExpiresAt(expiresAt);
+        userOtpRepository.save(userOtp);
+
+        sendForgotPasswordOtpEmail(user, otp, forgotPasswordOtpExpirationMinutes);
+
+        return ForgotPasswordOtpResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .expiresAt(expiresAt)
+                .message(MessageCode.AUTH_FORGOT_PASSWORD_OTP_SENT.name())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        User user = findUserByUsernameOrEmail(request.getUsernameOrEmail());
+
+        UserOtp userOtp = userOtpRepository
+                .findByUserIdAndPurpose(user.getId(), OtpPurposeEnum.FORGOT_PASSWORD)
+                .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_OTP_REQUIRED));
+
+        validateOtpState(userOtp);
+
+        if (!passwordEncoder.matches(request.getOtp(), userOtp.getOtpCodeHash())) {
+            int failedAttempts = userOtp.getFailedAttempts() == null ? 0 : userOtp.getFailedAttempts();
+            int updatedFailedAttempts = failedAttempts + 1;
+            userOtp.setFailedAttempts(updatedFailedAttempts);
+            userOtpRepository.save(userOtp);
+
+            if (updatedFailedAttempts >= maxOtpFailedAttempts) {
+                throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_OTP_LOCKED);
+            }
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_OTP_INVALID);
+        }
+
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_NEW_PASSWORD_SAME_AS_OLD);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setFailedLoginCount(0);
+        if (user.getStatus() == UserStatusEnum.LOCKED && Boolean.TRUE.equals(user.getIsActive())) {
+            user.setStatus(UserStatusEnum.ACTIVE);
+        }
+        userRepository.save(user);
+
+        userOtp.setUsed(true);
+        userOtp.setFailedAttempts(0);
+        userOtpRepository.save(userOtp);
+
+        LocalDateTime now = LocalDateTime.now();
+        revokeActiveAccessTokens(user.getId(), now);
+        revokeActiveRefreshTokens(user.getId(), now);
+
+        return ForgotPasswordResponse.builder()
+                .userId(user.getId())
+                .message(MessageCode.AUTH_FORGOT_PASSWORD_SUCCESS.name())
+                .build();
+    }
+
+    @Override
+    @Transactional
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
         if (request == null || !StringUtils.hasText(request.getRefreshToken())) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.AUTH_REFRESH_TOKEN_REQUIRED);
@@ -367,43 +466,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public UserProfileResponse me(String authorizationHeader) {
-        String accessToken = extractBearerToken(authorizationHeader);
-
-        UUID userId;
-        try {
-            userId = jwtTokenProvider.extractUserId(accessToken);
-        } catch (Exception ex) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
-        }
-
-        if (!jwtTokenProvider.isTokenValid(accessToken, userId)) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        RefreshToken activeAccessToken = refreshTokenRepository
-                .findByTokenHashAndTokenTypeAndRevokedAtIsNull(hashToken(accessToken), TokenTypeEnum.ACCESS)
-                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN));
-
-        if (activeAccessToken.getExpiresAt() == null || activeAccessToken.getExpiresAt().isBefore(now)) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
-        }
-
-        if (!userId.equals(activeAccessToken.getUser().getId())) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
-        }
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
-
-        if (user.getStatus() == UserStatusEnum.LOCKED || user.getStatus() == UserStatusEnum.DISABLED) {
-            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_USER_LOCKED);
-        }
-
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_USER_INACTIVE);
-        }
-
+        User user = resolveAuthenticatedUser(authorizationHeader);
         return mapToUserProfile(user);
     }
 
@@ -414,6 +477,57 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         return mapToUserProfile(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CheckRoleResponse checkRole(String authorizationHeader, String roleCode) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        String normalizedRoleCode = normalizeRoleCode(roleCode);
+        boolean hasRole = hasRole(authenticatedUser, normalizedRoleCode);
+
+        return CheckRoleResponse.builder()
+                .userId(authenticatedUser.getId())
+                .roleCode(normalizedRoleCode)
+                .hasRole(hasRole)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public GrantPermissionResponse grantPermission(String authorizationHeader, GrantPermissionRequest request) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        String normalizedAdminRoleCode = normalizeRoleCode(adminRoleCode);
+        if (!hasRole(authenticatedUser, normalizedAdminRoleCode)) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        String normalizedRoleCode = normalizeRoleCode(request.getRoleCode());
+        Role role = roleRepository.findByCodeIgnoreCase(normalizedRoleCode)
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .code(normalizedRoleCode)
+                        .name(normalizedRoleCode)
+                        .build()));
+
+        Set<Role> roles = user.getRoles() != null ? new HashSet<>(user.getRoles()) : new HashSet<>();
+        boolean roleAdded = roles.add(role);
+        user.setRoles(roles);
+        userRepository.save(user);
+
+        if (roleAdded) {
+            LocalDateTime now = LocalDateTime.now();
+            revokeActiveAccessTokens(user.getId(), now);
+            revokeActiveRefreshTokens(user.getId(), now);
+        }
+
+        return GrantPermissionResponse.builder()
+                .userId(user.getId())
+                .roles(user.getRoles().stream().map(Role::getCode).sorted().toList())
+                .message(MessageCode.AUTH_PERMISSION_GRANTED.name())
+                .build();
     }
 
     @Override
@@ -486,6 +600,69 @@ public class AuthServiceImpl implements AuthService {
             token.setRevokedAt(revokedAt);
         }
         refreshTokenRepository.saveAll(refreshTokens);
+    }
+
+    private User findUserByUsernameOrEmail(String usernameOrEmail) {
+        String value = usernameOrEmail == null ? null : usernameOrEmail.trim();
+        return userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(value, value)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+    }
+
+    private User resolveAuthenticatedUser(String authorizationHeader) {
+        String accessToken = extractBearerToken(authorizationHeader);
+
+        UUID userId;
+        try {
+            userId = jwtTokenProvider.extractUserId(accessToken);
+        } catch (Exception ex) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
+        }
+
+        if (!jwtTokenProvider.isTokenValid(accessToken, userId)) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        RefreshToken activeAccessToken = refreshTokenRepository
+                .findByTokenHashAndTokenTypeAndRevokedAtIsNull(hashToken(accessToken), TokenTypeEnum.ACCESS)
+                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN));
+
+        if (activeAccessToken.getExpiresAt() == null || activeAccessToken.getExpiresAt().isBefore(now)) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
+        }
+
+        if (!userId.equals(activeAccessToken.getUser().getId())) {
+            throw new AppException(HttpStatus.UNAUTHORIZED, MessageCode.AUTH_INVALID_TOKEN);
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatusEnum.LOCKED || user.getStatus() == UserStatusEnum.DISABLED) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_USER_LOCKED);
+        }
+
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_USER_INACTIVE);
+        }
+
+        return user;
+    }
+
+    private boolean hasRole(User user, String roleCode) {
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .map(Role::getCode)
+                .anyMatch(code -> roleCode.equalsIgnoreCase(code));
+    }
+
+    private String normalizeRoleCode(String roleCode) {
+        if (!StringUtils.hasText(roleCode)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        return roleCode.trim().toUpperCase(Locale.ROOT);
     }
 
     private String extractBearerToken(String authorizationHeader) {
@@ -592,6 +769,26 @@ public class AuthServiceImpl implements AuthService {
         String subject = StringUtils.hasText(template.getSubject())
                 ? template.getSubject()
                 : "Your OTP code for password change";
+        String bodyTemplate = StringUtils.hasText(template.getBody())
+                ? template.getBody()
+                : "<html><body><p>Hello {{username}},</p><p>Your OTP code is <b>{{otp}}</b></p><p>Expires in {{expiredMinutes}} minutes.</p></body></html>";
+
+        String body = bodyTemplate
+                .replace("{{username}}", displayName)
+                .replace("{{email}}", user.getEmail())
+                .replace("{{otp}}", otp)
+                .replace("{{expiredMinutes}}", String.valueOf(expiredMinutes));
+
+        emailService.sendHtmlEmail(user.getEmail(), subject, body);
+    }
+
+    private void sendForgotPasswordOtpEmail(User user, String otp, int expiredMinutes) {
+        MailTemplateProperties.Template template = mailTemplateProperties.getForgotPasswordOtp();
+
+        String displayName = StringUtils.hasText(user.getFirstName()) ? user.getFirstName() : user.getUsername();
+        String subject = StringUtils.hasText(template.getSubject())
+                ? template.getSubject()
+                : "Your OTP code for password reset";
         String bodyTemplate = StringUtils.hasText(template.getBody())
                 ? template.getBody()
                 : "<html><body><p>Hello {{username}},</p><p>Your OTP code is <b>{{otp}}</b></p><p>Expires in {{expiredMinutes}} minutes.</p></body></html>";

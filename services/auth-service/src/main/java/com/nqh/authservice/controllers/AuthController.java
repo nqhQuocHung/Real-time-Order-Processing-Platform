@@ -4,10 +4,17 @@ import com.nqh.authservice.common.messages.MessageCode;
 import com.nqh.authservice.common.response.ApiResponseFactory;
 import com.nqh.authservice.common.response.BaseResponse;
 import com.nqh.authservice.dtos.ActivateUserResponse;
+import com.nqh.authservice.dtos.CheckRoleResponse;
 import com.nqh.authservice.dtos.ChangePasswordOtpRequest;
 import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
+import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
+import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
+import com.nqh.authservice.dtos.ForgotPasswordRequest;
+import com.nqh.authservice.dtos.ForgotPasswordResponse;
+import com.nqh.authservice.dtos.GrantPermissionRequest;
+import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
@@ -77,6 +84,24 @@ public class AuthController {
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
+    @PostMapping("/otp-forgot-password")
+    public ResponseEntity<BaseResponse<ForgotPasswordOtpResponse>> sendForgotPasswordOtp(
+            @Valid @RequestBody ForgotPasswordOtpRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        ForgotPasswordOtpResponse response = authService.sendForgotPasswordOtp(request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<BaseResponse<ForgotPasswordResponse>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        ForgotPasswordResponse response = authService.forgotPassword(request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
     @PostMapping("/refresh-token")
     public ResponseEntity<BaseResponse<RefreshTokenResponse>> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request,
@@ -101,6 +126,26 @@ public class AuthController {
             HttpServletRequest httpServletRequest
     ) {
         UserProfileResponse response = authService.getUserById(userId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/check-role/{roleCode}")
+    public ResponseEntity<BaseResponse<CheckRoleResponse>> checkRole(
+            @PathVariable String roleCode,
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        CheckRoleResponse response = authService.checkRole(authorizationHeader, roleCode);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/grant-permission")
+    public ResponseEntity<BaseResponse<GrantPermissionResponse>> grantPermission(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody GrantPermissionRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        GrantPermissionResponse response = authService.grantPermission(authorizationHeader, request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 

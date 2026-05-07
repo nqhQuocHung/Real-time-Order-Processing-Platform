@@ -46,6 +46,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh-token",
                                 "/api/v1/auth/otp-change-password",
                                 "/api/v1/auth/change-password",
+                                "/api/v1/auth/otp-forgot-password",
+                                "/api/v1/auth/forgot-password",
                                 "/actuator/**",
                                 "/swagger/**",
                                 "/swagger-ui/**",

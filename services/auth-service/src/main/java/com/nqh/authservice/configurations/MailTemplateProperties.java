@@ -15,6 +15,7 @@ public class MailTemplateProperties {
     private Template accountActivated = new Template();
     private Template accountDeactivated = new Template();
     private Template changePasswordOtp = new Template();
+    private Template forgotPasswordOtp = new Template();
     private Template accountLocked = new Template();
 
     @Getter
