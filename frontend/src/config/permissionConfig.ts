@@ -1,5 +1,6 @@
 import type { AppRole } from '../constants/roles'
 import { AppRole as Role } from '../constants/roles'
+import { getAuthSession } from './apis'
 
 export const PermissionKey = {
   VIEW_USER_DASHBOARD: 'VIEW_USER_DASHBOARD',
@@ -56,5 +57,9 @@ export const permissionConfig: Record<AppRole, PermissionKey[]> = {
 }
 
 export function hasPermission(role: AppRole, permission: PermissionKey): boolean {
+  const backendPermissions = getAuthSession()?.backendPermissions || []
+  if (backendPermissions.length > 0) {
+    return backendPermissions.includes(permission)
+  }
   return permissionConfig[role]?.includes(permission) || false
 }

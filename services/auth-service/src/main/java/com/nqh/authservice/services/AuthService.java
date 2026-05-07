@@ -19,7 +19,10 @@ import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
+import com.nqh.authservice.dtos.UpdateUserRequest;
+import com.nqh.authservice.dtos.UpdateUserResponse;
 import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {
 
@@ -48,4 +51,8 @@ public interface AuthService {
     ActivateUserResponse activateUser(UUID userId);
 
     ActivateUserResponse deactivateUser(UUID userId);
+
+    UpdateUserResponse updateUser(String authorizationHeader, UUID userId, UpdateUserRequest request);
+
+    UpdateUserResponse updateUserAvatar(String authorizationHeader, UUID userId, MultipartFile avatar);
 }

@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,13 +68,26 @@ public class JwtTokenProvider {
     private String buildToken(User user, long ttlMillis) {
         Instant now = Instant.now();
         Instant expiration = now.plusMillis(ttlMillis);
-        List<String> roles = user.getRoles().stream().map(Role::getCode).toList();
+        List<String> roles = user.getRoles().stream()
+                .map(Role::getCode)
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        List<String> permissions = user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(permission -> permission.getCode())
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
 
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .claim("username", user.getUsername())
                 .claim("email", user.getEmail())
                 .claim("roles", roles)
+                .claim("permissions", permissions)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiration))
                 .signWith(secretKey)
