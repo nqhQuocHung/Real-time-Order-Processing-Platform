@@ -266,3 +266,10 @@ Success (`201`):
   }
 }
 ```
+
+## 12. Notification Endpoint Contract (Core)
+
+- `POST /api/v1/notifications`: Tao notification log thu cong (manual/internal trigger).
+- `GET /api/v1/notifications/{notificationCode}`: Lay chi tiet notification theo code.
+- `GET /api/v1/notifications?orderCode=&status=&channel=&createdFrom=&createdTo=&page=&size=`: Liet ke notification theo filter + pagination.
+- `PATCH /api/v1/notifications/{notificationCode}/status`: Cap nhat trang thai notification (`PENDING`, `SENT`, `FAILED`, `CANCELLED`).
