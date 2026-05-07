@@ -27,6 +27,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -49,6 +51,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "inventory-stock", key = "#productId.toString()")
     public InventoryStockResponse getStock(UUID productId) {
         InventoryStock stock = inventoryStockRepository.findByProductId(productId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
@@ -95,6 +98,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
     public InventoryReservationResponse reserveStock(InventoryReserveRequest request) {
         String orderCode = normalizeOrderCode(request.getOrderCode());
         InventoryReservation existingReservation = inventoryReservationRepository.findByOrderCode(orderCode)
@@ -144,6 +148,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
     public InventoryReservationResponse releaseReservation(InventoryReservationActionRequest request) {
         String orderCode = normalizeOrderCode(request.getOrderCode());
         InventoryReservation reservation = inventoryReservationRepository.findByOrderCode(orderCode)
@@ -179,6 +184,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
     public InventoryReservationResponse confirmDeduct(InventoryReservationActionRequest request) {
         String orderCode = normalizeOrderCode(request.getOrderCode());
         InventoryReservation reservation = inventoryReservationRepository.findByOrderCode(orderCode)
@@ -213,6 +219,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", key = "#request.productId.toString()")
     public InventoryStockResponse adjustStock(InventoryAdjustRequest request) {
         if (request.getDeltaQuantity() == 0) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);

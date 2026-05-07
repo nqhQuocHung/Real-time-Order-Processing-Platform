@@ -11,19 +11,26 @@ import com.nqh.paymentservice.enums.PaymentStatusEnum;
 import com.nqh.paymentservice.pojos.PaymentTransaction;
 import com.nqh.paymentservice.repositories.PaymentTransactionRepository;
 import com.nqh.paymentservice.services.PaymentService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -31,19 +38,38 @@ import org.springframework.util.StringUtils;
 @Service
 public class PaymentServiceImpl implements PaymentService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaymentServiceImpl.class);
     private static final String DEFAULT_ACTOR = "PAYMENT_SERVICE";
     private static final DateTimeFormatter REFERENCE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final VnpayProperties vnpayProperties;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final ObjectMapper objectMapper;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final long idempotencyTtlSeconds;
+    private final String topicPaymentSucceeded;
+    private final String topicPaymentFailed;
 
     public PaymentServiceImpl(
             PaymentTransactionRepository paymentTransactionRepository,
-            VnpayProperties vnpayProperties
+            VnpayProperties vnpayProperties,
+            StringRedisTemplate stringRedisTemplate,
+            ObjectMapper objectMapper,
+            KafkaTemplate<String, String> kafkaTemplate,
+            @org.springframework.beans.factory.annotation.Value("${app.payment.idempotency.ttl-seconds:300}") long idempotencyTtlSeconds,
+            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.transaction-succeeded:payment.transaction.succeeded.v1}") String topicPaymentSucceeded,
+            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.transaction-failed:payment.transaction.failed.v1}") String topicPaymentFailed
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.vnpayProperties = vnpayProperties;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.objectMapper = objectMapper;
+        this.kafkaTemplate = kafkaTemplate;
+        this.idempotencyTtlSeconds = idempotencyTtlSeconds;
+        this.topicPaymentSucceeded = topicPaymentSucceeded;
+        this.topicPaymentFailed = topicPaymentFailed;
     }
 
     @Override
@@ -82,6 +108,11 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentTransactionResponse confirmPayment(PaymentActionRequest request) {
+        if (!acquireActionLock("confirm", request)) {
+            PaymentTransaction replayedPayment = findByOrderCodeOrThrow(request.getOrderCode());
+            return mapToResponse(replayedPayment, true);
+        }
+
         PaymentTransaction paymentTransaction = findByOrderCodeOrThrow(request.getOrderCode());
 
         if (paymentTransaction.getStatus() == PaymentStatusEnum.SUCCESS) {
@@ -112,12 +143,18 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         PaymentTransaction saved = paymentTransactionRepository.save(paymentTransaction);
+        publishPaymentEvent(saved);
         return mapToResponse(saved, false);
     }
 
     @Override
     @Transactional
     public PaymentTransactionResponse failPayment(PaymentActionRequest request) {
+        if (!acquireActionLock("fail", request)) {
+            PaymentTransaction replayedPayment = findByOrderCodeOrThrow(request.getOrderCode());
+            return mapToResponse(replayedPayment, true);
+        }
+
         PaymentTransaction paymentTransaction = findByOrderCodeOrThrow(request.getOrderCode());
 
         if (paymentTransaction.getStatus() == PaymentStatusEnum.FAILED) {
@@ -139,6 +176,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentTransaction.setNote(trimToNull(request.getNote()));
 
         PaymentTransaction saved = paymentTransactionRepository.save(paymentTransaction);
+        publishPaymentEvent(saved);
         return mapToResponse(saved, false);
     }
 
@@ -265,6 +303,86 @@ public class PaymentServiceImpl implements PaymentService {
             return hash.toString();
         } catch (Exception ex) {
             throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, MessageCode.COMMON_INTERNAL_ERROR);
+        }
+    }
+
+    private boolean acquireActionLock(String action, PaymentActionRequest request) {
+        String normalizedOrderCode = normalizeOrderCode(request.getOrderCode());
+        String requestScopedIdempotencyKey = resolveRequestScopedIdempotencyKey(request);
+        String redisKey = "payment:idempotency:" + action + ":" + normalizedOrderCode + ":" + requestScopedIdempotencyKey;
+
+        try {
+            Boolean acquired = stringRedisTemplate.opsForValue().setIfAbsent(
+                    redisKey,
+                    "1",
+                    Duration.ofSeconds(idempotencyTtlSeconds)
+            );
+            return Boolean.TRUE.equals(acquired);
+        } catch (Exception ex) {
+            LOGGER.warn("Redis idempotency lock unavailable. Continue without lock. key={}", redisKey, ex);
+            return true;
+        }
+    }
+
+    private String resolveRequestScopedIdempotencyKey(PaymentActionRequest request) {
+        String normalized = trimToNull(request.getIdempotencyKey());
+        if (StringUtils.hasText(normalized)) {
+            return normalized;
+        }
+        return "default";
+    }
+
+    private void publishPaymentEvent(PaymentTransaction paymentTransaction) {
+        String topic;
+        String eventType;
+
+        if (paymentTransaction.getStatus() == PaymentStatusEnum.SUCCESS) {
+            topic = topicPaymentSucceeded;
+            eventType = "PaymentTransactionSucceeded";
+        } else if (paymentTransaction.getStatus() == PaymentStatusEnum.FAILED) {
+            topic = topicPaymentFailed;
+            eventType = "PaymentTransactionFailed";
+        } else {
+            return;
+        }
+
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("paymentId", paymentTransaction.getId());
+            payload.put("paymentUuid", paymentTransaction.getUuid());
+            payload.put("orderCode", paymentTransaction.getOrderCode());
+            payload.put("status", paymentTransaction.getStatus().name());
+            payload.put("method", paymentTransaction.getMethod().name());
+            payload.put("amount", paymentTransaction.getAmount());
+            payload.put("currency", paymentTransaction.getCurrency());
+            payload.put("providerTransactionId", paymentTransaction.getProviderTransactionId());
+            payload.put("actor", paymentTransaction.getActor());
+            payload.put("note", paymentTransaction.getNote());
+            payload.put("createdAt", paymentTransaction.getCreatedAt());
+            payload.put("updatedAt", paymentTransaction.getUpdatedAt());
+
+            Map<String, Object> envelope = new LinkedHashMap<>();
+            envelope.put("eventId", UUID.randomUUID().toString());
+            envelope.put("eventType", eventType);
+            envelope.put("eventVersion", "v1");
+            envelope.put("occurredAt", LocalDateTime.now());
+            envelope.put("source", "payment-service");
+            envelope.put("correlationId", paymentTransaction.getOrderCode());
+            envelope.put("payload", payload);
+
+            kafkaTemplate.send(
+                    topic,
+                    paymentTransaction.getOrderCode(),
+                    objectMapper.writeValueAsString(envelope)
+            );
+        } catch (Exception ex) {
+            LOGGER.warn(
+                    "Failed to publish payment event. topic={}, orderCode={}, status={}",
+                    topic,
+                    paymentTransaction.getOrderCode(),
+                    paymentTransaction.getStatus(),
+                    ex
+            );
         }
     }
 

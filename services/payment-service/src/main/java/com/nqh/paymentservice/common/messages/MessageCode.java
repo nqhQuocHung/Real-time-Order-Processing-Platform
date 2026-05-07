@@ -6,6 +6,7 @@ import lombok.Getter;
 public enum MessageCode {
     COMMON_SUCCESS("COMMON_SUCCESS", "Success"),
     COMMON_BAD_REQUEST("COMMON_BAD_REQUEST", "Bad request"),
+    COMMON_UNAUTHORIZED("COMMON_UNAUTHORIZED", "Unauthorized"),
     COMMON_VALIDATION_ERROR("COMMON_VALIDATION_ERROR", "Validation failed"),
     COMMON_INTERNAL_ERROR("COMMON_INTERNAL_ERROR", "Internal server error"),
 
