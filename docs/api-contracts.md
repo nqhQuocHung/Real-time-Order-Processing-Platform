@@ -180,3 +180,71 @@ Success (`200`):
   "traceId": "req-2e5de8d7b6d74893"
 }
 ```
+
+## 9. Order Endpoint Contract (MVP)
+
+### 9.1 Create Order
+
+- `POST /api/v1/orders`
+- Header:
+  - `Authorization: Bearer <jwt>`
+  - `Idempotency-Key: <unique-key>`
+
+Request:
+
+```json
+{
+  "customerId": "3f4af5f3-7e92-4c5e-bd35-4d4f26ea45fa",
+  "currency": "VND",
+  "items": [
+    {
+      "productId": "f6f56f57-b4d9-4c8d-a3bc-66a4a95fb52e",
+      "productName": "Iced Latte",
+      "quantity": 2,
+      "unitPrice": 59000
+    }
+  ]
+}
+```
+
+### 9.2 Order Query And Actions
+
+- `GET /api/v1/orders/{orderCode}`: Lay chi tiet don hang.
+- `GET /api/v1/orders?customerId=&status=&createdFrom=&createdTo=&page=&size=`: Liet ke don hang theo filter + pagination.
+- `POST /api/v1/orders/{orderCode}/cancel`: Huy don hang (chi hop le voi status `CREATED`, `RESERVED`).
+- `PATCH /api/v1/orders/{orderCode}/status`: Cap nhat trang thai thu cong theo transition rule.
+- `POST /api/v1/orders/{orderCode}/payment-confirm`: Callback thanh toan thanh cong, chuyen sang `PAID`.
+- `POST /api/v1/orders/{orderCode}/payment-fail`: Callback thanh toan that bai, chuyen sang `FAILED`.
+- `POST /api/v1/orders/{orderCode}/shipping-confirm`: Callback giao hang, chuyen sang `COMPLETED`.
+- `GET /api/v1/orders/{orderCode}/timeline`: Lay lich su chuyen trang thai don hang.
+
+Success (`201`):
+
+```json
+{
+  "timestamp": "2026-05-07T11:00:00+07:00",
+  "status": 201,
+  "code": "ORDER_CREATE_SUCCESS",
+  "message": "Order created successfully",
+  "traceId": "req-2e5de8d7b6d74893",
+  "data": {
+    "orderId": "8e44f43d-4cb1-4ebf-89f8-a3d8f8f5289a",
+    "orderCode": "ORD-20260507110000-102938",
+    "status": "CREATED",
+    "totalAmount": 118000,
+    "currency": "VND",
+    "idempotencyKey": "d4f885c5-2196-49c0-ba69-bc70008585ad",
+    "replayed": false,
+    "createdAt": "2026-05-07T11:00:00+07:00",
+    "items": [
+      {
+        "productId": "f6f56f57-b4d9-4c8d-a3bc-66a4a95fb52e",
+        "productName": "Iced Latte",
+        "quantity": 2,
+        "unitPrice": 59000,
+        "lineTotal": 118000
+      }
+    ]
+  }
+}
+```
