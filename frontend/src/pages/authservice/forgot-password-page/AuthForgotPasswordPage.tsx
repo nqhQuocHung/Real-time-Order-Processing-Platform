@@ -14,6 +14,19 @@ type AuthForgotPasswordOtpInfo = {
   expiresAt?: string
 }
 
+function parseExpiresAtToMillis(expiresAt?: string): number | null {
+  if (!expiresAt) {
+    return null
+  }
+
+  const normalized = expiresAt
+    .trim()
+    .replace(/\.(\d{3})\d+/, '.$1')
+
+  const parsed = new Date(normalized).getTime()
+  return Number.isNaN(parsed) ? null : parsed
+}
+
 function AuthForgotPasswordPage() {
   const navigate = useNavigate()
 
@@ -58,15 +71,16 @@ function AuthForgotPasswordPage() {
   }, [otpInfo?.email])
 
   useEffect(() => {
-    if (!showOtpPopup || !otpInfo?.expiresAt) {
+    const expiresAtMillis = parseExpiresAtToMillis(otpInfo?.expiresAt)
+
+    if (!showOtpPopup || expiresAtMillis === null) {
       setCountdownText('')
       return
     }
 
     const updateCountdown = () => {
-      const expireTime = new Date(otpInfo.expiresAt as string).getTime()
       const now = Date.now()
-      const diff = expireTime - now
+      const diff = expiresAtMillis - now
 
       if (diff <= 0) {
         setCountdownText('00:00')
@@ -91,8 +105,12 @@ function AuthForgotPasswordPage() {
   }, [showOtpPopup, otpInfo?.expiresAt])
 
   const isOtpExpired = useMemo(() => {
-    if (!otpInfo?.expiresAt) return true
-    return new Date(otpInfo.expiresAt).getTime() <= Date.now()
+    const expiresAtMillis = parseExpiresAtToMillis(otpInfo?.expiresAt)
+    if (expiresAtMillis === null) {
+      return true
+    }
+
+    return expiresAtMillis <= Date.now()
   }, [otpInfo?.expiresAt, countdownText])
 
   const validatePasswordForm = () => {
@@ -391,7 +409,7 @@ function AuthForgotPasswordPage() {
                       setOtp(e.target.value)
                       if (popupError) setPopupError('')
                     }}
-                    disabled={loading || isOtpExpired || !forgotPasswordUsername}
+                    disabled={loading || !forgotPasswordUsername}
                   />
                 </div>
 

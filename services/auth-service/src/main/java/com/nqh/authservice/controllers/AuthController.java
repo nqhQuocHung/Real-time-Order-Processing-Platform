@@ -4,11 +4,15 @@ import com.nqh.authservice.common.messages.MessageCode;
 import com.nqh.authservice.common.response.ApiResponseFactory;
 import com.nqh.authservice.common.response.BaseResponse;
 import com.nqh.authservice.dtos.ActivateUserResponse;
+import com.nqh.authservice.dtos.AdminUserListResponse;
+import com.nqh.authservice.dtos.AdminUserStatisticsResponse;
 import com.nqh.authservice.dtos.CheckRoleResponse;
 import com.nqh.authservice.dtos.ChangePasswordOtpRequest;
 import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
+import com.nqh.authservice.dtos.CreateMenuRequest;
+import com.nqh.authservice.dtos.CreateRoleRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
 import com.nqh.authservice.dtos.ForgotPasswordRequest;
@@ -17,16 +21,22 @@ import com.nqh.authservice.dtos.GrantPermissionRequest;
 import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
+import com.nqh.authservice.dtos.MenuSummaryResponse;
+import com.nqh.authservice.dtos.PermissionSummaryResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
+import com.nqh.authservice.dtos.RoleSummaryResponse;
+import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
+import com.nqh.authservice.enums.UserStatusEnum;
 import com.nqh.authservice.services.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,6 +47,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -133,6 +144,38 @@ public class AuthController {
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
+    @GetMapping("/users")
+    public ResponseEntity<BaseResponse<AdminUserListResponse>> getUsers(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String roleCode,
+            @RequestParam(required = false) UserStatusEnum status,
+            @RequestParam(required = false) Boolean isActive,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest httpServletRequest
+    ) {
+        AdminUserListResponse response = authService.getUsers(
+                authorizationHeader,
+                keyword,
+                roleCode,
+                status,
+                isActive,
+                page,
+                size
+        );
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/users/summary")
+    public ResponseEntity<BaseResponse<AdminUserStatisticsResponse>> getUserStatistics(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        AdminUserStatisticsResponse response = authService.getUserStatistics(authorizationHeader);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
     @GetMapping("/check-role/{roleCode}")
     public ResponseEntity<BaseResponse<CheckRoleResponse>> checkRole(
             @PathVariable String roleCode,
@@ -153,6 +196,64 @@ public class AuthController {
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
+    @GetMapping("/roles")
+    public ResponseEntity<BaseResponse<List<RoleSummaryResponse>>> getRoles(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        List<RoleSummaryResponse> response = authService.getRoles(authorizationHeader);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/roles")
+    public ResponseEntity<BaseResponse<RoleSummaryResponse>> createRole(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody CreateRoleRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        RoleSummaryResponse response = authService.createRole(authorizationHeader, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PutMapping("/roles/{roleCode}/menus")
+    public ResponseEntity<BaseResponse<RoleSummaryResponse>> updateRoleMenus(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable String roleCode,
+            @Valid @RequestBody UpdateRoleMenusRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        RoleSummaryResponse response = authService.updateRoleMenus(authorizationHeader, roleCode, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/menus")
+    public ResponseEntity<BaseResponse<List<MenuSummaryResponse>>> getMenus(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        List<MenuSummaryResponse> response = authService.getMenus(authorizationHeader);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/menus")
+    public ResponseEntity<BaseResponse<MenuSummaryResponse>> createMenu(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody CreateMenuRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        MenuSummaryResponse response = authService.createMenu(authorizationHeader, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/permissions")
+    public ResponseEntity<BaseResponse<List<PermissionSummaryResponse>>> getPermissions(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        List<PermissionSummaryResponse> response = authService.getPermissions(authorizationHeader);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
     @PatchMapping("/activate/{userId}")
     public ResponseEntity<BaseResponse<ActivateUserResponse>> activateUser(
             @PathVariable UUID userId,
@@ -168,6 +269,15 @@ public class AuthController {
             HttpServletRequest httpServletRequest
     ) {
         ActivateUserResponse response = authService.deactivateUser(userId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PatchMapping("/lock/{userId}")
+    public ResponseEntity<BaseResponse<ActivateUserResponse>> lockUser(
+            @PathVariable UUID userId,
+            HttpServletRequest httpServletRequest
+    ) {
+        ActivateUserResponse response = authService.lockUser(userId);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 

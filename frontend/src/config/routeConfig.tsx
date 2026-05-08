@@ -7,12 +7,14 @@ import UserProductsPage from '../pages/userservice/user-products-page/UserProduc
 import UserProfilePage from '../pages/userservice/user-profile-page/UserProfilePage'
 import UserSupportPage from '../pages/userservice/user-support-page/UserSupportPage'
 import AdminDashboardPage from '../pages/adminservice/admin-dashboard-page/AdminDashboardPage'
+import AdminAdministrationPage from '../pages/adminservice/admin-administration-page/AdminAdministrationPage'
 import AdminUserManagementPage from '../pages/adminservice/admin-user-management-page/AdminUserManagementPage'
 import AdminPartnerManagementPage from '../pages/adminservice/admin-partner-management-page/AdminPartnerManagementPage'
 import AdminProductManagementPage from '../pages/adminservice/admin-product-management-page/AdminProductManagementPage'
 import AdminOrderManagementPage from '../pages/adminservice/admin-order-management-page/AdminOrderManagementPage'
 import AdminReportsPage from '../pages/adminservice/admin-reports-page/AdminReportsPage'
 import AdminSystemSettingsPage from '../pages/adminservice/admin-system-settings-page/AdminSystemSettingsPage'
+import AdminAccessManagementPage from '../pages/adminservice/admin-access-management-page/AdminAccessManagementPage'
 import PartnerDashboardPage from '../pages/partnerservice/partner-dashboard-page/PartnerDashboardPage'
 import PartnerProductsPage from '../pages/partnerservice/partner-products-page/PartnerProductsPage'
 import PartnerOrdersPage from '../pages/partnerservice/partner-orders-page/PartnerOrdersPage'
@@ -72,6 +74,13 @@ export const roleRouteConfig: AppRouteItem[] = [
     component: AdminDashboardPage,
   },
   {
+    path: '/admin/administration',
+    role: AppRole.ADMIN,
+    title: 'Administration',
+    permission: PermissionKey.MANAGE_USERS,
+    component: AdminAdministrationPage,
+  },
+  {
     path: '/admin/users',
     role: AppRole.ADMIN,
     title: 'User Management',
@@ -112,6 +121,13 @@ export const roleRouteConfig: AppRouteItem[] = [
     title: 'System Settings',
     permission: PermissionKey.MANAGE_SYSTEM_SETTINGS,
     component: AdminSystemSettingsPage,
+  },
+  {
+    path: '/admin/access-management',
+    role: AppRole.ADMIN,
+    title: 'Access Management',
+    permission: PermissionKey.MANAGE_USERS,
+    component: AdminAccessManagementPage,
   },
   {
     path: '/partner/dashboard',

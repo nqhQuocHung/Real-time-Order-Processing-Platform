@@ -49,6 +49,18 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
       permission: PermissionKey.VIEW_ADMIN_DASHBOARD,
     },
     {
+      key: 'admin-administration',
+      label: 'Administration',
+      path: '/admin/administration',
+      permission: PermissionKey.MANAGE_USERS,
+    },
+    {
+      key: 'admin-access-management',
+      label: 'Access Management',
+      path: '/admin/access-management',
+      permission: PermissionKey.MANAGE_USERS,
+    },
+    {
       key: 'admin-users',
       label: 'User Management',
       path: '/admin/users',

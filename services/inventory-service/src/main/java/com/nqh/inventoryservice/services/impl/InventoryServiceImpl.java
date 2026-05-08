@@ -12,6 +12,7 @@ import com.nqh.inventoryservice.dtos.InventoryReservationItemResponse;
 import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
+import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.enums.InventoryReservationStatusEnum;
 import com.nqh.inventoryservice.pojos.InventoryReservation;
 import com.nqh.inventoryservice.pojos.InventoryReservationItem;
@@ -56,6 +57,20 @@ public class InventoryServiceImpl implements InventoryService {
         InventoryStock stock = inventoryStockRepository.findByProductId(productId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
         return mapToStockResponse(stock);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public InventorySummaryResponse getInventorySummary() {
+        long totalProducts = inventoryStockRepository.countByIsActiveTrue();
+        long totalAvailableQuantity = inventoryStockRepository.sumAvailableQuantity();
+        long totalReservedQuantity = inventoryStockRepository.sumReservedQuantity();
+
+        return InventorySummaryResponse.builder()
+                .totalProducts(totalProducts)
+                .totalAvailableQuantity(totalAvailableQuantity)
+                .totalReservedQuantity(totalReservedQuantity)
+                .build();
     }
 
     @Override

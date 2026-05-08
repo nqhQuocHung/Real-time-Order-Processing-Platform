@@ -10,9 +10,8 @@ import {
   getAuthSession,
 } from '../config/apis'
 import { AppRole, getRoleLabel } from '../constants/roles'
-import type { MenuItem } from '../config/menuConfig'
 import { menuConfig } from '../config/menuConfig'
-import { hasPermission } from '../config/permissionConfig'
+import { hasPermission, type PermissionKey } from '../config/permissionConfig'
 import { getDefaultPathByRole } from '../config/roleConfig'
 import defaultAvatar from '../assets/default-avatar.svg'
 import './RoleLayout.css'
@@ -27,6 +26,13 @@ type ChangePasswordOtpResponse = {
 type ChangePasswordResponse = {
   userId: string
   message?: string
+}
+
+type NavigationMenuItem = {
+  key: string
+  label: string
+  path: string
+  permission?: string
 }
 
 function RoleLayout() {
@@ -56,19 +62,19 @@ function RoleLayout() {
   const currentRole = session?.role || AppRole.USER
   const dashboardPath = getDefaultPathByRole(currentRole)
 
-  const dynamicMenu: MenuItem[] = (session?.backendMenus || [])
+  const dynamicMenu: NavigationMenuItem[] = (session?.backendMenus || [])
     .filter((item) => item.path && item.key && item.label)
     .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
     .map((item) => ({
       key: item.key,
       label: item.label,
       path: item.path,
-      permission: (item.permission || 'VIEW_USER_DASHBOARD') as MenuItem['permission'],
+      permission: item.permission || '',
     }))
 
-  const currentMenu = (dynamicMenu.length ? dynamicMenu : menuConfig[currentRole]).filter(
-    (item) => hasPermission(currentRole, item.permission),
-  )
+  const currentMenu: NavigationMenuItem[] = (
+    dynamicMenu.length ? dynamicMenu : menuConfig[currentRole]
+  ).filter((item) => !item.permission || hasPermission(currentRole, item.permission as PermissionKey))
 
   const editProfilePath = useMemo(() => {
     const profileMenu = currentMenu.find((item) => {
@@ -436,13 +442,6 @@ function RoleLayout() {
           ))}
         </nav>
 
-        <button
-          type="button"
-          className="role-logout role-logout-sidebar"
-          onClick={handleLogout}
-        >
-          Logout
-        </button>
       </aside>
 
       <main className="role-main">

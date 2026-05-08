@@ -1,0 +1,92 @@
+.admin-administration-page .role-inline-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-administration-chart {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-administration-chart-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 64px;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-administration-chart-row span {
+  color: var(--role-text-sub);
+  font-size: 0.83rem;
+}
+
+.admin-administration-chart-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(133, 169, 214, 0.2);
+  overflow: hidden;
+}
+
+.admin-administration-chart-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--role-brand), var(--role-brand-2));
+}
+
+.admin-administration-chart-row strong {
+  text-align: right;
+  font-size: 0.88rem;
+}
+
+.admin-administration-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-administration-actions > .role-btn-primary,
+.admin-administration-actions > .role-btn-ghost {
+  width: 100%;
+}
+
+.admin-administration-role-grant {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.admin-administration-role-grant select {
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  border-radius: 8px;
+  padding: 8px 9px;
+  min-width: 220px;
+}
+
+@media (max-width: 1200px) {
+  .admin-administration-page .role-inline-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-administration-chart-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .admin-administration-chart-row strong {
+    text-align: left;
+  }
+
+  .admin-administration-role-grant {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-administration-role-grant select {
+    min-width: 0;
+    width: 100%;
+  }
+}

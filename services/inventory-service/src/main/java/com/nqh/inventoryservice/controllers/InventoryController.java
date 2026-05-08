@@ -10,6 +10,7 @@ import com.nqh.inventoryservice.dtos.InventoryReservationActionRequest;
 import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
+import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.services.InventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -41,6 +42,14 @@ public class InventoryController {
     ) {
         InventoryStockResponse response = inventoryService.getStock(productId);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_STOCK_GET_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<BaseResponse<InventorySummaryResponse>> getInventorySummary(
+            HttpServletRequest httpServletRequest
+    ) {
+        InventorySummaryResponse response = inventoryService.getInventorySummary();
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
     @PostMapping("/check")

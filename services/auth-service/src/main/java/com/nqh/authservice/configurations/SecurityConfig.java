@@ -61,9 +61,14 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers("/api/v1/auth/grant-permission").hasAuthority("PERM_MANAGE_USERS")
+                        .requestMatchers("/api/v1/auth/roles/**").hasAuthority("PERM_MANAGE_USERS")
+                        .requestMatchers("/api/v1/auth/menus/**").hasAuthority("PERM_MANAGE_USERS")
+                        .requestMatchers("/api/v1/auth/permissions/**").hasAuthority("PERM_MANAGE_USERS")
                         .requestMatchers("/api/v1/auth/user/**").hasAuthority("PERM_MANAGE_USERS")
+                        .requestMatchers("/api/v1/auth/users/**").hasAuthority("PERM_MANAGE_USERS")
                         .requestMatchers("/api/v1/auth/activate/**", "/api/v1/auth/deactivate/**")
                         .hasAuthority("PERM_MANAGE_USERS")
+                        .requestMatchers("/api/v1/auth/lock/**").hasAuthority("PERM_MANAGE_USERS")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt
