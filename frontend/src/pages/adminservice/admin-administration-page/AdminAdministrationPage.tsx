@@ -142,6 +142,7 @@ function AdminAdministrationPage() {
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [roles, setRoles] = useState<RoleSummary[]>([])
   const [totalUsersResult, setTotalUsersResult] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
   const [size] = useState(20)
   const [roleInputs, setRoleInputs] = useState<Record<string, string>>({})
@@ -212,12 +213,20 @@ function AdminAdministrationPage() {
 
       const data = extractApiData<AdminUserListResponse>(response)
       setUsers(data.content || [])
-      setTotalUsersResult(data.totalElements || 0)
-      setPage(data.page || 0)
+      const safeTotalElements = typeof data.totalElements === 'number' ? data.totalElements : 0
+      const fallbackTotalPages = safeTotalElements > 0 ? Math.ceil(safeTotalElements / size) : 0
+      const safeTotalPages = typeof data.totalPages === 'number' ? data.totalPages : fallbackTotalPages
+      const safePage = typeof data.page === 'number' ? data.page : 0
+
+      setTotalUsersResult(safeTotalElements)
+      setTotalPages(Math.max(0, safeTotalPages))
+      setPage(Math.max(0, safePage))
     } catch (err) {
       setError(extractApiErrorMessage(err, 'Cannot load account list.'))
       setUsers([])
       setTotalUsersResult(0)
+      setTotalPages(0)
+      setPage(0)
     } finally {
       setLoadingUsers(false)
     }
@@ -243,6 +252,44 @@ function AdminAdministrationPage() {
   const maxChartValue = useMemo(() => {
     return Math.max(1, ...chartItems.map((item) => item.value))
   }, [chartItems])
+
+  const effectiveTotalPages = useMemo(() => {
+    if (totalPages > 0) {
+      return totalPages
+    }
+    if (totalUsersResult > 0) {
+      return Math.ceil(totalUsersResult / size)
+    }
+    return 0
+  }, [size, totalPages, totalUsersResult])
+
+  const paginationPages = useMemo(() => {
+    if (effectiveTotalPages <= 0) {
+      return [] as number[]
+    }
+
+    const maxButtons = 5
+    const half = Math.floor(maxButtons / 2)
+    let start = Math.max(0, page - half)
+    let end = Math.min(effectiveTotalPages - 1, start + maxButtons - 1)
+
+    if (end - start + 1 < maxButtons) {
+      start = Math.max(0, end - maxButtons + 1)
+    }
+
+    const pages: number[] = []
+    for (let i = start; i <= end; i += 1) {
+      pages.push(i)
+    }
+    return pages
+  }, [effectiveTotalPages, page])
+
+  const hasPreviousPage = page > 0
+  const hasNextPage = effectiveTotalPages > 0 && page < effectiveTotalPages - 1
+  const currentPageStart = totalUsersResult === 0 ? 0 : page * size + 1
+  const currentPageEnd = totalUsersResult === 0
+    ? 0
+    : Math.min((page + 1) * size, totalUsersResult)
 
   async function runUserAction(action: () => Promise<void>) {
     setActionError('')
@@ -381,6 +428,16 @@ function AdminAdministrationPage() {
     setSelectedUserProfile(null)
     setProfileError('')
     setLoadingProfile(false)
+  }
+
+  async function handleGoToPage(targetPage: number) {
+    if (loadingUsers || isExecutingAction) {
+      return
+    }
+    if (targetPage < 0 || targetPage >= effectiveTotalPages || targetPage === page) {
+      return
+    }
+    await loadUsers(targetPage, filter)
   }
 
   const profileView = selectedUserProfile ||
@@ -706,6 +763,44 @@ function AdminAdministrationPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="admin-administration-pagination">
+          <p className="admin-administration-pagination-summary">
+            Showing {currentPageStart}-{currentPageEnd} of {totalUsersResult}
+          </p>
+
+          <div className="admin-administration-pagination-controls">
+            <button
+              type="button"
+              className="role-btn-ghost admin-administration-page-btn"
+              onClick={() => void handleGoToPage(page - 1)}
+              disabled={!hasPreviousPage || loadingUsers || isExecutingAction}
+            >
+              Previous
+            </button>
+
+            {paginationPages.map((pageNumber) => (
+              <button
+                key={`page-${pageNumber}`}
+                type="button"
+                className={`role-btn-ghost admin-administration-page-btn ${pageNumber === page ? 'is-active' : ''}`}
+                onClick={() => void handleGoToPage(pageNumber)}
+                disabled={loadingUsers || isExecutingAction}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              className="role-btn-ghost admin-administration-page-btn"
+              onClick={() => void handleGoToPage(page + 1)}
+              disabled={!hasNextPage || loadingUsers || isExecutingAction}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </article>
 

@@ -15,5 +15,9 @@ public interface MenuRepository extends JpaRepository<Menu, UUID> {
 
     boolean existsByPathIgnoreCase(String path);
 
+    boolean existsByMenuKeyIgnoreCaseAndIdNot(String menuKey, UUID id);
+
+    boolean existsByPathIgnoreCaseAndIdNot(String path, UUID id);
+
     List<Menu> findAllByOrderByDisplayOrderAscMenuKeyAsc();
 }

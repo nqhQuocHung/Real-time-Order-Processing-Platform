@@ -54,6 +54,69 @@
   letter-spacing: 0.03em;
 }
 
+.admin-access-management-record {
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.admin-access-management-record:hover {
+  background: rgba(22, 72, 118, 0.26);
+}
+
+.admin-access-management-record:focus-visible {
+  outline: 2px solid rgba(80, 173, 255, 0.9);
+  outline-offset: -2px;
+}
+
+.admin-access-management-edit-modal {
+  width: min(900px, 100%);
+}
+
+.admin-access-management-row-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.admin-access-management-delete-btn {
+  border: 1px solid rgba(255, 113, 140, 0.45);
+  background: rgba(255, 113, 140, 0.12);
+  color: #ffd4dd;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-access-management-delete-btn:hover:enabled {
+  background: rgba(255, 113, 140, 0.2);
+  border-color: rgba(255, 113, 140, 0.62);
+}
+
+.admin-access-management-delete-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-access-management-delete-modal {
+  width: min(500px, 100%);
+}
+
+.admin-access-management-delete-note {
+  color: #ffd4dd;
+}
+
+.admin-access-management-danger-btn {
+  color: #ffd4dd;
+  border-color: rgba(255, 113, 140, 0.45);
+  background: rgba(255, 113, 140, 0.22);
+}
+
+.admin-access-management-danger-btn:hover:enabled {
+  border-color: rgba(255, 113, 140, 0.62);
+  background: rgba(255, 113, 140, 0.3);
+}
+
 @media (max-width: 1200px) {
   .admin-access-management-main-tab-grid,
   .admin-access-management-create-page-grid {

@@ -31,6 +31,7 @@ import com.nqh.authservice.dtos.MenuItemResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
 import com.nqh.authservice.dtos.RoleSummaryResponse;
 import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
+import com.nqh.authservice.dtos.UpdateMenuRequest;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
@@ -716,19 +717,10 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
 
-        Permission permission = null;
-        if (StringUtils.hasText(request.getPermissionCode())) {
-            String normalizedPermissionCode = normalizePermissionCode(request.getPermissionCode());
-            permission = permissionRepository.findByCodeIgnoreCase(normalizedPermissionCode)
-                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
-        }
+        Permission permission = resolvePermissionOrNull(request.getPermissionCode());
 
         int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
-        Menu parentMenu = null;
-        if (request.getParentMenuId() != null) {
-            parentMenu = menuRepository.findById(request.getParentMenuId())
-                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
-        }
+        Menu parentMenu = resolveParentMenuOrNull(request.getParentMenuId(), null);
 
         Menu menu = Menu.builder()
                 .menuKey(normalizedMenuKey)
@@ -742,6 +734,57 @@ public class AuthServiceImpl implements AuthService {
 
         Menu savedMenu = menuRepository.save(menu);
         return mapToMenuSummary(savedMenu);
+    }
+
+    @Override
+    @Transactional
+    public MenuSummaryResponse updateMenu(String authorizationHeader, UUID menuId, UpdateMenuRequest request) {
+        requireManageUsersPermission(authorizationHeader);
+
+        Menu menu = menuRepository.findById(menuId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.COMMON_RESOURCE_NOT_FOUND));
+
+        String normalizedPath = normalizeMenuPathOrNull(request.getPath());
+        String normalizedMenuKey = normalizeMenuKey(request.getMenuKey());
+        if (!StringUtils.hasText(normalizedMenuKey)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (menuRepository.existsByMenuKeyIgnoreCaseAndIdNot(normalizedMenuKey, menu.getId())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (StringUtils.hasText(normalizedPath)
+                && menuRepository.existsByPathIgnoreCaseAndIdNot(normalizedPath, menu.getId())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        Permission permission = resolvePermissionOrNull(request.getPermissionCode());
+        int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
+        Menu parentMenu = resolveParentMenuOrNull(request.getParentMenuId(), menu.getId());
+
+        menu.setMenuKey(normalizedMenuKey);
+        menu.setLabel(request.getLabel().trim());
+        menu.setPath(normalizedPath);
+        menu.setDisplayOrder(displayOrder);
+        menu.setPermission(permission);
+        menu.setParentMenu(parentMenu);
+
+        Menu savedMenu = menuRepository.save(menu);
+        return mapToMenuSummary(savedMenu);
+    }
+
+    @Override
+    @Transactional
+    public MenuSummaryResponse deleteMenu(String authorizationHeader, UUID menuId) {
+        requireManageUsersPermission(authorizationHeader);
+
+        Menu menu = menuRepository.findById(menuId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.COMMON_RESOURCE_NOT_FOUND));
+
+        MenuSummaryResponse deletedMenu = mapToMenuSummary(menu);
+        menuRepository.delete(menu);
+        return deletedMenu;
     }
 
     @Override
@@ -1129,6 +1172,44 @@ public class AuthServiceImpl implements AuthService {
         }
 
         collector.add(menu);
+    }
+
+    private Permission resolvePermissionOrNull(String permissionCode) {
+        if (!StringUtils.hasText(permissionCode)) {
+            return null;
+        }
+        String normalizedPermissionCode = normalizePermissionCode(permissionCode);
+        return permissionRepository.findByCodeIgnoreCase(normalizedPermissionCode)
+                .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+    }
+
+    private Menu resolveParentMenuOrNull(UUID parentMenuId, UUID currentMenuId) {
+        if (parentMenuId == null) {
+            return null;
+        }
+
+        Menu parentMenu = menuRepository.findById(parentMenuId)
+                .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+
+        if (currentMenuId != null && currentMenuId.equals(parentMenu.getId())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (StringUtils.hasText(parentMenu.getPath())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (currentMenuId != null) {
+            Menu cursor = parentMenu;
+            while (cursor != null) {
+                if (currentMenuId.equals(cursor.getId())) {
+                    throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+                }
+                cursor = cursor.getParentMenu();
+            }
+        }
+
+        return parentMenu;
     }
 
     private String extractBearerToken(String authorizationHeader) {
