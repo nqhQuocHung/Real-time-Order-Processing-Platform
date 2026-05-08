@@ -19,4 +19,12 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from InventoryStock s where s.productId = :productId")
     Optional<InventoryStock> findWithLockByProductId(@Param("productId") UUID productId);
+
+    long countByIsActiveTrue();
+
+    @Query("select coalesce(sum(s.availableQuantity), 0) from InventoryStock s where s.isActive = true")
+    Long sumAvailableQuantity();
+
+    @Query("select coalesce(sum(s.reservedQuantity), 0) from InventoryStock s where s.isActive = true")
+    Long sumReservedQuantity();
 }

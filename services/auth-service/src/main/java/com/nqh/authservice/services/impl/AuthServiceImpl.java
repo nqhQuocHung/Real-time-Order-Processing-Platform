@@ -4,11 +4,16 @@ import com.nqh.authservice.common.exception.AppException;
 import com.nqh.authservice.common.messages.MessageCode;
 import com.nqh.authservice.configurations.MailTemplateProperties;
 import com.nqh.authservice.dtos.ActivateUserResponse;
+import com.nqh.authservice.dtos.AdminUserListResponse;
+import com.nqh.authservice.dtos.AdminUserStatisticsResponse;
+import com.nqh.authservice.dtos.AdminUserSummaryResponse;
 import com.nqh.authservice.dtos.CheckRoleResponse;
 import com.nqh.authservice.dtos.ChangePasswordOtpRequest;
 import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
+import com.nqh.authservice.dtos.CreateMenuRequest;
+import com.nqh.authservice.dtos.CreateRoleRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
 import com.nqh.authservice.dtos.ForgotPasswordRequest;
@@ -17,11 +22,15 @@ import com.nqh.authservice.dtos.GrantPermissionRequest;
 import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
+import com.nqh.authservice.dtos.MenuSummaryResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
 import com.nqh.authservice.dtos.MenuItemResponse;
+import com.nqh.authservice.dtos.PermissionSummaryResponse;
+import com.nqh.authservice.dtos.RoleSummaryResponse;
+import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
@@ -30,10 +39,13 @@ import com.nqh.authservice.enums.OtpPurposeEnum;
 import com.nqh.authservice.enums.TokenTypeEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
 import com.nqh.authservice.pojos.RefreshToken;
+import com.nqh.authservice.pojos.Permission;
 import com.nqh.authservice.pojos.Role;
 import com.nqh.authservice.pojos.Menu;
 import com.nqh.authservice.pojos.User;
 import com.nqh.authservice.pojos.UserOtp;
+import com.nqh.authservice.repositories.MenuRepository;
+import com.nqh.authservice.repositories.PermissionRepository;
 import com.nqh.authservice.repositories.RefreshTokenRepository;
 import com.nqh.authservice.repositories.RoleRepository;
 import com.nqh.authservice.repositories.UserOtpRepository;
@@ -57,6 +69,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -69,6 +85,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final MenuRepository menuRepository;
+    private final PermissionRepository permissionRepository;
     private final UserOtpRepository userOtpRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -88,6 +106,8 @@ public class AuthServiceImpl implements AuthService {
     public AuthServiceImpl(
             UserRepository userRepository,
             RoleRepository roleRepository,
+            MenuRepository menuRepository,
+            PermissionRepository permissionRepository,
             UserOtpRepository userOtpRepository,
             RefreshTokenRepository refreshTokenRepository,
             PasswordEncoder passwordEncoder,
@@ -104,6 +124,8 @@ public class AuthServiceImpl implements AuthService {
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.menuRepository = menuRepository;
+        this.permissionRepository = permissionRepository;
         this.userOtpRepository = userOtpRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
@@ -488,6 +510,63 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
+    public AdminUserListResponse getUsers(
+            String authorizationHeader,
+            String keyword,
+            String roleCode,
+            UserStatusEnum status,
+            Boolean isActive,
+            int page,
+            int size
+    ) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasPermission(authenticatedUser, "MANAGE_USERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 200);
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String normalizedKeyword = trimToNull(keyword);
+        String normalizedRoleCode = StringUtils.hasText(roleCode) ? normalizeRoleCode(roleCode) : null;
+
+        Page<User> usersPage = userRepository.searchUsers(
+                normalizedKeyword,
+                normalizedRoleCode,
+                status,
+                isActive,
+                pageable
+        );
+
+        return AdminUserListResponse.builder()
+                .content(usersPage.getContent().stream().map(this::mapToAdminUserSummary).toList())
+                .page(usersPage.getNumber())
+                .size(usersPage.getSize())
+                .totalElements(usersPage.getTotalElements())
+                .totalPages(usersPage.getTotalPages())
+                .last(usersPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminUserStatisticsResponse getUserStatistics(String authorizationHeader) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasPermission(authenticatedUser, "MANAGE_USERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        return AdminUserStatisticsResponse.builder()
+                .totalUsers(userRepository.count())
+                .totalPartners(userRepository.countByRoleCode("SHOPEE_PARTNER"))
+                .totalActiveUsers(userRepository.countByIsActiveTrue())
+                .totalInactiveUsers(userRepository.countByIsActiveFalse())
+                .totalPendingUsers(userRepository.countByStatus(UserStatusEnum.PENDING_VERIFICATION))
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public CheckRoleResponse checkRole(String authorizationHeader, String roleCode) {
         User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
         String normalizedRoleCode = normalizeRoleCode(roleCode);
@@ -538,6 +617,130 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<RoleSummaryResponse> getRoles(String authorizationHeader) {
+        requireManageUsersPermission(authorizationHeader);
+
+        return roleRepository.findAllByOrderByCodeAsc().stream()
+                .map(this::mapToRoleSummary)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public RoleSummaryResponse createRole(String authorizationHeader, CreateRoleRequest request) {
+        requireManageUsersPermission(authorizationHeader);
+
+        String normalizedRoleCode = normalizeRoleCode(request.getCode());
+        if (roleRepository.existsByCodeIgnoreCase(normalizedRoleCode)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        String normalizedRoleName = StringUtils.hasText(request.getName())
+                ? request.getName().trim()
+                : normalizedRoleCode;
+
+        Role role = Role.builder()
+                .code(normalizedRoleCode)
+                .name(normalizedRoleName)
+                .build();
+        role.setIsActive(Boolean.TRUE);
+
+        Role savedRole = roleRepository.save(role);
+        return mapToRoleSummary(savedRole);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MenuSummaryResponse> getMenus(String authorizationHeader) {
+        requireManageUsersPermission(authorizationHeader);
+
+        return menuRepository.findAllByOrderByDisplayOrderAscMenuKeyAsc().stream()
+                .map(this::mapToMenuSummary)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public MenuSummaryResponse createMenu(String authorizationHeader, CreateMenuRequest request) {
+        requireManageUsersPermission(authorizationHeader);
+
+        String normalizedPath = normalizeMenuPath(request.getPath());
+        String normalizedMenuKey = StringUtils.hasText(request.getMenuKey())
+                ? normalizeMenuKey(request.getMenuKey())
+                : deriveMenuKeyFromPath(normalizedPath);
+        if (!StringUtils.hasText(normalizedMenuKey)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (menuRepository.existsByMenuKeyIgnoreCase(normalizedMenuKey)
+                || menuRepository.existsByPathIgnoreCase(normalizedPath)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        Permission permission = null;
+        if (StringUtils.hasText(request.getPermissionCode())) {
+            String normalizedPermissionCode = normalizePermissionCode(request.getPermissionCode());
+            permission = permissionRepository.findByCodeIgnoreCase(normalizedPermissionCode)
+                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+        }
+
+        int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
+
+        Menu menu = Menu.builder()
+                .menuKey(normalizedMenuKey)
+                .label(request.getLabel().trim())
+                .path(normalizedPath)
+                .displayOrder(displayOrder)
+                .permission(permission)
+                .build();
+        menu.setIsActive(Boolean.TRUE);
+
+        Menu savedMenu = menuRepository.save(menu);
+        return mapToMenuSummary(savedMenu);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PermissionSummaryResponse> getPermissions(String authorizationHeader) {
+        requireManageUsersPermission(authorizationHeader);
+
+        return permissionRepository.findAllByOrderByCodeAsc().stream()
+                .map(this::mapToPermissionSummary)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public RoleSummaryResponse updateRoleMenus(
+            String authorizationHeader,
+            String roleCode,
+            UpdateRoleMenusRequest request
+    ) {
+        requireManageUsersPermission(authorizationHeader);
+
+        String normalizedRoleCode = normalizeRoleCode(roleCode);
+        Role role = roleRepository.findGraphByCodeIgnoreCase(normalizedRoleCode)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.COMMON_RESOURCE_NOT_FOUND));
+
+        Set<String> normalizedMenuKeys = request.getMenuKeys().stream()
+                .map(this::normalizeMenuKey)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<Menu> menus = new HashSet<>();
+        for (String menuKey : normalizedMenuKeys) {
+            Menu menu = menuRepository.findByMenuKeyIgnoreCase(menuKey)
+                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+            menus.add(menu);
+        }
+
+        role.setMenus(menus);
+        Role savedRole = roleRepository.save(role);
+
+        return mapToRoleSummary(savedRole);
+    }
+
+    @Override
     @Transactional
     public ActivateUserResponse activateUser(UUID userId) {
         User user = userRepository.findGraphById(userId)
@@ -572,6 +775,28 @@ public class AuthServiceImpl implements AuthService {
         revokeActiveRefreshTokens(user.getId(), now);
 
         sendAccountDeactivatedEmail(user);
+
+        return ActivateUserResponse.builder()
+                .userId(user.getId())
+                .isActive(user.getIsActive())
+                .status(user.getStatus())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public ActivateUserResponse lockUser(UUID userId) {
+        User user = userRepository.findGraphById(userId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        LocalDateTime now = LocalDateTime.now();
+        user.setStatus(UserStatusEnum.LOCKED);
+        user.setIsActive(Boolean.FALSE);
+        userRepository.save(user);
+
+        revokeActiveAccessTokens(user.getId(), now);
+        revokeActiveRefreshTokens(user.getId(), now);
+        sendAccountLockedEmail(user);
 
         return ActivateUserResponse.builder()
                 .userId(user.getId())
@@ -789,11 +1014,65 @@ public class AuthServiceImpl implements AuthService {
                 .anyMatch(code -> permissionCode.equalsIgnoreCase(code));
     }
 
+    private User requireManageUsersPermission(String authorizationHeader) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasPermission(authenticatedUser, "MANAGE_USERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+        return authenticatedUser;
+    }
+
     private String normalizeRoleCode(String roleCode) {
         if (!StringUtils.hasText(roleCode)) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
         return roleCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizePermissionCode(String permissionCode) {
+        if (!StringUtils.hasText(permissionCode)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        return permissionCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeMenuKey(String menuKey) {
+        if (!StringUtils.hasText(menuKey)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        String normalized = menuKey.trim().toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9-_]+", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("^-|-$", "");
+        if (!StringUtils.hasText(normalized)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        return normalized;
+    }
+
+    private String normalizeMenuPath(String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        String normalizedPath = path.trim();
+        if (!normalizedPath.startsWith("/")) {
+            normalizedPath = "/" + normalizedPath;
+        }
+        return normalizedPath;
+    }
+
+    private String deriveMenuKeyFromPath(String normalizedPath) {
+        if (!StringUtils.hasText(normalizedPath)) {
+            return null;
+        }
+        String fromPath = normalizedPath
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("^/+", "")
+                .replaceAll("/+", "-")
+                .replaceAll("[^a-z0-9-_]+", "-")
+                .replaceAll("-{2,}", "-")
+                .replaceAll("^-|-$", "");
+        return StringUtils.hasText(fromPath) ? fromPath : null;
     }
 
     private String extractBearerToken(String authorizationHeader) {
@@ -882,6 +1161,69 @@ public class AuthServiceImpl implements AuthService {
                 .permissions(permissions)
                 .menus(menus)
                 .build();
+    }
+
+    private AdminUserSummaryResponse mapToAdminUserSummary(User user) {
+        List<String> roles = user.getRoles() == null
+                ? List.of()
+                : user.getRoles().stream()
+                .map(Role::getCode)
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
+
+        return AdminUserSummaryResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .status(user.getStatus())
+                .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
+                .roles(roles)
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private RoleSummaryResponse mapToRoleSummary(Role role) {
+        List<String> menuKeys = role.getMenus() == null
+                ? List.of()
+                : role.getMenus().stream()
+                .map(Menu::getMenuKey)
+                .filter(Objects::nonNull)
+                .sorted()
+                .toList();
+
+        return RoleSummaryResponse.builder()
+                .code(role.getCode())
+                .name(role.getName())
+                .isActive(role.getIsActive())
+                .menuKeys(menuKeys)
+                .build();
+    }
+
+    private MenuSummaryResponse mapToMenuSummary(Menu menu) {
+        return MenuSummaryResponse.builder()
+                .key(menu.getMenuKey())
+                .label(menu.getLabel())
+                .path(menu.getPath())
+                .displayOrder(menu.getDisplayOrder())
+                .permission(menu.getPermission() != null ? menu.getPermission().getCode() : null)
+                .build();
+    }
+
+    private PermissionSummaryResponse mapToPermissionSummary(Permission permission) {
+        return PermissionSummaryResponse.builder()
+                .code(permission.getCode())
+                .name(permission.getName())
+                .build();
+    }
+
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private void validateOtpState(UserOtp userOtp) {

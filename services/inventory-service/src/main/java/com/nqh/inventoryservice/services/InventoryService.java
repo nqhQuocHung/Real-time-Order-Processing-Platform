@@ -7,6 +7,7 @@ import com.nqh.inventoryservice.dtos.InventoryReservationActionRequest;
 import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
+import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import java.util.UUID;
 
 public interface InventoryService {
@@ -22,4 +23,6 @@ public interface InventoryService {
     InventoryReservationResponse confirmDeduct(InventoryReservationActionRequest request);
 
     InventoryStockResponse adjustStock(InventoryAdjustRequest request);
+
+    InventorySummaryResponse getInventorySummary();
 }
