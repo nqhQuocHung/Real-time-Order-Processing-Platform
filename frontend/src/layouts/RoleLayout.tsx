@@ -288,6 +288,7 @@ function RoleLayout() {
     () => findActiveMenuKeyChain(menuTree, location.pathname),
     [menuTree, location.pathname],
   )
+  const activeMenuChainKey = activeMenuKeyChain.join('::')
 
   const editProfilePath = useMemo(() => {
     if (currentRole === AppRole.SHOPEE_PARTNER) {
@@ -386,14 +387,14 @@ function RoleLayout() {
   }, [location.pathname])
 
   useEffect(() => {
-    if (!activeMenuKeyChain.length) {
+    if (!activeMenuChainKey) {
       return
     }
 
     setOpenMenuGroups((prev) => {
       const next = { ...prev }
       let changed = false
-      activeMenuKeyChain.forEach((menuKey) => {
+      activeMenuChainKey.split('::').forEach((menuKey) => {
         if (!next[menuKey]) {
           next[menuKey] = true
           changed = true
@@ -401,7 +402,7 @@ function RoleLayout() {
       })
       return changed ? next : prev
     })
-  }, [activeMenuKeyChain])
+  }, [activeMenuChainKey])
 
   useEffect(() => {
     if (!isUserMenuOpen) {
