@@ -29,6 +29,7 @@ import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
 import com.nqh.authservice.dtos.RoleSummaryResponse;
 import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
+import com.nqh.authservice.dtos.UpdateMenuRequest;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
@@ -44,6 +45,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -243,6 +245,27 @@ public class AuthController {
     ) {
         MenuSummaryResponse response = authService.createMenu(authorizationHeader, request);
         return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PutMapping("/menus/{menuId}")
+    public ResponseEntity<BaseResponse<MenuSummaryResponse>> updateMenu(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable UUID menuId,
+            @Valid @RequestBody UpdateMenuRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        MenuSummaryResponse response = authService.updateMenu(authorizationHeader, menuId, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @DeleteMapping("/menus/{menuId}")
+    public ResponseEntity<BaseResponse<MenuSummaryResponse>> deleteMenu(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable UUID menuId,
+            HttpServletRequest httpServletRequest
+    ) {
+        MenuSummaryResponse response = authService.deleteMenu(authorizationHeader, menuId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/permissions")

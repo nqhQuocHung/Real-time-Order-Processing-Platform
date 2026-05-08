@@ -91,6 +91,8 @@ const endpoints = {
     roles: '/api/v1/auth/roles',
     updateRoleMenus: (roleCode: string) => `/api/v1/auth/roles/${roleCode}/menus`,
     menus: '/api/v1/auth/menus',
+    updateMenu: (menuId: string) => `/api/v1/auth/menus/${menuId}`,
+    deleteMenu: (menuId: string) => `/api/v1/auth/menus/${menuId}`,
     permissions: '/api/v1/auth/permissions',
     activateUser: (id: number | string) => `/api/v1/auth/activate/${id}`,
     deactivateUser: (id: number | string) => `/api/v1/auth/deactivate/${id}`,

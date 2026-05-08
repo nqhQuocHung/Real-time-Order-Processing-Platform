@@ -40,6 +40,15 @@ type FlatMenuNode = {
   depth: number
 }
 
+type EditMenuForm = {
+  menuKey: string
+  label: string
+  path: string
+  displayOrder: string
+  permissionCode: string
+  parentMenuId: string
+}
+
 function normalizeMenuPath(path?: string) {
   return (path || '').trim()
 }
@@ -99,6 +108,24 @@ function flattenMenuTree(nodes: MenuNode[], depth = 0): FlatMenuNode[] {
   ])
 }
 
+function collectDescendantIds(targetMenuId: string, menuTree: MenuNode[]): Set<string> {
+  const descendants = new Set<string>()
+
+  function walk(node: MenuNode, isUnderTarget: boolean) {
+    const isCurrentTarget = node.id === targetMenuId
+    const inTargetBranch = isUnderTarget || isCurrentTarget
+
+    if (isUnderTarget) {
+      descendants.add(node.id)
+    }
+
+    node.children.forEach((child) => walk(child, inTargetBranch))
+  }
+
+  menuTree.forEach((root) => walk(root, false))
+  return descendants
+}
+
 function AdminAccessManagementPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -125,6 +152,12 @@ function AdminAccessManagementPage() {
 
   const [selectedRoleCode, setSelectedRoleCode] = useState('')
   const [selectedMenuKeys, setSelectedMenuKeys] = useState<string[]>([])
+  const [editingMenu, setEditingMenu] = useState<MenuSummary | null>(null)
+  const [editMenuForm, setEditMenuForm] = useState<EditMenuForm | null>(null)
+  const [editingMenuSubmitting, setEditingMenuSubmitting] = useState(false)
+  const [editingMenuError, setEditingMenuError] = useState('')
+  const [deletingMenuId, setDeletingMenuId] = useState('')
+  const [pendingDeleteMenu, setPendingDeleteMenu] = useState<MenuSummary | null>(null)
 
   const selectedRole = useMemo(() => {
     return roles.find((item) => item.code === selectedRoleCode) || null
@@ -138,6 +171,28 @@ function AdminAccessManagementPage() {
       .filter((menu) => isContainerMenu(menu))
       .sort(compareMenusByOrder)
   }, [menus])
+
+  const editParentTabOptions = useMemo(() => {
+    const editingMenuId = editingMenu?.id || ''
+    const descendantIds = editingMenuId ? collectDescendantIds(editingMenuId, menuTree) : new Set<string>()
+
+    return parentTabOptions.filter((menu) => {
+      if (!editingMenuId) {
+        return true
+      }
+      if (menu.id === editingMenuId) {
+        return false
+      }
+      return !descendantIds.has(menu.id)
+    })
+  }, [editingMenu?.id, menuTree, parentTabOptions])
+
+  const pendingDeleteChildCount = useMemo(() => {
+    if (!pendingDeleteMenu?.id) {
+      return 0
+    }
+    return menus.filter((item) => item.parentMenuId === pendingDeleteMenu.id).length
+  }, [menus, pendingDeleteMenu?.id])
 
   async function loadAccessData() {
     setLoading(true)
@@ -179,13 +234,8 @@ function AdminAccessManagementPage() {
   }, [roles, selectedRoleCode])
 
   useEffect(() => {
-    if (!parentTabOptions.length) {
+    if (newPageParentMenuId && !parentTabOptions.some((menu) => menu.id === newPageParentMenuId)) {
       setNewPageParentMenuId('')
-      return
-    }
-
-    if (!newPageParentMenuId || !parentTabOptions.some((menu) => menu.id === newPageParentMenuId)) {
-      setNewPageParentMenuId(parentTabOptions[0].id)
     }
   }, [newPageParentMenuId, parentTabOptions])
 
@@ -278,13 +328,13 @@ function AdminAccessManagementPage() {
     const path = newPagePath.trim()
     const displayOrderNumber = Number(newPageDisplayOrder)
 
-    if (!parentMenuId) {
-      setError('Please select a parent tab for this page.')
+    if (!label) {
+      setError('Page/Tab label is required.')
       return
     }
 
-    if (!label || !path) {
-      setError('Page label and page URL are required.')
+    if (!path && !key) {
+      setError('Menu key is required when URL Page is empty (to create a tab).')
       return
     }
 
@@ -298,10 +348,10 @@ function AdminAccessManagementPage() {
       await apis().post(endpoints.auth.menus, {
         menuKey: key || undefined,
         label,
-        path,
+        path: path || '',
         displayOrder: displayOrderNumber,
-        permissionCode: newPagePermissionCode || undefined,
-        parentMenuId,
+        permissionCode: path ? newPagePermissionCode || undefined : undefined,
+        parentMenuId: parentMenuId || undefined,
       })
 
       setNewPageKey('')
@@ -310,9 +360,9 @@ function AdminAccessManagementPage() {
       setNewPageDisplayOrder('100')
       setNewPagePermissionCode('')
       await loadAccessData()
-      setSuccess('Child page created successfully.')
+      setSuccess(path ? 'Child page created successfully.' : 'Tab created successfully.')
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot create child page.'))
+      setError(extractApiErrorMessage(err, 'Cannot create page/tab.'))
     } finally {
       setSubmitting(false)
     }
@@ -347,6 +397,125 @@ function AdminAccessManagementPage() {
       setError(extractApiErrorMessage(err, 'Cannot update role-page mapping.'))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  function openMenuEditor(menu: MenuSummary) {
+    setEditingMenu(menu)
+    setEditingMenuError('')
+    setEditMenuForm({
+      menuKey: menu.key || '',
+      label: menu.label || '',
+      path: normalizeMenuPath(menu.path),
+      displayOrder: String(typeof menu.displayOrder === 'number' ? menu.displayOrder : 100),
+      permissionCode: menu.permission || '',
+      parentMenuId: menu.parentMenuId || '',
+    })
+  }
+
+  function closeMenuEditor() {
+    if (editingMenuSubmitting) {
+      return
+    }
+    setEditingMenu(null)
+    setEditMenuForm(null)
+    setEditingMenuError('')
+  }
+
+  async function handleSaveMenuEditor() {
+    if (!editingMenu || !editMenuForm) {
+      return
+    }
+
+    setEditingMenuError('')
+    const menuKey = editMenuForm.menuKey.trim()
+    const label = editMenuForm.label.trim()
+    const path = editMenuForm.path.trim()
+    const displayOrder = Number(editMenuForm.displayOrder)
+    const parentMenuId = editMenuForm.parentMenuId.trim()
+
+    if (!menuKey) {
+      setEditingMenuError('Menu key is required.')
+      return
+    }
+
+    if (!label) {
+      setEditingMenuError('Label is required.')
+      return
+    }
+
+    if (!Number.isFinite(displayOrder) || displayOrder < 0) {
+      setEditingMenuError('Display order must be a number greater than or equal to 0.')
+      return
+    }
+
+    setEditingMenuSubmitting(true)
+    try {
+      await apis().put(endpoints.auth.updateMenu(editingMenu.id), {
+        menuKey,
+        label,
+        path: path || '',
+        displayOrder,
+        permissionCode: path ? editMenuForm.permissionCode || undefined : undefined,
+        parentMenuId: parentMenuId || undefined,
+      })
+
+      await loadAccessData()
+      setSuccess(`Menu ${menuKey} updated successfully.`)
+      setEditingMenu(null)
+      setEditMenuForm(null)
+      setEditingMenuError('')
+    } catch (err) {
+      setEditingMenuError(extractApiErrorMessage(err, 'Cannot update menu.'))
+    } finally {
+      setEditingMenuSubmitting(false)
+    }
+  }
+
+  function requestDeleteMenu(menu: MenuSummary) {
+    if (deletingMenuId || submitting || editingMenuSubmitting) {
+      return
+    }
+    setPendingDeleteMenu(menu)
+  }
+
+  function closeDeleteMenuModal() {
+    if (deletingMenuId) {
+      return
+    }
+    setPendingDeleteMenu(null)
+  }
+
+  async function handleDeleteMenu() {
+    setError('')
+    setSuccess('')
+
+    const menu = pendingDeleteMenu
+    if (!menu?.id) {
+      setError('Invalid tab/page item.')
+      return
+    }
+
+    if (deletingMenuId) {
+      return
+    }
+
+    setDeletingMenuId(menu.id)
+
+    try {
+      await apis().delete(endpoints.auth.deleteMenu(menu.id))
+      if (editingMenu?.id === menu.id) {
+        setEditingMenu(null)
+        setEditMenuForm(null)
+        setEditingMenuError('')
+      }
+      await loadAccessData()
+      setSuccess(`${isContainerMenu(menu) ? 'Tab' : 'Page'} ${menu.label} deleted successfully.`)
+      setPendingDeleteMenu(null)
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Cannot delete tab/page.'))
+    } finally {
+      setDeletingMenuId('')
     }
   }
 
@@ -437,7 +606,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Create Child Page</h3>
+        <h3>Create Page / Tab</h3>
         <div className="role-inline-form admin-access-management-create-page-grid">
           <label>
             Parent Tab
@@ -446,7 +615,7 @@ function AdminAccessManagementPage() {
               onChange={(event) => setNewPageParentMenuId(event.target.value)}
               disabled={submitting}
             >
-              <option value="">Select parent tab</option>
+              <option value="">None (root level)</option>
               {parentTabOptions.map((menu) => (
                 <option key={menu.key} value={menu.id}>
                   {menu.label} ({menu.key})
@@ -459,7 +628,7 @@ function AdminAccessManagementPage() {
             <input
               value={newPageKey}
               onChange={(event) => setNewPageKey(event.target.value)}
-              placeholder="optional (auto generate from URL)"
+              placeholder="optional if URL provided; required when URL is empty"
               disabled={submitting}
             />
           </label>
@@ -477,7 +646,7 @@ function AdminAccessManagementPage() {
             <input
               value={newPagePath}
               onChange={(event) => setNewPagePath(event.target.value)}
-              placeholder="e.g. /admin/sales-dashboard"
+              placeholder="e.g. /admin/sales-dashboard (leave empty to create tab)"
               disabled={submitting}
             />
           </label>
@@ -513,7 +682,7 @@ function AdminAccessManagementPage() {
             onClick={() => void handleCreateChildPage()}
             disabled={submitting}
           >
-            Create Child Page
+            Create Page / Tab
           </button>
         </div>
       </article>
@@ -635,30 +804,246 @@ function AdminAccessManagementPage() {
                 <th>Path</th>
                 <th>Parent Tab</th>
                 <th>Permission</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {!menus.length && (
                 <tr>
-                  <td colSpan={6} className="role-empty-cell">
+                  <td colSpan={7} className="role-empty-cell">
                     No tab/page data available.
                   </td>
                 </tr>
               )}
               {[...menus].sort(compareMenusByOrder).map((menu) => (
-                <tr key={menu.key}>
+                <tr
+                  key={menu.key}
+                  className="admin-access-management-record"
+                  onClick={() => openMenuEditor(menu)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openMenuEditor(menu)
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-label={`Edit menu ${menu.label}`}
+                >
                   <td>{menu.key}</td>
                   <td>{isContainerMenu(menu) ? 'TAB' : 'PAGE'}</td>
                   <td>{menu.label}</td>
                   <td>{normalizeMenuPath(menu.path) || '-'}</td>
                   <td>{menu.parentMenuKey || '-'}</td>
                   <td>{menu.permission || '-'}</td>
+                  <td className="admin-access-management-row-actions">
+                    <button
+                      type="button"
+                      className="admin-access-management-delete-btn"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        requestDeleteMenu(menu)
+                      }}
+                      onKeyDown={(event) => event.stopPropagation()}
+                      disabled={submitting || editingMenuSubmitting || Boolean(deletingMenuId)}
+                    >
+                      {deletingMenuId === menu.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </article>
+
+      {pendingDeleteMenu && (
+        <div className="role-modal-backdrop" onClick={closeDeleteMenuModal}>
+          <div
+            className="role-modal admin-access-management-delete-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>Confirm Delete</h3>
+            <p className="role-muted">
+              Delete {isContainerMenu(pendingDeleteMenu) ? 'tab' : 'page'}{' '}
+              <strong>{pendingDeleteMenu.label}</strong>?
+            </p>
+            <p className="role-muted">This action cannot be undone.</p>
+            {pendingDeleteChildCount > 0 && (
+              <p className="role-muted admin-access-management-delete-note">
+                This item has {pendingDeleteChildCount} child item(s). Child items will be moved
+                to root level after delete.
+              </p>
+            )}
+            <div className="role-modal-actions">
+              <button
+                type="button"
+                className="role-btn-primary admin-access-management-danger-btn"
+                onClick={() => void handleDeleteMenu()}
+                disabled={Boolean(deletingMenuId)}
+              >
+                {deletingMenuId === pendingDeleteMenu.id ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                type="button"
+                className="role-btn-ghost"
+                onClick={closeDeleteMenuModal}
+                disabled={Boolean(deletingMenuId)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingMenu && editMenuForm && (
+        <div className="role-modal-backdrop" onClick={closeMenuEditor}>
+          <div
+            className="role-modal admin-access-management-edit-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3>Edit Tab / Page</h3>
+            {editingMenuError && <p className="role-error">{editingMenuError}</p>}
+            <div className="role-inline-form admin-access-management-create-page-grid">
+              <label>
+                Parent Tab
+                <select
+                  value={editMenuForm.parentMenuId}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          parentMenuId: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting}
+                >
+                  <option value="">None (root level)</option>
+                  {editParentTabOptions.map((menu) => (
+                    <option key={menu.id} value={menu.id}>
+                      {menu.label} ({menu.key})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Menu Key
+                <input
+                  value={editMenuForm.menuKey}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          menuKey: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting}
+                />
+              </label>
+              <label>
+                Label
+                <input
+                  value={editMenuForm.label}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          label: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting}
+                />
+              </label>
+              <label>
+                URL Page
+                <input
+                  value={editMenuForm.path}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          path: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  placeholder="Leave empty to treat as tab"
+                  disabled={editingMenuSubmitting}
+                />
+              </label>
+              <label>
+                Display Order
+                <input
+                  value={editMenuForm.displayOrder}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          displayOrder: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting}
+                />
+              </label>
+              <label>
+                Required Permission
+                <select
+                  value={editMenuForm.permissionCode}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          permissionCode: event.target.value,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting || !normalizeMenuPath(editMenuForm.path)}
+                >
+                  <option value="">None</option>
+                  {permissions.map((permission) => (
+                    <option key={permission.code} value={permission.code}>
+                      {permission.code}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="role-modal-actions">
+              <button
+                type="button"
+                className="role-btn-primary"
+                onClick={() => void handleSaveMenuEditor()}
+                disabled={editingMenuSubmitting}
+              >
+                {editingMenuSubmitting ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                type="button"
+                className="role-btn-ghost"
+                onClick={closeMenuEditor}
+                disabled={editingMenuSubmitting}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && <p className="role-muted">Loading access management...</p>}
       {error && <p className="role-error">{error}</p>}

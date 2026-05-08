@@ -183,6 +183,39 @@
   word-break: break-word;
 }
 
+.admin-administration-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-administration-pagination-summary {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.84rem;
+}
+
+.admin-administration-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-administration-page-btn {
+  min-width: 38px;
+  padding: 8px 10px;
+}
+
+.admin-administration-page-btn.is-active {
+  color: #04243a;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--role-brand), var(--role-brand-2));
+}
+
 @media (max-width: 1200px) {
   .admin-administration-page .role-inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));

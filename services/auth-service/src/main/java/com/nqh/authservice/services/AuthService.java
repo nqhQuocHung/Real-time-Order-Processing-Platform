@@ -26,6 +26,7 @@ import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
 import com.nqh.authservice.dtos.RoleSummaryResponse;
 import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
+import com.nqh.authservice.dtos.UpdateMenuRequest;
 import com.nqh.authservice.dtos.UserProfileResponse;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
@@ -77,6 +78,10 @@ public interface AuthService {
     List<MenuSummaryResponse> getMenus(String authorizationHeader);
 
     MenuSummaryResponse createMenu(String authorizationHeader, CreateMenuRequest request);
+
+    MenuSummaryResponse updateMenu(String authorizationHeader, UUID menuId, UpdateMenuRequest request);
+
+    MenuSummaryResponse deleteMenu(String authorizationHeader, UUID menuId);
 
     List<PermissionSummaryResponse> getPermissions(String authorizationHeader);
 
