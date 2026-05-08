@@ -39,24 +39,57 @@
   font-size: 0.88rem;
 }
 
-.admin-administration-actions {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
+.admin-administration-record {
+  cursor: pointer;
+  transition: background-color 0.16s ease;
 }
 
-.admin-administration-actions > .role-btn-primary,
-.admin-administration-actions > .role-btn-ghost {
-  width: auto;
-  min-width: 140px;
-  padding-inline: 16px;
+.admin-administration-record:hover {
+  background: rgba(22, 72, 118, 0.26);
+}
+
+.admin-administration-record:focus-visible {
+  outline: 2px solid rgba(80, 173, 255, 0.9);
+  outline-offset: -2px;
+}
+
+.admin-administration-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+  min-width: 440px;
+}
+
+.admin-administration-account-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-administration-account-actions > .admin-action-btn {
+  min-width: 132px;
+  padding-inline: 14px;
+}
+
+.admin-administration-role-actions {
+  display: grid;
+  gap: 8px;
 }
 
 .admin-administration-role-grant {
   display: grid;
-  gap: 6px;
-  grid-template-columns: 1fr auto;
+  gap: 8px;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.admin-administration-role-label {
+  color: var(--role-text-sub);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 .admin-action-btn {
@@ -85,7 +118,69 @@
   color: var(--role-text);
   border-radius: 8px;
   padding: 8px 9px;
-  min-width: 220px;
+  min-width: 0;
+  width: 100%;
+}
+
+.admin-administration-role-grant > .role-btn-ghost {
+  min-width: 100px;
+  padding-inline: 14px;
+}
+
+.admin-administration-profile-modal {
+  width: min(760px, 100%);
+}
+
+.admin-administration-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-administration-profile-header h3 {
+  margin: 0;
+}
+
+.admin-administration-profile-header .role-muted {
+  margin: 4px 0 0;
+}
+
+.admin-administration-profile-avatar {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(9, 24, 40, 0.82);
+}
+
+.admin-administration-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-administration-profile-grid > div {
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 8px;
+  background: rgba(10, 28, 45, 0.78);
+  padding: 8px 10px;
+}
+
+.admin-administration-profile-grid span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--role-text-sub);
+  margin-bottom: 4px;
+}
+
+.admin-administration-profile-grid strong {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--role-text);
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 @media (max-width: 1200px) {
@@ -104,19 +199,32 @@
     text-align: left;
   }
 
+  .admin-administration-actions {
+    min-width: 0;
+  }
+
+  .admin-administration-account-actions {
+    justify-content: stretch;
+  }
+
+  .admin-administration-account-actions > .admin-action-btn {
+    flex: 1 1 140px;
+  }
+
   .admin-administration-role-grant {
     grid-template-columns: 1fr;
     width: 100%;
   }
 
-  .admin-administration-actions > .role-btn-primary,
-  .admin-administration-actions > .role-btn-ghost {
+  .admin-administration-role-grant > .role-btn-ghost {
     width: 100%;
-    justify-self: stretch;
+  }
+
+  .admin-administration-profile-grid {
+    grid-template-columns: 1fr;
   }
 
   .admin-administration-role-grant select {
-    min-width: 0;
     width: 100%;
   }
 }

@@ -1,9 +1,9 @@
 import { AppRole } from '../constants/roles'
 
 export const roleDefaultPath: Record<AppRole, string> = {
-  [AppRole.USER]: '/user/dashboard',
+  [AppRole.USER]: '/user/products',
   [AppRole.ADMIN]: '/admin/dashboard',
-  [AppRole.SHOPEE_PARTNER]: '/partner/dashboard',
+  [AppRole.SHOPEE_PARTNER]: '/user/products',
 }
 
 export function getDefaultPathByRole(role: AppRole): string {
@@ -19,5 +19,5 @@ export function getAllowedRolesForRouteOwner(roleOwner: AppRole): AppRole[] {
     return [AppRole.SHOPEE_PARTNER, AppRole.ADMIN]
   }
 
-  return [AppRole.USER, AppRole.ADMIN]
+  return [AppRole.USER, AppRole.SHOPEE_PARTNER, AppRole.ADMIN]
 }

@@ -47,6 +47,11 @@ export const permissionConfig: Record<AppRole, PermissionKey[]> = {
     PermissionKey.VIEW_PARTNER_DASHBOARD,
   ],
   [Role.SHOPEE_PARTNER]: [
+    PermissionKey.VIEW_USER_DASHBOARD,
+    PermissionKey.MANAGE_SELF_ORDERS,
+    PermissionKey.VIEW_PRODUCT_CATALOG,
+    PermissionKey.VIEW_SELF_PROFILE,
+    PermissionKey.VIEW_SUPPORT,
     PermissionKey.VIEW_PARTNER_DASHBOARD,
     PermissionKey.MANAGE_PARTNER_PRODUCTS,
     PermissionKey.MANAGE_PARTNER_ORDERS,
