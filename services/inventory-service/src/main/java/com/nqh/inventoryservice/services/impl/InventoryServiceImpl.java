@@ -61,6 +61,14 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<InventoryStockResponse> getCatalog() {
+        return inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc().stream()
+                .map(this::mapToStockResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public InventorySummaryResponse getInventorySummary() {
         long totalProducts = inventoryStockRepository.countByIsActiveTrue();
         long totalAvailableQuantity = inventoryStockRepository.sumAvailableQuantity();
