@@ -13,6 +13,7 @@ import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
 import com.nqh.authservice.dtos.CreateMenuRequest;
+import com.nqh.authservice.dtos.CreatePartnerUpgradeRequest;
 import com.nqh.authservice.dtos.CreateRoleRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
@@ -29,6 +30,9 @@ import com.nqh.authservice.dtos.RegisterRequest;
 import com.nqh.authservice.dtos.RegisterResponse;
 import com.nqh.authservice.dtos.MenuItemResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
 import com.nqh.authservice.dtos.RoleSummaryResponse;
 import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
 import com.nqh.authservice.dtos.UpdateMenuRequest;
@@ -37,15 +41,19 @@ import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
 import com.nqh.authservice.enums.GenderEnum;
 import com.nqh.authservice.enums.OtpPurposeEnum;
+import com.nqh.authservice.enums.PartnerRequestDecisionActionEnum;
+import com.nqh.authservice.enums.PartnerRequestStatusEnum;
 import com.nqh.authservice.enums.TokenTypeEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
 import com.nqh.authservice.pojos.RefreshToken;
 import com.nqh.authservice.pojos.Permission;
+import com.nqh.authservice.pojos.PartnerUpgradeRequest;
 import com.nqh.authservice.pojos.Role;
 import com.nqh.authservice.pojos.Menu;
 import com.nqh.authservice.pojos.User;
 import com.nqh.authservice.pojos.UserOtp;
 import com.nqh.authservice.repositories.MenuRepository;
+import com.nqh.authservice.repositories.PartnerUpgradeRequestRepository;
 import com.nqh.authservice.repositories.PermissionRepository;
 import com.nqh.authservice.repositories.RefreshTokenRepository;
 import com.nqh.authservice.repositories.RoleRepository;
@@ -92,6 +100,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final MenuRepository menuRepository;
+    private final PartnerUpgradeRequestRepository partnerUpgradeRequestRepository;
     private final PermissionRepository permissionRepository;
     private final UserOtpRepository userOtpRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -113,6 +122,7 @@ public class AuthServiceImpl implements AuthService {
             UserRepository userRepository,
             RoleRepository roleRepository,
             MenuRepository menuRepository,
+            PartnerUpgradeRequestRepository partnerUpgradeRequestRepository,
             PermissionRepository permissionRepository,
             UserOtpRepository userOtpRepository,
             RefreshTokenRepository refreshTokenRepository,
@@ -131,6 +141,7 @@ public class AuthServiceImpl implements AuthService {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.menuRepository = menuRepository;
+        this.partnerUpgradeRequestRepository = partnerUpgradeRequestRepository;
         this.permissionRepository = permissionRepository;
         this.userOtpRepository = userOtpRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -512,6 +523,118 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         return mapToUserProfile(user);
+    }
+
+    @Override
+    @Transactional
+    public PartnerUpgradeRequestResponse createPartnerUpgradeRequest(
+            String authorizationHeader,
+            CreatePartnerUpgradeRequest request
+    ) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasRole(authenticatedUser, "USER") || hasRole(authenticatedUser, "SHOPEE_PARTNER")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+
+        if (partnerUpgradeRequestRepository.existsByUserIdAndStatus(
+                authenticatedUser.getId(),
+                PartnerRequestStatusEnum.PENDING
+        )) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        PartnerUpgradeRequest partnerUpgradeRequest = PartnerUpgradeRequest.builder()
+                .user(authenticatedUser)
+                .status(PartnerRequestStatusEnum.PENDING)
+                .requestNote(trimToNull(request.getRequestNote()))
+                .build();
+        partnerUpgradeRequest.setIsActive(Boolean.TRUE);
+
+        PartnerUpgradeRequest saved = partnerUpgradeRequestRepository.save(partnerUpgradeRequest);
+        return mapToPartnerUpgradeRequestResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PartnerUpgradeRequestResponse getMyLatestPartnerUpgradeRequest(String authorizationHeader) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+
+        return partnerUpgradeRequestRepository
+                .findTopByUserIdOrderByCreatedAtDesc(authenticatedUser.getId())
+                .map(this::mapToPartnerUpgradeRequestResponse)
+                .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PartnerUpgradeRequestListResponse getPartnerUpgradeRequests(
+            String authorizationHeader,
+            PartnerRequestStatusEnum status,
+            int page,
+            int size
+    ) {
+        requireManagePartnersPermission(authorizationHeader);
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Pageable pageable = PageRequest.of(
+                safePage,
+                safeSize,
+                Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+
+        Page<PartnerUpgradeRequest> requestPage = status == null
+                ? partnerUpgradeRequestRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : partnerUpgradeRequestRepository.findByStatusOrderByCreatedAtDesc(status, pageable);
+
+        return PartnerUpgradeRequestListResponse.builder()
+                .content(requestPage.getContent().stream().map(this::mapToPartnerUpgradeRequestResponse).toList())
+                .page(requestPage.getNumber())
+                .size(requestPage.getSize())
+                .totalElements(requestPage.getTotalElements())
+                .totalPages(requestPage.getTotalPages())
+                .last(requestPage.isLast())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public PartnerUpgradeRequestResponse decidePartnerUpgradeRequest(
+            String authorizationHeader,
+            UUID requestId,
+            PartnerUpgradeRequestDecisionRequest request
+    ) {
+        User reviewer = requireManagePartnersPermission(authorizationHeader);
+
+        PartnerUpgradeRequest partnerUpgradeRequest = partnerUpgradeRequestRepository.findById(requestId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.COMMON_RESOURCE_NOT_FOUND));
+
+        if (partnerUpgradeRequest.getStatus() != PartnerRequestStatusEnum.PENDING) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        PartnerRequestDecisionActionEnum action = request.getAction();
+        if (action == PartnerRequestDecisionActionEnum.APPROVE) {
+            Role partnerRole = roleRepository.findByCodeIgnoreCase("SHOPEE_PARTNER")
+                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+            Set<Role> roles = partnerUpgradeRequest.getUser().getRoles();
+            if (roles == null) {
+                roles = new LinkedHashSet<>();
+                partnerUpgradeRequest.getUser().setRoles(roles);
+            }
+            roles.add(partnerRole);
+            userRepository.save(partnerUpgradeRequest.getUser());
+            partnerUpgradeRequest.setStatus(PartnerRequestStatusEnum.APPROVED);
+        } else {
+            partnerUpgradeRequest.setStatus(PartnerRequestStatusEnum.REJECTED);
+        }
+
+        partnerUpgradeRequest.setReviewNote(trimToNull(request.getReviewNote()));
+        partnerUpgradeRequest.setReviewedBy(trimToNull(reviewer.getUsername()));
+        partnerUpgradeRequest.setReviewedAt(LocalDateTime.now());
+
+        PartnerUpgradeRequest saved = partnerUpgradeRequestRepository.save(partnerUpgradeRequest);
+        return mapToPartnerUpgradeRequestResponse(saved);
     }
 
     @Override
@@ -1109,6 +1232,14 @@ public class AuthServiceImpl implements AuthService {
         return authenticatedUser;
     }
 
+    private User requireManagePartnersPermission(String authorizationHeader) {
+        User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+        if (!hasPermission(authenticatedUser, "MANAGE_PARTNERS")) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
+        }
+        return authenticatedUser;
+    }
+
     private String normalizeRoleCode(String roleCode) {
         if (!StringUtils.hasText(roleCode)) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
@@ -1329,6 +1460,23 @@ public class AuthServiceImpl implements AuthService {
                 .name(role.getName())
                 .isActive(role.getIsActive())
                 .menuKeys(menuKeys)
+                .build();
+    }
+
+    private PartnerUpgradeRequestResponse mapToPartnerUpgradeRequestResponse(PartnerUpgradeRequest request) {
+        User user = request.getUser();
+        return PartnerUpgradeRequestResponse.builder()
+                .requestId(request.getId())
+                .userId(user != null ? user.getId() : null)
+                .username(user != null ? user.getUsername() : null)
+                .email(user != null ? user.getEmail() : null)
+                .status(request.getStatus())
+                .requestNote(request.getRequestNote())
+                .reviewNote(request.getReviewNote())
+                .reviewedBy(request.getReviewedBy())
+                .reviewedAt(request.getReviewedAt())
+                .createdAt(request.getCreatedAt())
+                .updatedAt(request.getUpdatedAt())
                 .build();
     }
 

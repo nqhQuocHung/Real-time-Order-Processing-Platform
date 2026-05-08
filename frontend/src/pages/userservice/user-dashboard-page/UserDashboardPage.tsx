@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { fetchMyProfile } from '../../../auth/authSession'
 import {
   apis,
@@ -7,6 +7,7 @@ import {
   extractApiErrorMessage,
   getAuthSession,
 } from '../../../config/apis'
+import { AppRole } from '../../../constants/roles'
 import './UserDashboardPage.css'
 
 type OrderSummary = {
@@ -27,6 +28,18 @@ type UserProfile = {
   lastName?: string
   username: string
   email: string
+}
+
+type PartnerRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+type PartnerUpgradeRequestResponse = {
+  requestId: string
+  status: PartnerRequestStatus
+  requestNote?: string
+  reviewNote?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  createdAt?: string
 }
 
 function formatDate(value?: string) {
@@ -52,6 +65,13 @@ function UserDashboardPage() {
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [totalOrders, setTotalOrders] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [partnerRequest, setPartnerRequest] = useState<PartnerUpgradeRequestResponse | null>(null)
+  const [partnerRequestNote, setPartnerRequestNote] = useState('')
+  const [partnerRequestSubmitting, setPartnerRequestSubmitting] = useState(false)
+  const [partnerRequestError, setPartnerRequestError] = useState('')
+  const [partnerRequestSuccess, setPartnerRequestSuccess] = useState('')
+
+  const isUserRole = session?.role === AppRole.USER
 
   useEffect(() => {
     async function loadDashboard() {
@@ -63,9 +83,10 @@ function UserDashboardPage() {
 
       setLoading(true)
       setError('')
+      setPartnerRequestError('')
 
       try {
-        const [profileData, ordersResponse] = await Promise.all([
+        const [profileData, ordersResponse, partnerRequestResponse] = await Promise.all([
           fetchMyProfile(),
           apis().get(endpoints.orders.list, {
             params: {
@@ -74,12 +95,18 @@ function UserDashboardPage() {
               size: 5,
             },
           }),
+          apis().get(endpoints.auth.myPartnerRequest),
         ])
 
         const orderData = extractApiData<OrderListResponse>(ordersResponse)
+        const partnerRequestData = extractApiData<PartnerUpgradeRequestResponse | null>(
+          partnerRequestResponse,
+        )
+
         setProfile(profileData)
         setOrders(orderData.content || [])
         setTotalOrders(orderData.totalElements || 0)
+        setPartnerRequest(partnerRequestData || null)
       } catch (err) {
         setError(extractApiErrorMessage(err, 'Cannot load user dashboard data.'))
       } finally {
@@ -94,6 +121,30 @@ function UserDashboardPage() {
     () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),
     [orders],
   )
+
+  async function handleSubmitPartnerRequest() {
+    if (!isUserRole) {
+      return
+    }
+
+    setPartnerRequestError('')
+    setPartnerRequestSuccess('')
+    setPartnerRequestSubmitting(true)
+
+    try {
+      const response = await apis().post(endpoints.auth.partnerRequests, {
+        requestNote: partnerRequestNote.trim() || undefined,
+      })
+      const createdRequest = extractApiData<PartnerUpgradeRequestResponse>(response)
+      setPartnerRequest(createdRequest)
+      setPartnerRequestNote('')
+      setPartnerRequestSuccess('Partner upgrade request sent successfully. Admin will review soon.')
+    } catch (err) {
+      setPartnerRequestError(extractApiErrorMessage(err, 'Cannot send partner upgrade request.'))
+    } finally {
+      setPartnerRequestSubmitting(false)
+    }
+  }
 
   if (loading) {
     return <p className="role-muted">Loading User Dashboard...</p>
@@ -124,6 +175,66 @@ function UserDashboardPage() {
           </div>
         </div>
       </article>
+
+      {isUserRole && (
+        <article className="role-card">
+          <h3>Become a Partner</h3>
+          <p className="role-muted">
+            Send a request to upgrade your account to partner role. Admin will approve or reject.
+          </p>
+
+          {partnerRequest && (
+            <div className="user-dashboard-partner-status">
+              <span>Current Request Status</span>
+              <strong>{partnerRequest.status}</strong>
+              <small>
+                Requested at: {formatDate(partnerRequest.createdAt)} | Reviewed at:{' '}
+                {formatDate(partnerRequest.reviewedAt)}
+              </small>
+              {partnerRequest.reviewNote && (
+                <small>Review note: {partnerRequest.reviewNote}</small>
+              )}
+            </div>
+          )}
+
+          {partnerRequestError && <p className="role-error">{partnerRequestError}</p>}
+          {partnerRequestSuccess && <p className="role-muted">{partnerRequestSuccess}</p>}
+
+          {(partnerRequest?.status !== 'PENDING' && partnerRequest?.status !== 'APPROVED') && (
+            <>
+              <label className="user-dashboard-partner-note">
+                Request note (optional)
+                <textarea
+                  value={partnerRequestNote}
+                  onChange={(event) => setPartnerRequestNote(event.target.value)}
+                  placeholder="Describe your business and why you need partner access"
+                  disabled={partnerRequestSubmitting}
+                />
+              </label>
+              <div className="role-inline-actions">
+                <button
+                  type="button"
+                  className="role-btn-primary"
+                  onClick={() => void handleSubmitPartnerRequest()}
+                  disabled={partnerRequestSubmitting}
+                >
+                  {partnerRequestSubmitting ? 'Sending Request...' : 'Request Partner Upgrade'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {partnerRequest?.status === 'PENDING' && (
+            <p className="role-muted">Your request is pending admin review.</p>
+          )}
+
+          {partnerRequest?.status === 'APPROVED' && (
+            <p className="role-muted">
+              Your request is approved. Please refresh or re-login to use partner workspace.
+            </p>
+          )}
+        </article>
+      )}
 
       <article className="role-card">
         <h3>Recent Orders</h3>

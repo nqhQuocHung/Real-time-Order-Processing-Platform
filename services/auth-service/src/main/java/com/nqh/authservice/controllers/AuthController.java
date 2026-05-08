@@ -12,6 +12,7 @@ import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
 import com.nqh.authservice.dtos.CreateMenuRequest;
+import com.nqh.authservice.dtos.CreatePartnerUpgradeRequest;
 import com.nqh.authservice.dtos.CreateRoleRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
@@ -22,6 +23,9 @@ import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
 import com.nqh.authservice.dtos.MenuSummaryResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
@@ -33,6 +37,7 @@ import com.nqh.authservice.dtos.UpdateMenuRequest;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
 import com.nqh.authservice.dtos.UserProfileResponse;
+import com.nqh.authservice.enums.PartnerRequestStatusEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
 import com.nqh.authservice.services.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -143,6 +148,57 @@ public class AuthController {
             HttpServletRequest httpServletRequest
     ) {
         UserProfileResponse response = authService.getUserById(userId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/partner-requests")
+    public ResponseEntity<BaseResponse<PartnerUpgradeRequestResponse>> createPartnerUpgradeRequest(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @Valid @RequestBody CreatePartnerUpgradeRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        PartnerUpgradeRequestResponse response = authService.createPartnerUpgradeRequest(authorizationHeader, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/partner-requests/me")
+    public ResponseEntity<BaseResponse<PartnerUpgradeRequestResponse>> getMyLatestPartnerUpgradeRequest(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            HttpServletRequest httpServletRequest
+    ) {
+        PartnerUpgradeRequestResponse response = authService.getMyLatestPartnerUpgradeRequest(authorizationHeader);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/partner-requests")
+    public ResponseEntity<BaseResponse<PartnerUpgradeRequestListResponse>> getPartnerUpgradeRequests(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @RequestParam(required = false) PartnerRequestStatusEnum status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            HttpServletRequest httpServletRequest
+    ) {
+        PartnerUpgradeRequestListResponse response = authService.getPartnerUpgradeRequests(
+                authorizationHeader,
+                status,
+                page,
+                size
+        );
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PatchMapping("/partner-requests/{requestId}/decision")
+    public ResponseEntity<BaseResponse<PartnerUpgradeRequestResponse>> decidePartnerUpgradeRequest(
+            @RequestHeader(name = "Authorization", required = false) String authorizationHeader,
+            @PathVariable UUID requestId,
+            @Valid @RequestBody PartnerUpgradeRequestDecisionRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        PartnerUpgradeRequestResponse response = authService.decidePartnerUpgradeRequest(
+                authorizationHeader,
+                requestId,
+                request
+        );
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 

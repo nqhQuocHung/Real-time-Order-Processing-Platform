@@ -9,6 +9,7 @@ import com.nqh.authservice.dtos.ChangePasswordOtpResponse;
 import com.nqh.authservice.dtos.ChangePasswordRequest;
 import com.nqh.authservice.dtos.ChangePasswordResponse;
 import com.nqh.authservice.dtos.CreateMenuRequest;
+import com.nqh.authservice.dtos.CreatePartnerUpgradeRequest;
 import com.nqh.authservice.dtos.CreateRoleRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpRequest;
 import com.nqh.authservice.dtos.ForgotPasswordOtpResponse;
@@ -19,6 +20,9 @@ import com.nqh.authservice.dtos.GrantPermissionResponse;
 import com.nqh.authservice.dtos.LoginRequest;
 import com.nqh.authservice.dtos.LoginResponse;
 import com.nqh.authservice.dtos.MenuSummaryResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
+import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
@@ -30,6 +34,7 @@ import com.nqh.authservice.dtos.UpdateMenuRequest;
 import com.nqh.authservice.dtos.UserProfileResponse;
 import com.nqh.authservice.dtos.UpdateUserRequest;
 import com.nqh.authservice.dtos.UpdateUserResponse;
+import com.nqh.authservice.enums.PartnerRequestStatusEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
 import java.util.List;
 import java.util.UUID;
@@ -54,6 +59,26 @@ public interface AuthService {
     UserProfileResponse me(String authorizationHeader);
 
     UserProfileResponse getUserById(UUID userId);
+
+    PartnerUpgradeRequestResponse createPartnerUpgradeRequest(
+            String authorizationHeader,
+            CreatePartnerUpgradeRequest request
+    );
+
+    PartnerUpgradeRequestResponse getMyLatestPartnerUpgradeRequest(String authorizationHeader);
+
+    PartnerUpgradeRequestListResponse getPartnerUpgradeRequests(
+            String authorizationHeader,
+            PartnerRequestStatusEnum status,
+            int page,
+            int size
+    );
+
+    PartnerUpgradeRequestResponse decidePartnerUpgradeRequest(
+            String authorizationHeader,
+            UUID requestId,
+            PartnerUpgradeRequestDecisionRequest request
+    );
 
     AdminUserListResponse getUsers(
             String authorizationHeader,
