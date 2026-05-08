@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'react-toastify'
 import {
   apis,
   endpoints,
@@ -79,6 +80,30 @@ type UpdateUserPayload = {
   roleCodes?: string[]
 }
 
+type PartnerRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+type PartnerUpgradeRequestSummary = {
+  requestId: string
+  userId: string
+  username: string
+  email: string
+  status: PartnerRequestStatus
+  requestNote?: string
+  reviewNote?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  createdAt?: string
+}
+
+type PartnerUpgradeRequestListResponse = {
+  content: PartnerUpgradeRequestSummary[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  last: boolean
+}
+
 function normalizeRoleCodes(roles?: string[]): string[] {
   return (roles || [])
     .map((role) => role.trim())
@@ -151,12 +176,18 @@ function AdminAdministrationPage() {
   const [selectedUserProfile, setSelectedUserProfile] = useState<AdminUserProfile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(false)
   const [profileError, setProfileError] = useState('')
+  const [partnerRequests, setPartnerRequests] = useState<PartnerUpgradeRequestSummary[]>([])
+  const [loadingPartnerRequests, setLoadingPartnerRequests] = useState(true)
+  const [partnerRequestError, setPartnerRequestError] = useState('')
+  const [processingPartnerRequestId, setProcessingPartnerRequestId] = useState('')
   const [filter, setFilter] = useState<UserFilter>({
     keyword: '',
     roleCode: '',
     status: '',
     isActive: '',
   })
+  const knownPendingRequestIdsRef = useRef<Set<string>>(new Set())
+  const partnerRealtimeReadyRef = useRef(false)
 
   async function loadSummary() {
     setLoadingSummary(true)
@@ -232,9 +263,66 @@ function AdminAdministrationPage() {
     }
   }
 
+  async function loadPartnerRequests(showLoading = false) {
+    if (showLoading) {
+      setLoadingPartnerRequests(true)
+    }
+
+    setPartnerRequestError('')
+
+    try {
+      const response = await apis().get(endpoints.auth.partnerRequests, {
+        params: {
+          status: 'PENDING',
+          page: 0,
+          size: 20,
+        },
+      })
+
+      const data = extractApiData<PartnerUpgradeRequestListResponse>(response)
+      const items = data.content || []
+      setPartnerRequests(items)
+
+      const currentPendingIds = new Set(items.map((item) => item.requestId))
+      if (!partnerRealtimeReadyRef.current) {
+        knownPendingRequestIdsRef.current = currentPendingIds
+        partnerRealtimeReadyRef.current = true
+        return
+      }
+
+      const newPendingIds = [...currentPendingIds].filter(
+        (requestId) => !knownPendingRequestIdsRef.current.has(requestId),
+      )
+      if (newPendingIds.length > 0) {
+        toast.info(
+          `${newPendingIds.length} new partner request${newPendingIds.length > 1 ? 's' : ''} received.`,
+        )
+      }
+      knownPendingRequestIdsRef.current = currentPendingIds
+    } catch (err) {
+      setPartnerRequestError(extractApiErrorMessage(err, 'Cannot load partner requests.'))
+      setPartnerRequests([])
+    } finally {
+      if (showLoading) {
+        setLoadingPartnerRequests(false)
+      }
+    }
+  }
+
   useEffect(() => {
-    void Promise.all([loadSummary(), loadRoles()])
+    void Promise.all([loadSummary(), loadRoles(), loadPartnerRequests(true)])
     void loadUsers(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void loadPartnerRequests()
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -334,6 +422,42 @@ function AdminAdministrationPage() {
     await runUserAction(async () => {
       await apis().patch(endpoints.auth.lockUser(userId))
     })
+  }
+
+  async function handlePartnerRequestDecision(
+    request: PartnerUpgradeRequestSummary,
+    action: 'APPROVE' | 'REJECT',
+  ) {
+    if (processingPartnerRequestId) {
+      return
+    }
+
+    setActionError('')
+    setProcessingPartnerRequestId(request.requestId)
+    try {
+      await apis().patch(endpoints.auth.decidePartnerRequest(request.requestId), {
+        action,
+        reviewNote: action === 'APPROVE'
+          ? 'Approved by administrator.'
+          : 'Rejected by administrator.',
+      })
+
+      toast.success(
+        action === 'APPROVE'
+          ? `Approved partner request for ${request.username}.`
+          : `Rejected partner request for ${request.username}.`,
+      )
+
+      await Promise.all([
+        loadSummary(),
+        loadUsers(page, filter),
+        loadPartnerRequests(),
+      ])
+    } catch (err) {
+      setActionError(extractApiErrorMessage(err, 'Cannot process partner request decision.'))
+    } finally {
+      setProcessingPartnerRequestId('')
+    }
   }
 
   async function handleAssignRole(user: AdminUserSummary) {
@@ -611,6 +735,71 @@ function AdminAdministrationPage() {
         {error && <p className="role-error">{error}</p>}
         {roleError && <p className="role-error">{roleError}</p>}
         {actionError && <p className="role-error">{actionError}</p>}
+      </article>
+
+      <article className="role-card">
+        <h3>Partner Upgrade Requests (Realtime)</h3>
+        <p className="role-muted">
+          New requests are auto-refreshed every 5 seconds.
+        </p>
+
+        {loadingPartnerRequests && (
+          <p className="role-muted">Loading partner requests...</p>
+        )}
+        {partnerRequestError && <p className="role-error">{partnerRequestError}</p>}
+
+        <div className="role-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Requested At</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Note</th>
+                <th>Status</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!partnerRequests.length && (
+                <tr>
+                  <td colSpan={6} className="role-empty-cell">
+                    No pending partner requests.
+                  </td>
+                </tr>
+              )}
+              {partnerRequests.map((request) => (
+                <tr key={request.requestId}>
+                  <td>{formatDate(request.createdAt)}</td>
+                  <td>{request.username}</td>
+                  <td>{request.email}</td>
+                  <td>{request.requestNote || '-'}</td>
+                  <td>{request.status}</td>
+                  <td>
+                    <div className="admin-administration-partner-actions">
+                      <button
+                        type="button"
+                        className="role-btn-primary admin-administration-partner-approve"
+                        onClick={() => void handlePartnerRequestDecision(request, 'APPROVE')}
+                        disabled={Boolean(processingPartnerRequestId)}
+                      >
+                        {processingPartnerRequestId === request.requestId ? 'Processing...' : 'Approve'}
+                      </button>
+                      <button
+                        type="button"
+                        className="role-btn-ghost admin-administration-partner-reject"
+                        onClick={() => void handlePartnerRequestDecision(request, 'REJECT')}
+                        disabled={Boolean(processingPartnerRequestId)}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </article>
 
       <article className="role-card">

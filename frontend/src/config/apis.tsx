@@ -93,6 +93,10 @@ const endpoints = {
     menus: '/api/v1/auth/menus',
     updateMenu: (menuId: string) => `/api/v1/auth/menus/${menuId}`,
     deleteMenu: (menuId: string) => `/api/v1/auth/menus/${menuId}`,
+    partnerRequests: '/api/v1/auth/partner-requests',
+    myPartnerRequest: '/api/v1/auth/partner-requests/me',
+    decidePartnerRequest: (requestId: string) =>
+      `/api/v1/auth/partner-requests/${requestId}/decision`,
     permissions: '/api/v1/auth/permissions',
     activateUser: (id: number | string) => `/api/v1/auth/activate/${id}`,
     deactivateUser: (id: number | string) => `/api/v1/auth/deactivate/${id}`,

@@ -216,6 +216,23 @@
   background: linear-gradient(135deg, var(--role-brand), var(--role-brand-2));
 }
 
+.admin-administration-partner-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-administration-partner-approve {
+  min-width: 110px;
+}
+
+.admin-administration-partner-reject {
+  min-width: 90px;
+  border-color: rgba(255, 113, 140, 0.45);
+  background: rgba(255, 113, 140, 0.12);
+  color: #ffd4dd;
+}
+
 @media (max-width: 1200px) {
   .admin-administration-page .role-inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
