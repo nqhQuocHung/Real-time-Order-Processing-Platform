@@ -15,16 +15,88 @@ type RoleSummary = {
 }
 
 type MenuSummary = {
+  id: string
   key: string
   label: string
-  path: string
+  path?: string
   displayOrder?: number
   permission?: string
+  parentMenuId?: string | null
+  parentMenuKey?: string | null
+  isContainer?: boolean
 }
 
 type PermissionSummary = {
   code: string
   name?: string
+}
+
+type MenuNode = MenuSummary & {
+  children: MenuNode[]
+}
+
+type FlatMenuNode = {
+  node: MenuNode
+  depth: number
+}
+
+function normalizeMenuPath(path?: string) {
+  return (path || '').trim()
+}
+
+function isContainerMenu(menu: MenuSummary) {
+  return Boolean(menu.isContainer) || !normalizeMenuPath(menu.path)
+}
+
+function compareMenusByOrder(first: Pick<MenuSummary, 'displayOrder' | 'key' | 'label'>, second: Pick<MenuSummary, 'displayOrder' | 'key' | 'label'>) {
+  const firstOrder = typeof first.displayOrder === 'number' ? first.displayOrder : 100
+  const secondOrder = typeof second.displayOrder === 'number' ? second.displayOrder : 100
+  if (firstOrder !== secondOrder) {
+    return firstOrder - secondOrder
+  }
+  const keyCompare = first.key.localeCompare(second.key)
+  if (keyCompare !== 0) {
+    return keyCompare
+  }
+  return first.label.localeCompare(second.label)
+}
+
+function buildMenuTree(menuList: MenuSummary[]): MenuNode[] {
+  const sortedMenus = [...menuList].sort(compareMenusByOrder)
+  const nodeMap = new Map<string, MenuNode>()
+
+  sortedMenus.forEach((menu) => {
+    nodeMap.set(menu.key, { ...menu, children: [] })
+  })
+
+  const roots: MenuNode[] = []
+
+  nodeMap.forEach((node) => {
+    const parentKey = (node.parentMenuKey || '').trim()
+    const parentNode = parentKey ? nodeMap.get(parentKey) : null
+
+    if (parentNode) {
+      parentNode.children.push(node)
+      return
+    }
+
+    roots.push(node)
+  })
+
+  function sortChildren(nodes: MenuNode[]) {
+    nodes.sort(compareMenusByOrder)
+    nodes.forEach((node) => sortChildren(node.children))
+  }
+
+  sortChildren(roots)
+  return roots
+}
+
+function flattenMenuTree(nodes: MenuNode[], depth = 0): FlatMenuNode[] {
+  return nodes.flatMap((node) => [
+    { node, depth },
+    ...flattenMenuTree(node.children, depth + 1),
+  ])
 }
 
 function AdminAccessManagementPage() {
@@ -40,11 +112,16 @@ function AdminAccessManagementPage() {
   const [newRoleCode, setNewRoleCode] = useState('')
   const [newRoleName, setNewRoleName] = useState('')
 
-  const [newMenuKey, setNewMenuKey] = useState('')
-  const [newMenuLabel, setNewMenuLabel] = useState('')
-  const [newMenuPath, setNewMenuPath] = useState('')
-  const [newMenuDisplayOrder, setNewMenuDisplayOrder] = useState('100')
-  const [newMenuPermissionCode, setNewMenuPermissionCode] = useState('')
+  const [newTabKey, setNewTabKey] = useState('')
+  const [newTabLabel, setNewTabLabel] = useState('')
+  const [newTabDisplayOrder, setNewTabDisplayOrder] = useState('100')
+
+  const [newPageParentMenuId, setNewPageParentMenuId] = useState('')
+  const [newPageKey, setNewPageKey] = useState('')
+  const [newPageLabel, setNewPageLabel] = useState('')
+  const [newPagePath, setNewPagePath] = useState('')
+  const [newPageDisplayOrder, setNewPageDisplayOrder] = useState('100')
+  const [newPagePermissionCode, setNewPagePermissionCode] = useState('')
 
   const [selectedRoleCode, setSelectedRoleCode] = useState('')
   const [selectedMenuKeys, setSelectedMenuKeys] = useState<string[]>([])
@@ -52,6 +129,15 @@ function AdminAccessManagementPage() {
   const selectedRole = useMemo(() => {
     return roles.find((item) => item.code === selectedRoleCode) || null
   }, [roles, selectedRoleCode])
+
+  const menuTree = useMemo(() => buildMenuTree(menus), [menus])
+  const flattenedMenus = useMemo(() => flattenMenuTree(menuTree), [menuTree])
+
+  const parentTabOptions = useMemo(() => {
+    return menus
+      .filter((menu) => isContainerMenu(menu))
+      .sort(compareMenusByOrder)
+  }, [menus])
 
   async function loadAccessData() {
     setLoading(true)
@@ -92,6 +178,17 @@ function AdminAccessManagementPage() {
     setSelectedMenuKeys(role?.menuKeys || [])
   }, [roles, selectedRoleCode])
 
+  useEffect(() => {
+    if (!parentTabOptions.length) {
+      setNewPageParentMenuId('')
+      return
+    }
+
+    if (!newPageParentMenuId || !parentTabOptions.some((menu) => menu.id === newPageParentMenuId)) {
+      setNewPageParentMenuId(parentTabOptions[0].id)
+    }
+  }, [newPageParentMenuId, parentTabOptions])
+
   async function handleCreateRole() {
     setError('')
     setSuccess('')
@@ -127,14 +224,64 @@ function AdminAccessManagementPage() {
     }
   }
 
-  async function handleCreatePage() {
+  async function handleCreateMainTab() {
     setError('')
     setSuccess('')
 
-    const label = newMenuLabel.trim()
-    const path = newMenuPath.trim()
-    const key = newMenuKey.trim()
-    const displayOrderNumber = Number(newMenuDisplayOrder)
+    const key = newTabKey.trim()
+    const label = newTabLabel.trim()
+    const displayOrderNumber = Number(newTabDisplayOrder)
+
+    if (!key) {
+      setError('Main tab key is required.')
+      return
+    }
+
+    if (!label) {
+      setError('Main tab label is required.')
+      return
+    }
+
+    if (!Number.isFinite(displayOrderNumber) || displayOrderNumber < 0) {
+      setError('Display order must be a number greater than or equal to 0.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      await apis().post(endpoints.auth.menus, {
+        menuKey: key,
+        label,
+        path: '',
+        displayOrder: displayOrderNumber,
+      })
+
+      setNewTabKey('')
+      setNewTabLabel('')
+      setNewTabDisplayOrder('100')
+      await loadAccessData()
+      setSuccess(`Main tab ${label} created successfully.`)
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Cannot create main tab.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleCreateChildPage() {
+    setError('')
+    setSuccess('')
+
+    const parentMenuId = newPageParentMenuId.trim()
+    const key = newPageKey.trim()
+    const label = newPageLabel.trim()
+    const path = newPagePath.trim()
+    const displayOrderNumber = Number(newPageDisplayOrder)
+
+    if (!parentMenuId) {
+      setError('Please select a parent tab for this page.')
+      return
+    }
 
     if (!label || !path) {
       setError('Page label and page URL are required.')
@@ -153,18 +300,19 @@ function AdminAccessManagementPage() {
         label,
         path,
         displayOrder: displayOrderNumber,
-        permissionCode: newMenuPermissionCode || undefined,
+        permissionCode: newPagePermissionCode || undefined,
+        parentMenuId,
       })
 
-      setNewMenuKey('')
-      setNewMenuLabel('')
-      setNewMenuPath('')
-      setNewMenuDisplayOrder('100')
-      setNewMenuPermissionCode('')
+      setNewPageKey('')
+      setNewPageLabel('')
+      setNewPagePath('')
+      setNewPageDisplayOrder('100')
+      setNewPagePermissionCode('')
       await loadAccessData()
-      setSuccess('Page created successfully.')
+      setSuccess('Child page created successfully.')
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot create page URL.'))
+      setError(extractApiErrorMessage(err, 'Cannot create child page.'))
     } finally {
       setSubmitting(false)
     }
@@ -194,7 +342,7 @@ function AdminAccessManagementPage() {
         menuKeys: selectedMenuKeys,
       })
       await loadAccessData()
-      setSuccess(`Updated visible pages for role ${selectedRoleCode}.`)
+      setSuccess(`Updated tab/page visibility for role ${selectedRoleCode}.`)
     } catch (err) {
       setError(extractApiErrorMessage(err, 'Cannot update role-page mapping.'))
     } finally {
@@ -207,7 +355,7 @@ function AdminAccessManagementPage() {
       <article className="role-card">
         <h2>Access Management</h2>
         <p className="role-muted">
-          Create roles, create page URLs, and map which pages each role can see.
+          Create roles, create main tabs, create child pages, and map visible menus by role.
         </p>
       </article>
 
@@ -246,22 +394,80 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Create Page (URL)</h3>
+        <h3>Create Main Tab</h3>
+        <div className="role-inline-form admin-access-management-main-tab-grid">
+          <label>
+            Tab Key
+            <input
+              value={newTabKey}
+              onChange={(event) => setNewTabKey(event.target.value)}
+              placeholder="e.g. admin-sales"
+              disabled={submitting}
+            />
+          </label>
+          <label>
+            Tab Label
+            <input
+              value={newTabLabel}
+              onChange={(event) => setNewTabLabel(event.target.value)}
+              placeholder="e.g. Sales Management"
+              disabled={submitting}
+            />
+          </label>
+          <label>
+            Display Order
+            <input
+              value={newTabDisplayOrder}
+              onChange={(event) => setNewTabDisplayOrder(event.target.value)}
+              placeholder="100"
+              disabled={submitting}
+            />
+          </label>
+        </div>
+        <div className="role-inline-actions">
+          <button
+            type="button"
+            className="role-btn-primary"
+            onClick={() => void handleCreateMainTab()}
+            disabled={submitting}
+          >
+            Create Main Tab
+          </button>
+        </div>
+      </article>
+
+      <article className="role-card">
+        <h3>Create Child Page</h3>
         <div className="role-inline-form admin-access-management-create-page-grid">
           <label>
-            Menu Key
+            Parent Tab
+            <select
+              value={newPageParentMenuId}
+              onChange={(event) => setNewPageParentMenuId(event.target.value)}
+              disabled={submitting}
+            >
+              <option value="">Select parent tab</option>
+              {parentTabOptions.map((menu) => (
+                <option key={menu.key} value={menu.id}>
+                  {menu.label} ({menu.key})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Page Key
             <input
-              value={newMenuKey}
-              onChange={(event) => setNewMenuKey(event.target.value)}
+              value={newPageKey}
+              onChange={(event) => setNewPageKey(event.target.value)}
               placeholder="optional (auto generate from URL)"
               disabled={submitting}
             />
           </label>
           <label>
-            Label
+            Page Label
             <input
-              value={newMenuLabel}
-              onChange={(event) => setNewMenuLabel(event.target.value)}
+              value={newPageLabel}
+              onChange={(event) => setNewPageLabel(event.target.value)}
               placeholder="e.g. Sales Dashboard"
               disabled={submitting}
             />
@@ -269,8 +475,8 @@ function AdminAccessManagementPage() {
           <label>
             URL Page
             <input
-              value={newMenuPath}
-              onChange={(event) => setNewMenuPath(event.target.value)}
+              value={newPagePath}
+              onChange={(event) => setNewPagePath(event.target.value)}
               placeholder="e.g. /admin/sales-dashboard"
               disabled={submitting}
             />
@@ -278,8 +484,8 @@ function AdminAccessManagementPage() {
           <label>
             Display Order
             <input
-              value={newMenuDisplayOrder}
-              onChange={(event) => setNewMenuDisplayOrder(event.target.value)}
+              value={newPageDisplayOrder}
+              onChange={(event) => setNewPageDisplayOrder(event.target.value)}
               placeholder="100"
               disabled={submitting}
             />
@@ -287,8 +493,8 @@ function AdminAccessManagementPage() {
           <label>
             Required Permission
             <select
-              value={newMenuPermissionCode}
-              onChange={(event) => setNewMenuPermissionCode(event.target.value)}
+              value={newPagePermissionCode}
+              onChange={(event) => setNewPagePermissionCode(event.target.value)}
               disabled={submitting}
             >
               <option value="">None</option>
@@ -304,16 +510,16 @@ function AdminAccessManagementPage() {
           <button
             type="button"
             className="role-btn-primary"
-            onClick={() => void handleCreatePage()}
+            onClick={() => void handleCreateChildPage()}
             disabled={submitting}
           >
-            Create Page
+            Create Child Page
           </button>
         </div>
       </article>
 
       <article className="role-card">
-        <h3>Role - Page Mapping</h3>
+        <h3>Role - Tab/Page Mapping</h3>
 
         <div className="role-inline-form admin-access-management-two-cols">
           <label>
@@ -332,9 +538,9 @@ function AdminAccessManagementPage() {
             </select>
           </label>
           <label>
-            Selected Pages
+            Selected Menus
             <input
-              value={`${selectedMenuKeys.length} page(s) selected`}
+              value={`${selectedMenuKeys.length} tab/page item(s) selected`}
               readOnly
               disabled
             />
@@ -348,18 +554,27 @@ function AdminAccessManagementPage() {
         )}
 
         <div className="admin-access-management-menu-list">
-          {!menus.length && <p className="role-muted">No pages available.</p>}
-          {menus.map((menu) => (
-            <label key={menu.key} className="admin-access-management-menu-item">
+          {!flattenedMenus.length && <p className="role-muted">No tab/page data available.</p>}
+          {flattenedMenus.map(({ node, depth }) => (
+            <label
+              key={node.key}
+              className="admin-access-management-menu-item"
+              style={{ paddingLeft: `${10 + depth * 18}px` }}
+            >
               <input
                 type="checkbox"
-                checked={selectedMenuKeys.includes(menu.key)}
-                onChange={() => toggleMenuSelection(menu.key)}
+                checked={selectedMenuKeys.includes(node.key)}
+                onChange={() => toggleMenuSelection(node.key)}
                 disabled={submitting || !selectedRoleCode}
               />
               <div>
-                <strong>{menu.label}</strong>
-                <span>{menu.path}</span>
+                <strong>
+                  {node.label}{' '}
+                  <span className="admin-access-management-menu-type">
+                    {isContainerMenu(node) ? 'TAB' : 'PAGE'}
+                  </span>
+                </strong>
+                <span>{normalizeMenuPath(node.path) || '(container tab - no URL)'}</span>
               </div>
             </label>
           ))}
@@ -385,7 +600,7 @@ function AdminAccessManagementPage() {
               <tr>
                 <th>Role Code</th>
                 <th>Name</th>
-                <th>Pages</th>
+                <th>Mapped Menus</th>
               </tr>
             </thead>
             <tbody>
@@ -409,30 +624,34 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Current Pages</h3>
+        <h3>Current Tabs / Pages</h3>
         <div className="role-table-wrap">
           <table>
             <thead>
               <tr>
                 <th>Key</th>
+                <th>Type</th>
                 <th>Label</th>
                 <th>Path</th>
+                <th>Parent Tab</th>
                 <th>Permission</th>
               </tr>
             </thead>
             <tbody>
               {!menus.length && (
                 <tr>
-                  <td colSpan={4} className="role-empty-cell">
-                    No page data available.
+                  <td colSpan={6} className="role-empty-cell">
+                    No tab/page data available.
                   </td>
                 </tr>
               )}
-              {menus.map((menu) => (
+              {[...menus].sort(compareMenusByOrder).map((menu) => (
                 <tr key={menu.key}>
                   <td>{menu.key}</td>
+                  <td>{isContainerMenu(menu) ? 'TAB' : 'PAGE'}</td>
                   <td>{menu.label}</td>
-                  <td>{menu.path}</td>
+                  <td>{normalizeMenuPath(menu.path) || '-'}</td>
+                  <td>{menu.parentMenuKey || '-'}</td>
                   <td>{menu.permission || '-'}</td>
                 </tr>
               ))}
