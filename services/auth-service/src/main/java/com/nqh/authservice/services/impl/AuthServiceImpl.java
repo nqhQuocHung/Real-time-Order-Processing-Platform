@@ -54,12 +54,16 @@ import com.nqh.authservice.services.AuthService;
 import com.nqh.authservice.services.EmailService;
 import com.nqh.authservice.services.JwtTokenProvider;
 import com.nqh.authservice.services.UploadService;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,6 +77,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -529,14 +534,35 @@ public class AuthServiceImpl implements AuthService {
         Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         String normalizedKeyword = trimToNull(keyword);
         String normalizedRoleCode = StringUtils.hasText(roleCode) ? normalizeRoleCode(roleCode) : null;
+        Specification<User> specification = (root, query, criteriaBuilder) -> {
+            query.distinct(true);
+            List<Predicate> predicates = new ArrayList<>();
 
-        Page<User> usersPage = userRepository.searchUsers(
-                normalizedKeyword,
-                normalizedRoleCode,
-                status,
-                isActive,
-                pageable
-        );
+            if (StringUtils.hasText(normalizedKeyword)) {
+                String keywordLike = "%" + normalizedKeyword.toLowerCase(Locale.ROOT) + "%";
+                predicates.add(criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), keywordLike),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), keywordLike)
+                ));
+            }
+
+            if (StringUtils.hasText(normalizedRoleCode)) {
+                Join<User, Role> roleJoin = root.join("roles", JoinType.LEFT);
+                predicates.add(criteriaBuilder.equal(criteriaBuilder.upper(roleJoin.get("code")), normalizedRoleCode));
+            }
+
+            if (status != null) {
+                predicates.add(criteriaBuilder.equal(root.get("status"), status));
+            }
+
+            if (isActive != null) {
+                predicates.add(criteriaBuilder.equal(root.get("isActive"), isActive));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<User> usersPage = userRepository.findAll(specification, pageable);
 
         return AdminUserListResponse.builder()
                 .content(usersPage.getContent().stream().map(this::mapToAdminUserSummary).toList())
