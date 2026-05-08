@@ -42,11 +42,14 @@
 .admin-administration-actions {
   display: grid;
   gap: 8px;
+  justify-items: end;
 }
 
 .admin-administration-actions > .role-btn-primary,
 .admin-administration-actions > .role-btn-ghost {
-  width: 100%;
+  width: auto;
+  min-width: 140px;
+  padding-inline: 16px;
 }
 
 .admin-administration-role-grant {
@@ -54,6 +57,26 @@
   gap: 6px;
   grid-template-columns: 1fr auto;
   align-items: center;
+}
+
+.admin-action-btn {
+  border-color: rgba(160, 198, 236, 0.18);
+  font-weight: 600;
+}
+
+.admin-action-btn-active {
+  background: linear-gradient(120deg, #1d4ed8, #2563eb);
+  color: #f3f9ff;
+}
+
+.admin-action-btn-inactive {
+  background: linear-gradient(120deg, #0f3f6a, #14558e);
+  color: #d8eeff;
+}
+
+.admin-action-btn-lock {
+  background: linear-gradient(120deg, #7f1d56, #9d174d);
+  color: #ffe8f3;
 }
 
 .admin-administration-role-grant select {
@@ -83,6 +106,13 @@
 
   .admin-administration-role-grant {
     grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .admin-administration-actions > .role-btn-primary,
+  .admin-administration-actions > .role-btn-ghost {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .admin-administration-role-grant select {
