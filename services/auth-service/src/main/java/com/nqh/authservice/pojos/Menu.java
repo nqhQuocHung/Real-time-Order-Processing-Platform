@@ -42,7 +42,7 @@ public class Menu extends BasePojo {
     @Column(name = "label", nullable = false, length = 150)
     private String label;
 
-    @Column(name = "path", nullable = false, length = 255)
+    @Column(name = "path", length = 255)
     private String path;
 
     @Column(name = "display_order", nullable = false)
@@ -51,6 +51,10 @@ public class Menu extends BasePojo {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "permission_id")
     private Permission permission;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_menu_id")
+    private Menu parentMenu;
 
     @Builder.Default
     @ToString.Exclude

@@ -700,7 +700,7 @@ public class AuthServiceImpl implements AuthService {
     public MenuSummaryResponse createMenu(String authorizationHeader, CreateMenuRequest request) {
         requireManageUsersPermission(authorizationHeader);
 
-        String normalizedPath = normalizeMenuPath(request.getPath());
+        String normalizedPath = normalizeMenuPathOrNull(request.getPath());
         String normalizedMenuKey = StringUtils.hasText(request.getMenuKey())
                 ? normalizeMenuKey(request.getMenuKey())
                 : deriveMenuKeyFromPath(normalizedPath);
@@ -708,8 +708,11 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
 
-        if (menuRepository.existsByMenuKeyIgnoreCase(normalizedMenuKey)
-                || menuRepository.existsByPathIgnoreCase(normalizedPath)) {
+        if (menuRepository.existsByMenuKeyIgnoreCase(normalizedMenuKey)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (StringUtils.hasText(normalizedPath) && menuRepository.existsByPathIgnoreCase(normalizedPath)) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
 
@@ -721,6 +724,11 @@ public class AuthServiceImpl implements AuthService {
         }
 
         int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
+        Menu parentMenu = null;
+        if (request.getParentMenuId() != null) {
+            parentMenu = menuRepository.findById(request.getParentMenuId())
+                    .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
+        }
 
         Menu menu = Menu.builder()
                 .menuKey(normalizedMenuKey)
@@ -728,6 +736,7 @@ public class AuthServiceImpl implements AuthService {
                 .path(normalizedPath)
                 .displayOrder(displayOrder)
                 .permission(permission)
+                .parentMenu(parentMenu)
                 .build();
         menu.setIsActive(Boolean.TRUE);
 
@@ -762,11 +771,11 @@ public class AuthServiceImpl implements AuthService {
                 .map(this::normalizeMenuKey)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        Set<Menu> menus = new HashSet<>();
+        Set<Menu> menus = new LinkedHashSet<>();
         for (String menuKey : normalizedMenuKeys) {
             Menu menu = menuRepository.findByMenuKeyIgnoreCase(menuKey)
                     .orElseThrow(() -> new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST));
-            menus.add(menu);
+            addMenuWithAncestors(menu, menus);
         }
 
         role.setMenus(menus);
@@ -1085,9 +1094,9 @@ public class AuthServiceImpl implements AuthService {
         return normalized;
     }
 
-    private String normalizeMenuPath(String path) {
+    private String normalizeMenuPathOrNull(String path) {
         if (!StringUtils.hasText(path)) {
-            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+            return null;
         }
         String normalizedPath = path.trim();
         if (!normalizedPath.startsWith("/")) {
@@ -1108,6 +1117,18 @@ public class AuthServiceImpl implements AuthService {
                 .replaceAll("-{2,}", "-")
                 .replaceAll("^-|-$", "");
         return StringUtils.hasText(fromPath) ? fromPath : null;
+    }
+
+    private void addMenuWithAncestors(Menu menu, Set<Menu> collector) {
+        if (menu == null || collector.contains(menu)) {
+            return;
+        }
+
+        if (menu.getParentMenu() != null) {
+            addMenuWithAncestors(menu.getParentMenu(), collector);
+        }
+
+        collector.add(menu);
     }
 
     private String extractBearerToken(String authorizationHeader) {
@@ -1153,9 +1174,8 @@ public class AuthServiceImpl implements AuthService {
                 .sorted()
                 .toList();
 
-        Set<Menu> uniqueMenus = user.getRoles().stream()
-                .flatMap(role -> role.getMenus().stream())
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<Menu> uniqueMenus = new LinkedHashSet<>();
+        user.getRoles().forEach(role -> role.getMenus().forEach(menu -> addMenuWithAncestors(menu, uniqueMenus)));
 
         List<MenuItemResponse> menus = uniqueMenus.stream()
                 .sorted((first, second) -> {
@@ -1166,13 +1186,7 @@ public class AuthServiceImpl implements AuthService {
                     }
                     return String.valueOf(first.getMenuKey()).compareToIgnoreCase(String.valueOf(second.getMenuKey()));
                 })
-                .map(menu -> MenuItemResponse.builder()
-                        .key(menu.getMenuKey())
-                        .label(menu.getLabel())
-                        .path(menu.getPath())
-                        .displayOrder(menu.getDisplayOrder())
-                        .permission(menu.getPermission() != null ? menu.getPermission().getCode() : null)
-                        .build())
+                .map(this::mapToMenuItem)
                 .toList();
 
         return UserProfileResponse.builder()
@@ -1238,12 +1252,32 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private MenuSummaryResponse mapToMenuSummary(Menu menu) {
+        Menu parentMenu = menu.getParentMenu();
         return MenuSummaryResponse.builder()
+                .id(menu.getId())
                 .key(menu.getMenuKey())
                 .label(menu.getLabel())
                 .path(menu.getPath())
                 .displayOrder(menu.getDisplayOrder())
                 .permission(menu.getPermission() != null ? menu.getPermission().getCode() : null)
+                .parentMenuId(parentMenu != null ? parentMenu.getId() : null)
+                .parentMenuKey(parentMenu != null ? parentMenu.getMenuKey() : null)
+                .isContainer(!StringUtils.hasText(menu.getPath()))
+                .build();
+    }
+
+    private MenuItemResponse mapToMenuItem(Menu menu) {
+        Menu parentMenu = menu.getParentMenu();
+        return MenuItemResponse.builder()
+                .id(menu.getId())
+                .key(menu.getMenuKey())
+                .label(menu.getLabel())
+                .path(menu.getPath())
+                .displayOrder(menu.getDisplayOrder())
+                .permission(menu.getPermission() != null ? menu.getPermission().getCode() : null)
+                .parentMenuId(parentMenu != null ? parentMenu.getId() : null)
+                .parentMenuKey(parentMenu != null ? parentMenu.getMenuKey() : null)
+                .isContainer(!StringUtils.hasText(menu.getPath()))
                 .build();
     }
 

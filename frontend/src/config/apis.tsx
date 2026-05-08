@@ -25,11 +25,15 @@ type ApiResponseEnvelope<T> = {
 }
 
 type BackendMenuItem = {
+  id?: string
   key: string
   label: string
-  path: string
+  path?: string
   displayOrder?: number
   permission?: string
+  parentMenuId?: string | null
+  parentMenuKey?: string | null
+  isContainer?: boolean
 }
 
 type AuthSession = {
@@ -106,6 +110,7 @@ const endpoints = {
       `/api/v1/orders/${orderCode}/shipping-confirm`,
   },
   inventories: {
+    catalog: '/api/v1/inventories/catalog',
     stock: (productId: string) => `/api/v1/inventories/${productId}`,
     summary: '/api/v1/inventories/summary',
     check: '/api/v1/inventories/check',
