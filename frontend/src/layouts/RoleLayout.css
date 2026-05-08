@@ -75,6 +75,54 @@
   gap: 8px;
 }
 
+.role-menu-group {
+  display: grid;
+  gap: 8px;
+}
+
+.role-menu-group-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--role-text-sub);
+  font: inherit;
+  cursor: pointer;
+}
+
+.role-menu-group-trigger:hover {
+  color: var(--role-text);
+  border-color: rgba(39, 194, 255, 0.45);
+  background: rgba(8, 27, 45, 0.9);
+}
+
+.role-menu-group-trigger:hover .role-menu-group-caret {
+  color: var(--role-text);
+}
+
+.role-menu-group-caret {
+  color: var(--role-text-sub);
+  font-size: 0.8rem;
+  line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+.role-menu-group-caret.open {
+  transform: rotate(180deg);
+}
+
+.role-submenu {
+  display: grid;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(39, 194, 255, 0.28);
+}
+
 .role-menu-item {
   text-decoration: none;
   padding: 11px;

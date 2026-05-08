@@ -1,2 +1,12 @@
-﻿.user-products-page {
+.user-products-page {
+}
+
+.user-products-page .role-inline-actions {
+  margin-top: 0.75rem;
+}
+
+.user-products-page .role-table-wrap td:first-child {
+  font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
 }

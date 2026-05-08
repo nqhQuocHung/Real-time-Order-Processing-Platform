@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import defaultAvatar from '../../../assets/default-avatar.svg'
 import './AdminAdministrationPage.css'
 
 type AdminUserSummary = {
@@ -17,6 +18,24 @@ type AdminUserSummary = {
   emailVerified?: boolean
   roles?: string[]
   createdAt?: string
+}
+
+type AdminUserProfile = {
+  userId: string
+  username: string
+  email: string
+  phone?: string
+  firstName?: string
+  lastName?: string
+  avatar?: string
+  status?: string
+  isActive?: boolean
+  emailVerified?: boolean
+  failedLoginCount?: number
+  lastLoginAt?: string
+  createdAt?: string
+  updatedAt?: string
+  roles?: string[]
 }
 
 type AdminUserListResponse = {
@@ -56,6 +75,16 @@ type UserFilter = {
   isActive: string
 }
 
+type UpdateUserPayload = {
+  roleCodes?: string[]
+}
+
+function normalizeRoleCodes(roles?: string[]): string[] {
+  return (roles || [])
+    .map((role) => role.trim())
+    .filter(Boolean)
+}
+
 function formatDate(value?: string) {
   if (!value) {
     return '-'
@@ -68,6 +97,36 @@ function formatDate(value?: string) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(parsed)
+}
+
+function formatBoolean(value?: boolean) {
+  if (typeof value !== 'boolean') {
+    return '-'
+  }
+  return value ? 'Yes' : 'No'
+}
+
+function formatFullName(firstName?: string, lastName?: string) {
+  const name = [firstName, lastName]
+    .map((part) => (part || '').trim())
+    .filter(Boolean)
+    .join(' ')
+
+  return name || '-'
+}
+
+function toProfileFallback(user: AdminUserSummary): AdminUserProfile {
+  return {
+    userId: user.userId,
+    username: user.username,
+    email: user.email,
+    phone: user.phone,
+    status: user.status,
+    isActive: user.isActive,
+    emailVerified: user.emailVerified,
+    roles: normalizeRoleCodes(user.roles),
+    createdAt: user.createdAt,
+  }
 }
 
 function AdminAdministrationPage() {
@@ -86,6 +145,11 @@ function AdminAdministrationPage() {
   const [page, setPage] = useState(0)
   const [size] = useState(20)
   const [roleInputs, setRoleInputs] = useState<Record<string, string>>({})
+  const [roleRemoveInputs, setRoleRemoveInputs] = useState<Record<string, string>>({})
+  const [selectedUserRecord, setSelectedUserRecord] = useState<AdminUserSummary | null>(null)
+  const [selectedUserProfile, setSelectedUserProfile] = useState<AdminUserProfile | null>(null)
+  const [loadingProfile, setLoadingProfile] = useState(false)
+  const [profileError, setProfileError] = useState('')
   const [filter, setFilter] = useState<UserFilter>({
     keyword: '',
     roleCode: '',
@@ -200,6 +264,13 @@ function AdminAdministrationPage() {
     }))
   }
 
+  function handleSetRoleRemoveInput(userId: string, value: string) {
+    setRoleRemoveInputs((prev) => ({
+      ...prev,
+      [userId]: value,
+    }))
+  }
+
   async function handleActivate(userId: string) {
     await runUserAction(async () => {
       await apis().patch(endpoints.auth.activateUser(userId))
@@ -231,6 +302,36 @@ function AdminAdministrationPage() {
     })
   }
 
+  async function handleRemoveRole(user: AdminUserSummary) {
+    const currentRoles = normalizeRoleCodes(user.roles)
+    const selectedRole = roleRemoveInputs[user.userId] || currentRoles[0] || ''
+    if (!selectedRole) {
+      setActionError('Please select a role before removing.')
+      return
+    }
+
+    const normalizedSelectedRole = selectedRole.trim().toUpperCase()
+    const remainingRoles = currentRoles.filter(
+      (roleCode) => roleCode.toUpperCase() !== normalizedSelectedRole,
+    )
+
+    if (remainingRoles.length === currentRoles.length) {
+      setActionError(`Role ${normalizedSelectedRole} was not found on this account.`)
+      return
+    }
+
+    if (remainingRoles.length === 0) {
+      setActionError('Cannot remove all roles. Keep at least one role on the account.')
+      return
+    }
+
+    await runUserAction(async () => {
+      const payload: UpdateUserPayload = { roleCodes: remainingRoles }
+      await apis().patch(endpoints.auth.updateUser(user.userId), payload)
+      setRoleRemoveInputs((prev) => ({ ...prev, [user.userId]: '' }))
+    })
+  }
+
   async function handleSearchUsers() {
     setPage(0)
     await loadUsers(0, filter)
@@ -257,6 +358,33 @@ function AdminAdministrationPage() {
     setPage(0)
     await loadUsers(0, nextFilter)
   }
+
+  async function handleOpenUserProfile(user: AdminUserSummary) {
+    setSelectedUserRecord(user)
+    setSelectedUserProfile(toProfileFallback(user))
+    setProfileError('')
+    setLoadingProfile(true)
+
+    try {
+      const response = await apis().get(endpoints.auth.getUserById(user.userId))
+      const data = extractApiData<AdminUserProfile>(response)
+      setSelectedUserProfile(data || toProfileFallback(user))
+    } catch (err) {
+      setProfileError(extractApiErrorMessage(err, 'Cannot load user profile.'))
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  function handleCloseUserProfile() {
+    setSelectedUserRecord(null)
+    setSelectedUserProfile(null)
+    setProfileError('')
+    setLoadingProfile(false)
+  }
+
+  const profileView = selectedUserProfile ||
+    (selectedUserRecord ? toProfileFallback(selectedUserRecord) : null)
 
   return (
     <section className="admin-administration-page role-page-stack">
@@ -456,7 +584,19 @@ function AdminAdministrationPage() {
                 </tr>
               )}
               {users.map((user) => (
-                <tr key={user.userId}>
+                <tr
+                  key={user.userId}
+                  className="admin-administration-record"
+                  onClick={() => void handleOpenUserProfile(user)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      void handleOpenUserProfile(user)
+                    }
+                  }}
+                  tabIndex={0}
+                  aria-label={`Open profile of ${user.username}`}
+                >
                   <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>{(user.roles || []).join(', ') || '-'}</td>
@@ -464,61 +604,101 @@ function AdminAdministrationPage() {
                   <td>{String(user.isActive)}</td>
                   <td>{formatDate(user.createdAt)}</td>
                   <td>
-                    <div className="admin-administration-actions">
-                      {user.isActive ? (
+                    <div
+                      className="admin-administration-actions"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <div className="admin-administration-account-actions">
+                        {user.isActive ? (
+                          <button
+                            type="button"
+                            className="role-btn-ghost admin-action-btn admin-action-btn-inactive"
+                            onClick={() => void handleDeactivate(user.userId)}
+                            disabled={isExecutingAction}
+                          >
+                            Set Inactive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="role-btn-primary admin-action-btn admin-action-btn-active"
+                            onClick={() => void handleActivate(user.userId)}
+                            disabled={isExecutingAction}
+                          >
+                            Set Active
+                          </button>
+                        )}
                         <button
                           type="button"
-                          className="role-btn-ghost admin-action-btn admin-action-btn-inactive"
-                          onClick={() => void handleDeactivate(user.userId)}
+                          className="role-btn-ghost admin-action-btn admin-action-btn-lock"
+                          onClick={() => void handleLock(user.userId)}
                           disabled={isExecutingAction}
                         >
-                          Set Inactive
+                          Lock Account
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="role-btn-primary admin-action-btn admin-action-btn-active"
-                          onClick={() => void handleActivate(user.userId)}
-                          disabled={isExecutingAction}
-                        >
-                          Set Active
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        className="role-btn-ghost admin-action-btn admin-action-btn-lock"
-                        onClick={() => void handleLock(user.userId)}
-                        disabled={isExecutingAction}
-                      >
-                        Lock Account
-                      </button>
-                      <div className="admin-administration-role-grant">
-                        <select
-                          value={roleInputs[user.userId] || user.roles?.[0] || ''}
-                          onChange={(event) =>
-                            handleSetRoleInput(user.userId, event.target.value)
-                          }
-                          disabled={isExecutingAction || loadingRoles}
-                        >
-                          <option value="">Select role to assign</option>
-                          {roles.map((role) => (
-                            <option key={`${user.userId}-${role.code}`} value={role.code}>
-                              {role.code}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="role-btn-ghost"
-                          onClick={() => void handleAssignRole(user)}
-                          disabled={
-                            isExecutingAction ||
-                            loadingRoles ||
-                            !(roleInputs[user.userId] || user.roles?.[0] || '')
-                          }
-                        >
-                          Assign Role
-                        </button>
+                      </div>
+
+                      <div className="admin-administration-role-actions">
+                        <div className="admin-administration-role-grant">
+                          <span className="admin-administration-role-label">Assign role</span>
+                          <select
+                            value={roleInputs[user.userId] || user.roles?.[0] || ''}
+                            onChange={(event) =>
+                              handleSetRoleInput(user.userId, event.target.value)
+                            }
+                            disabled={isExecutingAction || loadingRoles}
+                          >
+                            <option value="">Select role</option>
+                            {roles.map((role) => (
+                              <option key={`${user.userId}-${role.code}`} value={role.code}>
+                                {role.code}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => void handleAssignRole(user)}
+                            disabled={
+                              isExecutingAction ||
+                              loadingRoles ||
+                              !(roleInputs[user.userId] || user.roles?.[0] || '')
+                            }
+                          >
+                            Assign
+                          </button>
+                        </div>
+
+                        <div className="admin-administration-role-grant">
+                          <span className="admin-administration-role-label">Remove role</span>
+                          <select
+                            value={roleRemoveInputs[user.userId] || user.roles?.[0] || ''}
+                            onChange={(event) =>
+                              handleSetRoleRemoveInput(user.userId, event.target.value)
+                            }
+                            disabled={isExecutingAction || !normalizeRoleCodes(user.roles).length}
+                          >
+                            <option value="">Select role</option>
+                            {normalizeRoleCodes(user.roles).map((roleCode) => (
+                              <option key={`${user.userId}-remove-${roleCode}`} value={roleCode}>
+                                {roleCode}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => void handleRemoveRole(user)}
+                            disabled={
+                              isExecutingAction ||
+                              !normalizeRoleCodes(user.roles).length ||
+                              normalizeRoleCodes(user.roles).length <= 1
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -528,6 +708,92 @@ function AdminAdministrationPage() {
           </table>
         </div>
       </article>
+
+      {selectedUserRecord && (
+        <div className="role-modal-backdrop" onClick={handleCloseUserProfile}>
+          <div
+            className="role-modal admin-administration-profile-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="admin-administration-profile-header">
+              <img
+                src={profileView?.avatar || defaultAvatar}
+                alt="User avatar"
+                className="admin-administration-profile-avatar"
+                onError={(event) => {
+                  event.currentTarget.src = defaultAvatar
+                }}
+              />
+              <div>
+                <h3>User Profile</h3>
+                <p className="role-muted">{profileView?.username || selectedUserRecord.username}</p>
+              </div>
+            </div>
+
+            {loadingProfile && <p className="role-muted">Loading user profile...</p>}
+            {profileError && <p className="role-error">{profileError}</p>}
+
+            {profileView && (
+              <div className="admin-administration-profile-grid">
+                <div>
+                  <span>User ID</span>
+                  <strong>{profileView.userId || '-'}</strong>
+                </div>
+                <div>
+                  <span>Full Name</span>
+                  <strong>{formatFullName(profileView.firstName, profileView.lastName)}</strong>
+                </div>
+                <div>
+                  <span>Email</span>
+                  <strong>{profileView.email || '-'}</strong>
+                </div>
+                <div>
+                  <span>Phone</span>
+                  <strong>{profileView.phone || '-'}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{profileView.status || '-'}</strong>
+                </div>
+                <div>
+                  <span>Active</span>
+                  <strong>{formatBoolean(profileView.isActive)}</strong>
+                </div>
+                <div>
+                  <span>Email Verified</span>
+                  <strong>{formatBoolean(profileView.emailVerified)}</strong>
+                </div>
+                <div>
+                  <span>Failed Login Count</span>
+                  <strong>{profileView.failedLoginCount ?? '-'}</strong>
+                </div>
+                <div>
+                  <span>Roles</span>
+                  <strong>{normalizeRoleCodes(profileView.roles).join(', ') || '-'}</strong>
+                </div>
+                <div>
+                  <span>Created At</span>
+                  <strong>{formatDate(profileView.createdAt)}</strong>
+                </div>
+                <div>
+                  <span>Last Login</span>
+                  <strong>{formatDate(profileView.lastLoginAt)}</strong>
+                </div>
+                <div>
+                  <span>Updated At</span>
+                  <strong>{formatDate(profileView.updatedAt)}</strong>
+                </div>
+              </div>
+            )}
+
+            <div className="role-modal-actions">
+              <button type="button" className="role-btn-primary" onClick={handleCloseUserProfile}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

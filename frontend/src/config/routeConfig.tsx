@@ -8,8 +8,6 @@ import UserProfilePage from '../pages/userservice/user-profile-page/UserProfileP
 import UserSupportPage from '../pages/userservice/user-support-page/UserSupportPage'
 import AdminDashboardPage from '../pages/adminservice/admin-dashboard-page/AdminDashboardPage'
 import AdminAdministrationPage from '../pages/adminservice/admin-administration-page/AdminAdministrationPage'
-import AdminUserManagementPage from '../pages/adminservice/admin-user-management-page/AdminUserManagementPage'
-import AdminPartnerManagementPage from '../pages/adminservice/admin-partner-management-page/AdminPartnerManagementPage'
 import AdminProductManagementPage from '../pages/adminservice/admin-product-management-page/AdminProductManagementPage'
 import AdminOrderManagementPage from '../pages/adminservice/admin-order-management-page/AdminOrderManagementPage'
 import AdminReportsPage from '../pages/adminservice/admin-reports-page/AdminReportsPage'
@@ -79,20 +77,6 @@ export const roleRouteConfig: AppRouteItem[] = [
     title: 'Administration',
     permission: PermissionKey.MANAGE_USERS,
     component: AdminAdministrationPage,
-  },
-  {
-    path: '/admin/users',
-    role: AppRole.ADMIN,
-    title: 'User Management',
-    permission: PermissionKey.MANAGE_USERS,
-    component: AdminUserManagementPage,
-  },
-  {
-    path: '/admin/partners',
-    role: AppRole.ADMIN,
-    title: 'Partner Management',
-    permission: PermissionKey.MANAGE_PARTNERS,
-    component: AdminPartnerManagementPage,
   },
   {
     path: '/admin/products',

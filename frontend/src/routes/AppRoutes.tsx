@@ -1,5 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import AuthLoginPage from '../pages/authservice/login-page/AuthLoginPage'
 import AuthRegisterPage from '../pages/authservice/register-page/AuthRegisterPage'
 import AuthForgotPasswordOtpPage from '../pages/authservice/forgot-password-otp-page/AuthForgotPasswordOtpPage'
@@ -16,8 +15,6 @@ import NotFoundPage from '../pages/commonservice/not-found-page/NotFoundPage'
 import { isAuthenticated } from '../config/apis'
 
 function AppRoutes() {
-  const location = useLocation()
-
   const userRoutes = roleRouteConfig.filter((route) => route.role === AppRole.USER)
   const adminRoutes = roleRouteConfig.filter((route) => route.role === AppRole.ADMIN)
   const partnerRoutes = roleRouteConfig.filter(
@@ -25,77 +22,83 @@ function AppRoutes() {
   )
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<SessionRedirect />} />
+    <Routes>
+      <Route path="/" element={<SessionRedirect />} />
 
-        <Route element={<PublicOnlyRoute />}>
-          <Route path="/login" element={<AuthLoginPage />} />
-          <Route path="/register" element={<AuthRegisterPage />} />
-          <Route path="/forgot-password-otp" element={<AuthForgotPasswordOtpPage />} />
-          <Route path="/forgot-password" element={<AuthForgotPasswordPage />} />
+      <Route element={<PublicOnlyRoute />}>
+        <Route path="/login" element={<AuthLoginPage />} />
+        <Route path="/register" element={<AuthRegisterPage />} />
+        <Route path="/forgot-password-otp" element={<AuthForgotPasswordOtpPage />} />
+        <Route path="/forgot-password" element={<AuthForgotPasswordPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<RoleLayout />}>
+          <Route path="/403" element={<ForbiddenPage />} />
+          <Route path="/404" element={<NotFoundPage />} />
         </Route>
+      </Route>
 
-        <Route element={<ProtectedRoute />}>
-          <Route element={<RoleLayout />}>
-            <Route path="/403" element={<ForbiddenPage />} />
-            <Route path="/404" element={<NotFoundPage />} />
-          </Route>
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={getAllowedRolesForRouteOwner(AppRole.USER)}
+          />
+        }
+      >
+        <Route element={<RoleLayout />}>
+          {userRoutes.map((route) => {
+            const Component = route.component
+            return <Route key={route.path} path={route.path} element={<Component />} />
+          })}
         </Route>
+      </Route>
 
-        <Route
-          element={
-            <ProtectedRoute
-              allowedRoles={getAllowedRolesForRouteOwner(AppRole.USER)}
-            />
-          }
-        >
-          <Route element={<RoleLayout />}>
-            {userRoutes.map((route) => {
-              const Component = route.component
-              return <Route key={route.path} path={route.path} element={<Component />} />
-            })}
-          </Route>
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={getAllowedRolesForRouteOwner(AppRole.ADMIN)}
+          />
+        }
+      >
+        <Route element={<RoleLayout />}>
+          <Route
+            path="/admin/users"
+            element={<Navigate to="/admin/administration" replace />}
+          />
+          <Route
+            path="/admin/partners"
+            element={<Navigate to="/admin/administration" replace />}
+          />
+          {adminRoutes.map((route) => {
+            const Component = route.component
+            return <Route key={route.path} path={route.path} element={<Component />} />
+          })}
         </Route>
+      </Route>
 
-        <Route
-          element={
-            <ProtectedRoute
-              allowedRoles={getAllowedRolesForRouteOwner(AppRole.ADMIN)}
-            />
-          }
-        >
-          <Route element={<RoleLayout />}>
-            {adminRoutes.map((route) => {
-              const Component = route.component
-              return <Route key={route.path} path={route.path} element={<Component />} />
-            })}
-          </Route>
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={getAllowedRolesForRouteOwner(AppRole.SHOPEE_PARTNER)}
+          />
+        }
+      >
+        <Route element={<RoleLayout />}>
+          {partnerRoutes.map((route) => {
+            const Component = route.component
+            return <Route key={route.path} path={route.path} element={<Component />} />
+          })}
         </Route>
+      </Route>
 
-        <Route
-          element={
-            <ProtectedRoute
-              allowedRoles={getAllowedRolesForRouteOwner(AppRole.SHOPEE_PARTNER)}
-            />
-          }
-        >
-          <Route element={<RoleLayout />}>
-            {partnerRoutes.map((route) => {
-              const Component = route.component
-              return <Route key={route.path} path={route.path} element={<Component />} />
-            })}
-          </Route>
-        </Route>
-
-        <Route
-          path="*"
-          element={
-            isAuthenticated() ? <Navigate to="/404" replace /> : <Navigate to="/login" replace />
-          }
-        />
-      </Routes>
-    </AnimatePresence>
+      <Route
+        path="*"
+        element={
+          isAuthenticated() ? <Navigate to="/404" replace /> : <Navigate to="/login" replace />
+        }
+      />
+    </Routes>
   )
 }
 

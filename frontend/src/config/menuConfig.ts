@@ -49,6 +49,30 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
       permission: PermissionKey.VIEW_ADMIN_DASHBOARD,
     },
     {
+      key: 'user-dashboard',
+      label: 'User Dashboard',
+      path: '/user/dashboard',
+      permission: PermissionKey.VIEW_ADMIN_DASHBOARD,
+    },
+    {
+      key: 'user-orders',
+      label: 'Orders',
+      path: '/user/orders',
+      permission: PermissionKey.MANAGE_ALL_ORDERS,
+    },
+    {
+      key: 'user-products',
+      label: 'Products',
+      path: '/user/products',
+      permission: PermissionKey.MANAGE_PRODUCTS,
+    },
+    {
+      key: 'user-support',
+      label: 'Support',
+      path: '/user/support',
+      permission: PermissionKey.MANAGE_USERS,
+    },
+    {
       key: 'admin-administration',
       label: 'Administration',
       path: '/admin/administration',
@@ -59,18 +83,6 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
       label: 'Access Management',
       path: '/admin/access-management',
       permission: PermissionKey.MANAGE_USERS,
-    },
-    {
-      key: 'admin-users',
-      label: 'User Management',
-      path: '/admin/users',
-      permission: PermissionKey.MANAGE_USERS,
-    },
-    {
-      key: 'admin-partners',
-      label: 'Partner Management',
-      path: '/admin/partners',
-      permission: PermissionKey.MANAGE_PARTNERS,
     },
     {
       key: 'admin-products',
@@ -98,6 +110,36 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
     },
   ],
   [AppRole.SHOPEE_PARTNER]: [
+    {
+      key: 'user-dashboard',
+      label: 'Dashboard',
+      path: '/user/dashboard',
+      permission: PermissionKey.VIEW_USER_DASHBOARD,
+    },
+    {
+      key: 'user-orders',
+      label: 'Orders',
+      path: '/user/orders',
+      permission: PermissionKey.MANAGE_SELF_ORDERS,
+    },
+    {
+      key: 'user-products',
+      label: 'Products',
+      path: '/user/products',
+      permission: PermissionKey.VIEW_PRODUCT_CATALOG,
+    },
+    {
+      key: 'user-profile',
+      label: 'Profile',
+      path: '/user/profile',
+      permission: PermissionKey.VIEW_SELF_PROFILE,
+    },
+    {
+      key: 'user-support',
+      label: 'Support',
+      path: '/user/support',
+      permission: PermissionKey.VIEW_SUPPORT,
+    },
     {
       key: 'partner-dashboard',
       label: 'Partner Dashboard',
