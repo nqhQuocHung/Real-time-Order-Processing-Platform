@@ -564,6 +564,15 @@ public class AuthServiceImpl implements AuthService {
 
         Page<User> usersPage = userRepository.findAll(specification, pageable);
 
+        boolean noFilterRequested = normalizedKeyword == null
+                && normalizedRoleCode == null
+                && status == null
+                && isActive == null;
+
+        if (noFilterRequested && usersPage.isEmpty()) {
+            usersPage = userRepository.findAll(pageable);
+        }
+
         return AdminUserListResponse.builder()
                 .content(usersPage.getContent().stream().map(this::mapToAdminUserSummary).toList())
                 .page(usersPage.getNumber())

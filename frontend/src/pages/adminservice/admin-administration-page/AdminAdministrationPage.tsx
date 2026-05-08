@@ -206,22 +206,28 @@ function AdminAdministrationPage() {
     })
   }
 
+  async function handleDeactivate(userId: string) {
+    await runUserAction(async () => {
+      await apis().patch(endpoints.auth.deactivateUser(userId))
+    })
+  }
+
   async function handleLock(userId: string) {
     await runUserAction(async () => {
       await apis().patch(endpoints.auth.lockUser(userId))
     })
   }
 
-  async function handleAssignRole(userId: string) {
-    const roleCode = roleInputs[userId] || ''
+  async function handleAssignRole(user: AdminUserSummary) {
+    const roleCode = roleInputs[user.userId] || user.roles?.[0] || ''
     if (!roleCode) {
       setActionError('Please select a role before assigning.')
       return
     }
 
     await runUserAction(async () => {
-      await apis().post(endpoints.auth.grantPermission, { userId, roleCode })
-      setRoleInputs((prev) => ({ ...prev, [userId]: '' }))
+      await apis().post(endpoints.auth.grantPermission, { userId: user.userId, roleCode })
+      setRoleInputs((prev) => ({ ...prev, [user.userId]: '' }))
     })
   }
 
@@ -459,17 +465,28 @@ function AdminAdministrationPage() {
                   <td>{formatDate(user.createdAt)}</td>
                   <td>
                     <div className="admin-administration-actions">
+                      {user.isActive ? (
+                        <button
+                          type="button"
+                          className="role-btn-ghost admin-action-btn admin-action-btn-inactive"
+                          onClick={() => void handleDeactivate(user.userId)}
+                          disabled={isExecutingAction}
+                        >
+                          Set Inactive
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="role-btn-primary admin-action-btn admin-action-btn-active"
+                          onClick={() => void handleActivate(user.userId)}
+                          disabled={isExecutingAction}
+                        >
+                          Set Active
+                        </button>
+                      )}
                       <button
                         type="button"
-                        className="role-btn-primary"
-                        onClick={() => void handleActivate(user.userId)}
-                        disabled={isExecutingAction}
-                      >
-                        Approve / Activate
-                      </button>
-                      <button
-                        type="button"
-                        className="role-btn-ghost"
+                        className="role-btn-ghost admin-action-btn admin-action-btn-lock"
                         onClick={() => void handleLock(user.userId)}
                         disabled={isExecutingAction}
                       >
@@ -477,7 +494,7 @@ function AdminAdministrationPage() {
                       </button>
                       <div className="admin-administration-role-grant">
                         <select
-                          value={roleInputs[user.userId] || ''}
+                          value={roleInputs[user.userId] || user.roles?.[0] || ''}
                           onChange={(event) =>
                             handleSetRoleInput(user.userId, event.target.value)
                           }
@@ -493,11 +510,11 @@ function AdminAdministrationPage() {
                         <button
                           type="button"
                           className="role-btn-ghost"
-                          onClick={() => void handleAssignRole(user.userId)}
+                          onClick={() => void handleAssignRole(user)}
                           disabled={
                             isExecutingAction ||
                             loadingRoles ||
-                            !(roleInputs[user.userId] || '')
+                            !(roleInputs[user.userId] || user.roles?.[0] || '')
                           }
                         >
                           Assign Role
