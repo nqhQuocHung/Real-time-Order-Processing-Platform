@@ -14,6 +14,7 @@ import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.services.InventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,14 @@ public class InventoryController {
     ) {
         InventoryStockResponse response = inventoryService.getStock(productId);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_STOCK_GET_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/catalog")
+    public ResponseEntity<BaseResponse<List<InventoryStockResponse>>> getCatalog(
+            HttpServletRequest httpServletRequest
+    ) {
+        List<InventoryStockResponse> response = inventoryService.getCatalog();
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/summary")

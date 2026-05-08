@@ -60,6 +60,13 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/internal/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventories/catalog")
+                        .hasAnyAuthority(
+                                "PERM_VIEW_PRODUCT_CATALOG",
+                                "PERM_MANAGE_PARTNER_INVENTORY",
+                                "PERM_MANAGE_PRODUCTS",
+                                "PERM_MANAGE_ALL_ORDERS"
+                        )
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/*")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_INVENTORY", "PERM_MANAGE_PRODUCTS", "PERM_MANAGE_ALL_ORDERS")
                         .requestMatchers(

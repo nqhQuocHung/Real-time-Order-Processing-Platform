@@ -8,11 +8,14 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import java.util.List;
 import java.util.UUID;
 
 public interface InventoryService {
 
     InventoryStockResponse getStock(UUID productId);
+
+    List<InventoryStockResponse> getCatalog();
 
     InventoryCheckResponse checkStock(InventoryCheckRequest request);
 
