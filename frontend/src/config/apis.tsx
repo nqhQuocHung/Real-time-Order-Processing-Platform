@@ -6,8 +6,17 @@ import type {
 } from 'axios'
 import type { AppRole } from '../constants/roles'
 
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
-  'http://localhost:8080'
+function resolveDefaultApiBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    return 'http://localhost:8080'
+  }
+
+  return `${window.location.protocol}//${window.location.hostname}:8080`
+}
+
+const BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
+  resolveDefaultApiBaseUrl()
 
 type ValidationError = {
   field: string
