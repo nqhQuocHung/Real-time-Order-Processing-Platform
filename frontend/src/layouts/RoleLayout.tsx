@@ -315,7 +315,11 @@ function RoleLayout() {
     return 'Dashboard'
   }, [currentMenu, location.pathname])
 
-  const shouldShowMobileMenuToggle = location.pathname === dashboardPath
+  const nonStaticActiveMenuKeyChain = activeMenuKeyChain.filter(
+    (menuKey) => menuKey !== 'admin-group' && menuKey !== 'partner-group',
+  )
+  const isChildMenuPage = nonStaticActiveMenuKeyChain.length > 1
+  const shouldShowMobileMenuToggle = !isChildMenuPage
 
   useEffect(() => {
     let active = true
