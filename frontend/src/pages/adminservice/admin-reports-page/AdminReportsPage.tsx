@@ -16,6 +16,27 @@ type OrderListResponse = {
   content: OrderSummary[]
 }
 
+function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+  if (totalPages <= 0) {
+    return []
+  }
+
+  const half = Math.floor(maxButtons / 2)
+  let start = Math.max(0, currentPage - half)
+  let end = Math.min(totalPages - 1, start + maxButtons - 1)
+
+  if (end - start + 1 < maxButtons) {
+    start = Math.max(0, end - maxButtons + 1)
+  }
+
+  const pages: number[] = []
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i)
+  }
+
+  return pages
+}
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -26,6 +47,8 @@ function formatMoney(value: number) {
 function AdminReportsPage() {
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [error, setError] = useState('')
+  const [statusPage, setStatusPage] = useState(0)
+  const statusPageSize = 5
 
   useEffect(() => {
     async function loadOrders() {
@@ -51,10 +74,54 @@ function AdminReportsPage() {
     return stats
   }, [orders])
 
+  const statusEntries = useMemo(() => {
+    return Object.entries(statusStats).sort(([firstStatus], [secondStatus]) =>
+      firstStatus.localeCompare(secondStatus),
+    )
+  }, [statusStats])
+
+  const statusTotalPages = useMemo(() => {
+    return statusEntries.length > 0 ? Math.ceil(statusEntries.length / statusPageSize) : 0
+  }, [statusEntries.length, statusPageSize])
+
+  useEffect(() => {
+    if (statusTotalPages === 0 && statusPage !== 0) {
+      setStatusPage(0)
+      return
+    }
+
+    const maxPage = Math.max(0, statusTotalPages - 1)
+    if (statusPage > maxPage) {
+      setStatusPage(maxPage)
+    }
+  }, [statusPage, statusTotalPages])
+
+  const visibleStatusEntries = useMemo(() => {
+    const start = statusPage * statusPageSize
+    return statusEntries.slice(start, start + statusPageSize)
+  }, [statusEntries, statusPage, statusPageSize])
+
+  const paginationPages = useMemo(
+    () => buildPaginationPages(statusPage, statusTotalPages),
+    [statusPage, statusTotalPages],
+  )
+
   const totalRevenue = useMemo(
     () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),
     [orders],
   )
+
+  const statusListStart = statusEntries.length === 0 ? 0 : statusPage * statusPageSize + 1
+  const statusListEnd = statusEntries.length === 0
+    ? 0
+    : Math.min((statusPage + 1) * statusPageSize, statusEntries.length)
+
+  function handleGoToStatusPage(targetPage: number) {
+    if (targetPage < 0 || targetPage >= statusTotalPages || targetPage === statusPage) {
+      return
+    }
+    setStatusPage(targetPage)
+  }
 
   return (
     <section className="admin-reports-page role-page-stack">
@@ -81,13 +148,47 @@ function AdminReportsPage() {
       <article className="role-card">
         <h3>Phân bổ trạng thái đơn hàng</h3>
         <ul className="role-list">
-          {Object.entries(statusStats).map(([status, count]) => (
+          {visibleStatusEntries.map(([status, count]) => (
             <li key={status}>
               {status}: {count}
             </li>
           ))}
-          {!Object.keys(statusStats).length && <li>Chưa có dữ liệu.</li>}
+          {!statusEntries.length && <li>Chưa có dữ liệu.</li>}
         </ul>
+
+        <div className="admin-reports-pagination">
+          <p className="admin-reports-pagination-summary">
+            Showing {statusListStart}-{statusListEnd} of {statusEntries.length}
+          </p>
+          <div className="admin-reports-pagination-controls">
+            <button
+              type="button"
+              className="role-btn-ghost admin-reports-page-btn"
+              onClick={() => handleGoToStatusPage(statusPage - 1)}
+              disabled={statusPage <= 0}
+            >
+              Previous
+            </button>
+            {paginationPages.map((pageNumber) => (
+              <button
+                key={`status-page-${pageNumber}`}
+                type="button"
+                className={`role-btn-ghost admin-reports-page-btn ${pageNumber === statusPage ? 'is-active' : ''}`}
+                onClick={() => handleGoToStatusPage(pageNumber)}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="role-btn-ghost admin-reports-page-btn"
+              onClick={() => handleGoToStatusPage(statusPage + 1)}
+              disabled={statusPage >= statusTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </article>
     </section>
   )

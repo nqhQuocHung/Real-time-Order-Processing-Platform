@@ -272,13 +272,15 @@
   position: absolute;
   right: 0;
   top: calc(100% + 8px);
+
   min-width: 190px;
   border-radius: 10px;
   border: 1px solid rgba(133, 169, 214, 0.33);
   background: rgba(6, 20, 33, 0.98);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
   padding: 7px;
-  z-index: 30;
+
+  z-index: 9999;
 }
 
 .role-user-dropdown-item {
@@ -409,7 +411,7 @@
   gap: 10px;
 }
 
-.role-kv-grid > div {
+.role-kv-grid>div {
   border: 1px solid rgba(133, 169, 214, 0.22);
   border-radius: 10px;
   padding: 8px 10px;
@@ -588,6 +590,10 @@
     border-bottom: 1px solid var(--role-line);
     padding: 10px 10px;
     gap: 8px;
+
+    position: relative;
+    overflow: visible;
+    z-index: 100;
   }
 
   .role-mobile-menu-toggle {

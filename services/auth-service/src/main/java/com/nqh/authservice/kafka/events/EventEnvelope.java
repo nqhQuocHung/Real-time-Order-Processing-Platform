@@ -1,4 +1,5 @@
-package com.nqh.authservice.events;
+package com.nqh.authservice.kafka.events;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 

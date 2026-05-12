@@ -59,6 +59,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/notifications/stream").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/notifications")
                         .hasAnyAuthority("PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/notifications", "/api/v1/notifications/*")

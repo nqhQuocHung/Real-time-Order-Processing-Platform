@@ -155,27 +155,50 @@
   background: rgba(9, 24, 40, 0.82);
 }
 
-.admin-administration-profile-grid {
+.admin-administration-profile-layout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.admin-administration-profile-grid > div {
+.admin-administration-profile-panel {
   border: 1px solid rgba(133, 169, 214, 0.24);
   border-radius: 8px;
   background: rgba(10, 28, 45, 0.78);
-  padding: 8px 10px;
+  padding: 10px;
 }
 
-.admin-administration-profile-grid span {
-  display: block;
+.admin-administration-profile-panel h4 {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: #dff5ff;
+  letter-spacing: 0.02em;
+}
+
+.admin-administration-profile-panel-full {
+  grid-column: 1 / -1;
+}
+
+.admin-administration-profile-kv-list {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-administration-profile-kv-list-three-cols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-administration-profile-kv-row {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-administration-profile-kv-row span {
   font-size: 0.75rem;
   color: var(--role-text-sub);
-  margin-bottom: 4px;
 }
 
-.admin-administration-profile-grid strong {
+.admin-administration-profile-kv-row strong {
   display: block;
   font-size: 0.85rem;
   color: var(--role-text);
@@ -270,7 +293,11 @@
     width: 100%;
   }
 
-  .admin-administration-profile-grid {
+  .admin-administration-profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-administration-profile-kv-list-three-cols {
     grid-template-columns: 1fr;
   }
 

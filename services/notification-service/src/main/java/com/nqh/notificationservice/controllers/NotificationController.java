@@ -9,15 +9,20 @@ import com.nqh.notificationservice.dtos.NotificationLogResponse;
 import com.nqh.notificationservice.dtos.UpdateNotificationStatusRequest;
 import com.nqh.notificationservice.enums.NotificationChannelEnum;
 import com.nqh.notificationservice.enums.NotificationStatusEnum;
+import com.nqh.notificationservice.services.AdminSseService;
 import com.nqh.notificationservice.services.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,8 +31,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -37,6 +44,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final ApiResponseFactory apiResponseFactory;
+    private final AdminSseService adminSseService;
 
     @PostMapping
     public ResponseEntity<BaseResponse<NotificationLogResponse>> createNotification(
@@ -87,5 +95,61 @@ public class NotificationController {
     ) {
         NotificationLogResponse response = notificationService.updateNotificationStatus(notificationCode, request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.NOTI_STATUS_UPDATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping(
+            value = "/stream",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public SseEmitter streamNotifications(
+            @RequestHeader(name = "X-User-Id", required = false) String forwardedUserId,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String userId = normalize(forwardedUserId);
+        if (userId == null && jwt != null) {
+            userId = normalize(jwt.getSubject());
+        }
+        if (userId == null) {
+            throw new IllegalStateException("Cannot resolve userId for notification stream.");
+        }
+
+        boolean isAdmin = isAdminUser(forwardedUserRole, jwt);
+        return adminSseService.subscribe(userId, isAdmin);
+    }
+
+    private boolean isAdminUser(String forwardedUserRole, Jwt jwt) {
+        String normalizedForwardedRole = normalize(forwardedUserRole);
+        if (normalizedForwardedRole != null) {
+            if ("ADMIN".equalsIgnoreCase(normalizedForwardedRole)
+                    || "ROLE_ADMIN".equalsIgnoreCase(normalizedForwardedRole)) {
+                return true;
+            }
+        }
+
+        if (jwt == null) {
+            return false;
+        }
+
+        if (containsIgnoreCase(jwt.getClaimAsStringList("roles"), "ADMIN")) {
+            return true;
+        }
+
+        return containsIgnoreCase(jwt.getClaimAsStringList("permissions"), "MANAGE_PARTNERS");
+    }
+
+    private boolean containsIgnoreCase(Collection<String> values, String expected) {
+        if (values == null || values.isEmpty()) {
+            return false;
+        }
+        return values.stream().anyMatch(value -> expected.equalsIgnoreCase(value));
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

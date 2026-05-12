@@ -147,6 +147,9 @@ const endpoints = {
       `/api/v1/notifications/${notificationCode}`,
     updateStatus: (notificationCode: string) =>
       `/api/v1/notifications/${notificationCode}/status`,
+
+    // SSE endpoint path (BASE_URL is appended by the stream hook)
+    stream: '/api/v1/notifications/stream',
   },
 }
 
@@ -362,6 +365,27 @@ async function requestRefreshToken(
   }
 }
 
+async function refreshSessionToken(): Promise<boolean> {
+  const refreshToken = getAuthSession()?.refreshToken
+  if (!refreshToken) {
+    return false
+  }
+
+  const payload = await requestRefreshToken(refreshToken)
+  if (!payload?.accessToken || !payload.refreshToken) {
+    clearAuthSession()
+    return false
+  }
+
+  setAuthSession({
+    accessToken: payload.accessToken,
+    refreshToken: payload.refreshToken,
+    tokenType: payload.tokenType,
+  })
+
+  return true
+}
+
 let refreshPromise: Promise<string | null> | null = null
 
 function createApiInstance(accessToken?: string) {
@@ -495,6 +519,7 @@ export {
   extractApiMessage,
   getAuthSession,
   isAuthenticated,
+  refreshSessionToken,
   setAuthSession,
 }
 

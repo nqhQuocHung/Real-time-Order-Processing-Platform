@@ -13,6 +13,9 @@ TOPICS=(
   "payment.transaction.failed.v1"
   "order.lifecycle.completed.v1"
   "order.lifecycle.failed.v1"
+
+  "partner.request.created.v1"
+  "partner.request.decided.v1"
 )
 
 echo "[kafka-init] Waiting for Kafka broker at ${BOOTSTRAP_SERVER}..."

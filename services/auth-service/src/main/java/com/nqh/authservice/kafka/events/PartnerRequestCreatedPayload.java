@@ -1,15 +1,15 @@
-package com.nqh.authservice.events;
+package com.nqh.authservice.kafka.events;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record PartnerRequestCreatedPayload(
-        Long partnerRequestId,
-        String partnerRequestUuid,
-        Long userId,
-        String userUuid,
+        UUID requestId,
+        UUID userId,
         String email,
-        String shopName,
+        String fullName,
         String status,
+        String requestNote,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

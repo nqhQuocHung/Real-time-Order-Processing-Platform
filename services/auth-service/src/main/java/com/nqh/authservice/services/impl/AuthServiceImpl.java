@@ -45,6 +45,7 @@ import com.nqh.authservice.enums.PartnerRequestDecisionActionEnum;
 import com.nqh.authservice.enums.PartnerRequestStatusEnum;
 import com.nqh.authservice.enums.TokenTypeEnum;
 import com.nqh.authservice.enums.UserStatusEnum;
+import com.nqh.authservice.kafka.producers.PartnerKafkaProducer;
 import com.nqh.authservice.pojos.RefreshToken;
 import com.nqh.authservice.pojos.Permission;
 import com.nqh.authservice.pojos.PartnerUpgradeRequest;
@@ -117,6 +118,7 @@ public class AuthServiceImpl implements AuthService {
     private final int forgotPasswordOtpExpirationMinutes;
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private final PartnerKafkaProducer partnerKafkaProducer;
 
     public AuthServiceImpl(
             UserRepository userRepository,
@@ -136,7 +138,9 @@ public class AuthServiceImpl implements AuthService {
             @Value("${app.avatar.default-url:}") String defaultAvatarUrl,
             @Value("${MAX.OTP.FAILED.ATTEMPTS:5}") int maxOtpFailedAttempts,
             @Value("${app.otp.change-password-expiration-minutes:5}") int changePasswordOtpExpirationMinutes,
-            @Value("${app.otp.forgot-password-expiration-minutes:10}") int forgotPasswordOtpExpirationMinutes
+            @Value("${app.otp.forgot-password-expiration-minutes:10}") int forgotPasswordOtpExpirationMinutes,
+            PartnerKafkaProducer partnerKafkaProducer
+
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -156,6 +160,7 @@ public class AuthServiceImpl implements AuthService {
         this.maxOtpFailedAttempts = maxOtpFailedAttempts;
         this.changePasswordOtpExpirationMinutes = changePasswordOtpExpirationMinutes;
         this.forgotPasswordOtpExpirationMinutes = forgotPasswordOtpExpirationMinutes;
+        this.partnerKafkaProducer = partnerKafkaProducer;
     }
 
     @Override
@@ -532,6 +537,7 @@ public class AuthServiceImpl implements AuthService {
             CreatePartnerUpgradeRequest request
     ) {
         User authenticatedUser = resolveAuthenticatedUser(authorizationHeader);
+
         if (!hasRole(authenticatedUser, "USER") || hasRole(authenticatedUser, "SHOPEE_PARTNER")) {
             throw new AppException(HttpStatus.FORBIDDEN, MessageCode.AUTH_FORBIDDEN);
         }
@@ -548,9 +554,13 @@ public class AuthServiceImpl implements AuthService {
                 .status(PartnerRequestStatusEnum.PENDING)
                 .requestNote(trimToNull(request.getRequestNote()))
                 .build();
+
         partnerUpgradeRequest.setIsActive(Boolean.TRUE);
 
         PartnerUpgradeRequest saved = partnerUpgradeRequestRepository.save(partnerUpgradeRequest);
+
+        partnerKafkaProducer.publishPartnerRequestCreated(saved);
+
         return mapToPartnerUpgradeRequestResponse(saved);
     }
 
@@ -634,6 +644,7 @@ public class AuthServiceImpl implements AuthService {
         partnerUpgradeRequest.setReviewedAt(LocalDateTime.now());
 
         PartnerUpgradeRequest saved = partnerUpgradeRequestRepository.save(partnerUpgradeRequest);
+        partnerKafkaProducer.publishPartnerRequestDecided(saved, action.name());
         return mapToPartnerUpgradeRequestResponse(saved);
     }
 
