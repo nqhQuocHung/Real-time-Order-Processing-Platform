@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@microsoft/fetch-event-source@^2.0.1":
+  version "2.0.1"
+  resolved "https://registry.npmjs.org/@microsoft/fetch-event-source/-/fetch-event-source-2.0.1.tgz"
+  integrity sha512-W6CLUJ2eBMw3Rec70qrsEW0jOm/3twwJv21mrmj2yORiaVmVYGS4sSS5yUwvQc1ZlDLYGPnClVWmUUMagKNsfA==
+
 "@oxc-project/types@=0.124.0":
   version "0.124.0"
   resolved "https://registry.npmjs.org/@oxc-project/types/-/types-0.124.0.tgz"

@@ -50,13 +50,11 @@ services:
       KAFKA_CFG_PROCESS_ROLES: controller,broker
       KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
       KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-
       KAFKA_CFG_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:9092
       KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       ALLOW_PLAINTEXT_LISTENER: "yes"
-
       KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
     volumes:
       - D:/docker-data/ropp/kafka:/bitnami/kafka
@@ -106,6 +104,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
     ports:
       - "8081:8081"
     environment:
@@ -114,6 +114,9 @@ services:
       AUTH_DB_PORT: 5432
       AUTH_DB_USERNAME: auth_service
       AUTH_DB_PASSWORD: REDACTED_DB_PASSWORD
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
+      TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
     networks:
       - platform-net
 
@@ -188,6 +191,12 @@ services:
       NOTIFICATION_DB_USERNAME: notification_service
       NOTIFICATION_DB_PASSWORD: REDACTED_DB_PASSWORD
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TOPIC_PAYMENT_SUCCEEDED: payment.transaction.succeeded.v1
+      TOPIC_PAYMENT_FAILED: payment.transaction.failed.v1
+      TOPIC_ORDER_COMPLETED: order.lifecycle.completed.v1
+      TOPIC_ORDER_FAILED: order.lifecycle.failed.v1
+      TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
+      TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
     networks:
       - platform-net
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMyProfile } from '../../../auth/authSession'
 import {
   apis,
@@ -6,8 +6,11 @@ import {
   extractApiData,
   extractApiErrorMessage,
   getAuthSession,
+  refreshSessionToken,
+  setAuthSession,
 } from '../../../config/apis'
-import { AppRole } from '../../../constants/roles'
+import { AppRole, resolvePrimaryRole } from '../../../constants/roles'
+import useNotificationStream from '../../../hooks/useNotificationStream'
 import './UserDashboardPage.css'
 
 type OrderSummary = {
@@ -59,6 +62,7 @@ function formatMoney(value: number, currency: string) {
 
 function UserDashboardPage() {
   const session = getAuthSession()
+  const promotingSessionRef = useRef(false)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -121,6 +125,72 @@ function UserDashboardPage() {
     () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),
     [orders],
   )
+
+  async function promoteSessionToPartnerIfNeeded() {
+    if (promotingSessionRef.current) {
+      return
+    }
+
+    promotingSessionRef.current = true
+    try {
+      const refreshed = await refreshSessionToken()
+      if (!refreshed) {
+        setPartnerRequestError('Cannot refresh session token after partner approval.')
+        return
+      }
+
+      const profile = await fetchMyProfile()
+      const backendRoles = profile.roles || []
+      const role = resolvePrimaryRole(backendRoles)
+
+      setAuthSession({
+        userId: profile.userId || session?.userId || '',
+        username: profile.username || session?.username || '',
+        email: profile.email || session?.email || '',
+        role,
+        backendRoles,
+        backendPermissions: profile.permissions || [],
+        backendMenus: profile.menus || [],
+      })
+
+      setPartnerRequestSuccess('Your partner request was approved. Partner workspace is now available.')
+    } catch (error) {
+      setPartnerRequestError(
+        extractApiErrorMessage(error, 'Cannot update session after partner approval.'),
+      )
+    } finally {
+      promotingSessionRef.current = false
+    }
+  }
+
+  useNotificationStream({
+    enabled: Boolean(session?.accessToken),
+    onPartnerRequestDecided: (event) => {
+      if (!session?.userId || event.userId !== session.userId) {
+        return
+      }
+
+      setPartnerRequest((previous) => ({
+        requestId: event.requestId,
+        status: (event.status as PartnerRequestStatus) || previous?.status || 'PENDING',
+        requestNote: previous?.requestNote,
+        reviewNote: event.reviewNote,
+        reviewedBy: event.reviewedBy,
+        reviewedAt: event.reviewedAt,
+        createdAt: previous?.createdAt,
+      }))
+
+      if (event.status === 'APPROVED' || event.decision === 'APPROVE') {
+        setPartnerRequestError('')
+        void promoteSessionToPartnerIfNeeded()
+      }
+
+      if (event.status === 'REJECTED' || event.decision === 'REJECT') {
+        setPartnerRequestSuccess('')
+        setPartnerRequestError(event.reviewNote || 'Your partner upgrade request was rejected.')
+      }
+    },
+  })
 
   async function handleSubmitPartnerRequest() {
     if (!isUserRole) {
@@ -230,7 +300,7 @@ function UserDashboardPage() {
 
           {partnerRequest?.status === 'APPROVED' && (
             <p className="role-muted">
-              Your request is approved. Please refresh or re-login to use partner workspace.
+              Your request is approved. Partner workspace is enabled for this session.
             </p>
           )}
         </article>

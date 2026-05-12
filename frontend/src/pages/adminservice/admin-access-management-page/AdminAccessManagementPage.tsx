@@ -126,6 +126,26 @@ function collectDescendantIds(targetMenuId: string, menuTree: MenuNode[]): Set<s
   return descendants
 }
 
+function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+  if (totalPages <= 0) {
+    return []
+  }
+
+  const half = Math.floor(maxButtons / 2)
+  let start = Math.max(0, currentPage - half)
+  let end = Math.min(totalPages - 1, start + maxButtons - 1)
+
+  if (end - start + 1 < maxButtons) {
+    start = Math.max(0, end - maxButtons + 1)
+  }
+
+  const pages: number[] = []
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i)
+  }
+  return pages
+}
+
 function AdminAccessManagementPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -158,6 +178,13 @@ function AdminAccessManagementPage() {
   const [editingMenuError, setEditingMenuError] = useState('')
   const [deletingMenuId, setDeletingMenuId] = useState('')
   const [pendingDeleteMenu, setPendingDeleteMenu] = useState<MenuSummary | null>(null)
+  const [mappingMenuPage, setMappingMenuPage] = useState(0)
+  const [roleTablePage, setRoleTablePage] = useState(0)
+  const [menuTablePage, setMenuTablePage] = useState(0)
+
+  const mappingMenuPageSize = 8
+  const roleTablePageSize = 8
+  const menuTablePageSize = 8
 
   const selectedRole = useMemo(() => {
     return roles.find((item) => item.code === selectedRoleCode) || null
@@ -165,6 +192,11 @@ function AdminAccessManagementPage() {
 
   const menuTree = useMemo(() => buildMenuTree(menus), [menus])
   const flattenedMenus = useMemo(() => flattenMenuTree(menuTree), [menuTree])
+  const sortedRoles = useMemo(
+    () => [...roles].sort((first, second) => first.code.localeCompare(second.code)),
+    [roles],
+  )
+  const sortedMenus = useMemo(() => [...menus].sort(compareMenusByOrder), [menus])
 
   const parentTabOptions = useMemo(() => {
     return menus
@@ -193,6 +225,50 @@ function AdminAccessManagementPage() {
     }
     return menus.filter((item) => item.parentMenuId === pendingDeleteMenu.id).length
   }, [menus, pendingDeleteMenu?.id])
+
+  const mappingMenuTotalPages = useMemo(() => {
+    return flattenedMenus.length > 0
+      ? Math.ceil(flattenedMenus.length / mappingMenuPageSize)
+      : 0
+  }, [flattenedMenus.length, mappingMenuPageSize])
+
+  const visibleMappingMenus = useMemo(() => {
+    const start = mappingMenuPage * mappingMenuPageSize
+    return flattenedMenus.slice(start, start + mappingMenuPageSize)
+  }, [flattenedMenus, mappingMenuPage, mappingMenuPageSize])
+
+  const mappingMenuPaginationPages = useMemo(
+    () => buildPaginationPages(mappingMenuPage, mappingMenuTotalPages),
+    [mappingMenuPage, mappingMenuTotalPages],
+  )
+
+  const roleTableTotalPages = useMemo(() => {
+    return sortedRoles.length > 0 ? Math.ceil(sortedRoles.length / roleTablePageSize) : 0
+  }, [roleTablePageSize, sortedRoles.length])
+
+  const visibleRoles = useMemo(() => {
+    const start = roleTablePage * roleTablePageSize
+    return sortedRoles.slice(start, start + roleTablePageSize)
+  }, [roleTablePage, roleTablePageSize, sortedRoles])
+
+  const roleTablePaginationPages = useMemo(
+    () => buildPaginationPages(roleTablePage, roleTableTotalPages),
+    [roleTablePage, roleTableTotalPages],
+  )
+
+  const menuTableTotalPages = useMemo(() => {
+    return sortedMenus.length > 0 ? Math.ceil(sortedMenus.length / menuTablePageSize) : 0
+  }, [menuTablePageSize, sortedMenus.length])
+
+  const visibleMenus = useMemo(() => {
+    const start = menuTablePage * menuTablePageSize
+    return sortedMenus.slice(start, start + menuTablePageSize)
+  }, [menuTablePage, menuTablePageSize, sortedMenus])
+
+  const menuTablePaginationPages = useMemo(
+    () => buildPaginationPages(menuTablePage, menuTableTotalPages),
+    [menuTablePage, menuTableTotalPages],
+  )
 
   async function loadAccessData() {
     setLoading(true)
@@ -238,6 +314,39 @@ function AdminAccessManagementPage() {
       setNewPageParentMenuId('')
     }
   }, [newPageParentMenuId, parentTabOptions])
+
+  useEffect(() => {
+    if (mappingMenuTotalPages === 0 && mappingMenuPage !== 0) {
+      setMappingMenuPage(0)
+      return
+    }
+    const maxPage = Math.max(0, mappingMenuTotalPages - 1)
+    if (mappingMenuPage > maxPage) {
+      setMappingMenuPage(maxPage)
+    }
+  }, [mappingMenuPage, mappingMenuTotalPages])
+
+  useEffect(() => {
+    if (roleTableTotalPages === 0 && roleTablePage !== 0) {
+      setRoleTablePage(0)
+      return
+    }
+    const maxPage = Math.max(0, roleTableTotalPages - 1)
+    if (roleTablePage > maxPage) {
+      setRoleTablePage(maxPage)
+    }
+  }, [roleTablePage, roleTableTotalPages])
+
+  useEffect(() => {
+    if (menuTableTotalPages === 0 && menuTablePage !== 0) {
+      setMenuTablePage(0)
+      return
+    }
+    const maxPage = Math.max(0, menuTableTotalPages - 1)
+    if (menuTablePage > maxPage) {
+      setMenuTablePage(maxPage)
+    }
+  }, [menuTablePage, menuTableTotalPages])
 
   async function handleCreateRole() {
     setError('')
@@ -519,6 +628,42 @@ function AdminAccessManagementPage() {
     }
   }
 
+  function handleGoToMappingMenuPage(targetPage: number) {
+    if (targetPage < 0 || targetPage >= mappingMenuTotalPages || targetPage === mappingMenuPage) {
+      return
+    }
+    setMappingMenuPage(targetPage)
+  }
+
+  function handleGoToRoleTablePage(targetPage: number) {
+    if (targetPage < 0 || targetPage >= roleTableTotalPages || targetPage === roleTablePage) {
+      return
+    }
+    setRoleTablePage(targetPage)
+  }
+
+  function handleGoToMenuTablePage(targetPage: number) {
+    if (targetPage < 0 || targetPage >= menuTableTotalPages || targetPage === menuTablePage) {
+      return
+    }
+    setMenuTablePage(targetPage)
+  }
+
+  const mappingMenuStart = flattenedMenus.length === 0 ? 0 : mappingMenuPage * mappingMenuPageSize + 1
+  const mappingMenuEnd = flattenedMenus.length === 0
+    ? 0
+    : Math.min((mappingMenuPage + 1) * mappingMenuPageSize, flattenedMenus.length)
+
+  const roleTableStart = sortedRoles.length === 0 ? 0 : roleTablePage * roleTablePageSize + 1
+  const roleTableEnd = sortedRoles.length === 0
+    ? 0
+    : Math.min((roleTablePage + 1) * roleTablePageSize, sortedRoles.length)
+
+  const menuTableStart = sortedMenus.length === 0 ? 0 : menuTablePage * menuTablePageSize + 1
+  const menuTableEnd = sortedMenus.length === 0
+    ? 0
+    : Math.min((menuTablePage + 1) * menuTablePageSize, sortedMenus.length)
+
   return (
     <section className="admin-access-management-page role-page-stack">
       <article className="role-card">
@@ -724,7 +869,7 @@ function AdminAccessManagementPage() {
 
         <div className="admin-access-management-menu-list">
           {!flattenedMenus.length && <p className="role-muted">No tab/page data available.</p>}
-          {flattenedMenus.map(({ node, depth }) => (
+          {visibleMappingMenus.map(({ node, depth }) => (
             <label
               key={node.key}
               className="admin-access-management-menu-item"
@@ -747,6 +892,40 @@ function AdminAccessManagementPage() {
               </div>
             </label>
           ))}
+        </div>
+
+        <div className="admin-access-management-pagination">
+          <p className="admin-access-management-pagination-summary">
+            Showing {mappingMenuStart}-{mappingMenuEnd} of {flattenedMenus.length}
+          </p>
+          <div className="admin-access-management-pagination-controls">
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToMappingMenuPage(mappingMenuPage - 1)}
+              disabled={mappingMenuPage <= 0}
+            >
+              Previous
+            </button>
+            {mappingMenuPaginationPages.map((pageNumber) => (
+              <button
+                key={`mapping-menu-page-${pageNumber}`}
+                type="button"
+                className={`role-btn-ghost admin-access-management-page-btn ${pageNumber === mappingMenuPage ? 'is-active' : ''}`}
+                onClick={() => handleGoToMappingMenuPage(pageNumber)}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToMappingMenuPage(mappingMenuPage + 1)}
+              disabled={mappingMenuPage >= mappingMenuTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
         </div>
 
         <div className="role-inline-actions">
@@ -780,7 +959,7 @@ function AdminAccessManagementPage() {
                   </td>
                 </tr>
               )}
-              {roles.map((role) => (
+              {visibleRoles.map((role) => (
                 <tr key={role.code}>
                   <td>{role.code}</td>
                   <td>{role.name || '-'}</td>
@@ -789,6 +968,40 @@ function AdminAccessManagementPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="admin-access-management-pagination">
+          <p className="admin-access-management-pagination-summary">
+            Showing {roleTableStart}-{roleTableEnd} of {sortedRoles.length}
+          </p>
+          <div className="admin-access-management-pagination-controls">
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToRoleTablePage(roleTablePage - 1)}
+              disabled={roleTablePage <= 0}
+            >
+              Previous
+            </button>
+            {roleTablePaginationPages.map((pageNumber) => (
+              <button
+                key={`role-table-page-${pageNumber}`}
+                type="button"
+                className={`role-btn-ghost admin-access-management-page-btn ${pageNumber === roleTablePage ? 'is-active' : ''}`}
+                onClick={() => handleGoToRoleTablePage(pageNumber)}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToRoleTablePage(roleTablePage + 1)}
+              disabled={roleTablePage >= roleTableTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </article>
 
@@ -815,7 +1028,7 @@ function AdminAccessManagementPage() {
                   </td>
                 </tr>
               )}
-              {[...menus].sort(compareMenusByOrder).map((menu) => (
+              {visibleMenus.map((menu) => (
                 <tr
                   key={menu.key}
                   className="admin-access-management-record"
@@ -853,6 +1066,40 @@ function AdminAccessManagementPage() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="admin-access-management-pagination">
+          <p className="admin-access-management-pagination-summary">
+            Showing {menuTableStart}-{menuTableEnd} of {sortedMenus.length}
+          </p>
+          <div className="admin-access-management-pagination-controls">
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToMenuTablePage(menuTablePage - 1)}
+              disabled={menuTablePage <= 0}
+            >
+              Previous
+            </button>
+            {menuTablePaginationPages.map((pageNumber) => (
+              <button
+                key={`menu-table-page-${pageNumber}`}
+                type="button"
+                className={`role-btn-ghost admin-access-management-page-btn ${pageNumber === menuTablePage ? 'is-active' : ''}`}
+                onClick={() => handleGoToMenuTablePage(pageNumber)}
+              >
+                {pageNumber + 1}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="role-btn-ghost admin-access-management-page-btn"
+              onClick={() => handleGoToMenuTablePage(menuTablePage + 1)}
+              disabled={menuTablePage >= menuTableTotalPages - 1}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </article>
 

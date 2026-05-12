@@ -1,7 +1,7 @@
 package com.nqh.notificationservice.kafka.consumers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nqh.notificationservice.kafka.events.PartnerRequestCreatedEvent;
+import com.nqh.notificationservice.kafka.events.PartnerRequestDecidedEvent;
 import com.nqh.notificationservice.services.AdminSseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,28 +11,29 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PartnerRequestCreatedConsumer {
+public class PartnerRequestDecidedConsumer {
 
     private final ObjectMapper objectMapper;
     private final AdminSseService adminSseService;
 
     @KafkaListener(
-            topics = "${app.partner.topic.request-created}",
+            topics = "${app.partner.topic.request-decided}",
             groupId = "${spring.kafka.consumer.group-id}"
     )
     public void consume(String message) {
         try {
-            PartnerRequestCreatedEvent event = objectMapper.readValue(message, PartnerRequestCreatedEvent.class);
+            PartnerRequestDecidedEvent event = objectMapper.readValue(message, PartnerRequestDecidedEvent.class);
             log.info(
-                    "Consumed partner request created event. eventId={}, requestId={}, userId={}, status={}",
+                    "Consumed partner request decided event. eventId={}, requestId={}, userId={}, status={}, decision={}",
                     event.eventId(),
                     event.requestId(),
                     event.userId(),
-                    event.status()
+                    event.status(),
+                    event.decision()
             );
-            adminSseService.sendToAdmins("partner.request.created", event);
+            adminSseService.sendToUser(event.userId().toString(), "partner.request.decided", event);
         } catch (Exception ex) {
-            log.error("Failed to consume partner request created event. payload={}", message, ex);
+            log.error("Failed to consume partner request decided event. payload={}", message, ex);
         }
     }
 }
