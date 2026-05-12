@@ -1,0 +1,61 @@
+.global-api-loading {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 12000;
+  pointer-events: none;
+}
+
+.global-api-loading-bar {
+  height: 3px;
+  background: linear-gradient(90deg, #1bc3ff, #22e4c6, #1bc3ff);
+  background-size: 200% 100%;
+  animation: global-api-loading-bar 1s linear infinite;
+  box-shadow: 0 0 16px rgba(34, 228, 198, 0.45);
+}
+
+.global-api-loading-badge {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(100, 190, 255, 0.36);
+  background: rgba(8, 27, 46, 0.92);
+  color: #eaf4ff;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 28px rgba(2, 11, 20, 0.4);
+}
+
+.global-api-loading-spinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(234, 244, 255, 0.35);
+  border-top-color: #eaf4ff;
+  animation: global-api-loading-spin 0.85s linear infinite;
+}
+
+@keyframes global-api-loading-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes global-api-loading-bar {
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}

@@ -6,6 +6,59 @@ import type {
 } from 'axios'
 import type { AppRole } from '../constants/roles'
 
+const API_LOADING_EVENT = 'app-api-loading'
+
+type ApiLoadingEventDetail = {
+  pendingCount: number
+}
+
+type ApiRequestConfig = InternalAxiosRequestConfig & {
+  _loadingTracked?: boolean
+  _skipGlobalLoading?: boolean
+}
+
+let pendingApiRequestCount = 0
+
+function emitApiLoadingChange() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<ApiLoadingEventDetail>(API_LOADING_EVENT, {
+      detail: {
+        pendingCount: pendingApiRequestCount,
+      },
+    }),
+  )
+}
+
+function beginApiLoading(config: InternalAxiosRequestConfig) {
+  const requestConfig = config as ApiRequestConfig
+  if (requestConfig._skipGlobalLoading) {
+    return
+  }
+
+  requestConfig._loadingTracked = true
+  pendingApiRequestCount += 1
+  emitApiLoadingChange()
+}
+
+function endApiLoading(config?: InternalAxiosRequestConfig) {
+  if (!config) {
+    return
+  }
+
+  const requestConfig = config as ApiRequestConfig
+  if (!requestConfig._loadingTracked) {
+    return
+  }
+
+  requestConfig._loadingTracked = false
+  pendingApiRequestCount = Math.max(0, pendingApiRequestCount - 1)
+  emitApiLoadingChange()
+}
+
 function resolveDefaultApiBaseUrl(): string {
   if (typeof window === 'undefined') {
     return 'http://localhost:8080'
@@ -397,6 +450,8 @@ function createApiInstance(accessToken?: string) {
   })
 
   instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+    beginApiLoading(config)
+
     const token = accessToken || getAuthSession()?.accessToken
 
     if (token && !config.headers.Authorization) {
@@ -411,11 +466,16 @@ function createApiInstance(accessToken?: string) {
   })
 
   instance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      endApiLoading(response.config)
+      return response
+    },
     async (error: AxiosError<ApiResponseEnvelope<unknown>>) => {
       const originalRequest = error.config as
         | (InternalAxiosRequestConfig & { _retry?: boolean })
         | undefined
+
+      endApiLoading(originalRequest)
 
       const status = error.response?.status
       const canRefresh =
@@ -510,6 +570,7 @@ function extractApiErrorMessage(
 }
 
 export {
+  API_LOADING_EVENT,
   apis,
   BASE_URL,
   clearAuthSession,
@@ -523,4 +584,10 @@ export {
   setAuthSession,
 }
 
-export type { ApiResponseEnvelope, AuthSession, BackendMenuItem, ValidationError }
+export type {
+  ApiLoadingEventDetail,
+  ApiResponseEnvelope,
+  AuthSession,
+  BackendMenuItem,
+  ValidationError,
+}

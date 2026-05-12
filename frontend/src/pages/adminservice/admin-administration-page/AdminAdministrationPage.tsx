@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'react-toastify'
+import { useLocation } from 'react-router-dom'
 import {
   apis,
   endpoints,
@@ -7,8 +8,9 @@ import {
   extractApiErrorMessage,
 } from '../../../config/apis'
 import defaultAvatar from '../../../assets/default-avatar.svg'
-import useNotificationStream from '../../../hooks/useNotificationStream'
 import './AdminAdministrationPage.css'
+
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
 
 type AdminUserSummary = {
   userId: string
@@ -105,6 +107,11 @@ type PartnerUpgradeRequestListResponse = {
   last: boolean
 }
 
+type NotificationStreamEventDetail = {
+  eventName?: string
+  payload?: unknown
+}
+
 function normalizeRoleCodes(roles?: string[]): string[] {
   return (roles || [])
     .map((role) => role.trim())
@@ -176,6 +183,7 @@ function toProfileFallback(user: AdminUserSummary): AdminUserProfile {
 }
 
 function AdminAdministrationPage() {
+  const location = useLocation()
   const [loadingSummary, setLoadingSummary] = useState(true)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [loadingRoles, setLoadingRoles] = useState(true)
@@ -204,6 +212,7 @@ function AdminAdministrationPage() {
   const [partnerRequestPage, setPartnerRequestPage] = useState(0)
   const [partnerRequestTotalPages, setPartnerRequestTotalPages] = useState(0)
   const [partnerRequestTotalElements, setPartnerRequestTotalElements] = useState(0)
+  const [highlightedPartnerRequestId, setHighlightedPartnerRequestId] = useState('')
   const [filter, setFilter] = useState<UserFilter>({
     keyword: '',
     roleCode: '',
@@ -211,6 +220,10 @@ function AdminAdministrationPage() {
     isActive: '',
   })
   const partnerRequestSize = 10
+  const focusedPartnerRequestId = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return params.get('focusPartnerRequest')?.trim() || ''
+  }, [location.search])
 
   async function loadSummary() {
     setLoadingSummary(true)
@@ -352,15 +365,57 @@ async function loadPartnerRequests(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useNotificationStream({
-    onPartnerRequestCreated: (event) => {
-      toast.info(`New partner request from ${event.username || event.email || 'user'}.`)
-      void loadPartnerRequests(false, partnerRequestPage)
-    },
-    onError: (streamError) => {
-      console.error('Admin notification stream error:', streamError)
-    },
-  })
+  useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<NotificationStreamEventDetail>
+      const eventName = customEvent.detail?.eventName
+      if (eventName !== 'partner.request.created') {
+        return
+      }
+      void loadPartnerRequests(false, 0)
+    }
+
+    window.addEventListener(
+      APP_NOTIFICATION_EVENT,
+      handleNotificationEvent as EventListener,
+    )
+
+    return () => {
+      window.removeEventListener(
+        APP_NOTIFICATION_EVENT,
+        handleNotificationEvent as EventListener,
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!focusedPartnerRequestId) {
+      return
+    }
+    void loadPartnerRequests(false, 0)
+  }, [focusedPartnerRequestId])
+
+  useEffect(() => {
+    if (!focusedPartnerRequestId || !partnerRequests.length) {
+      return
+    }
+
+    const targetRow = document.getElementById(`partner-request-${focusedPartnerRequestId}`)
+    if (!targetRow) {
+      return
+    }
+
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedPartnerRequestId(focusedPartnerRequestId)
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedPartnerRequestId('')
+    }, 2200)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [focusedPartnerRequestId, partnerRequests])
 
   const chartItems = useMemo(
     () => [
@@ -798,9 +853,9 @@ async function loadPartnerRequests(
       </article>
 
       <article className="role-card">
-        <h3>Partner Upgrade Requests (Realtime)</h3>
+        <h3>Partner Upgrade Requests</h3>
         <p className="role-muted">
-          New requests are pushed in realtime from server events.
+          New requests are pushed from server events.
         </p>
 
         {loadingPartnerRequests && (
@@ -829,7 +884,11 @@ async function loadPartnerRequests(
                 </tr>
               )}
               {partnerRequests.map((request) => (
-                <tr key={request.requestId}>
+                <tr
+                  key={request.requestId}
+                  id={`partner-request-${request.requestId}`}
+                  className={highlightedPartnerRequestId === request.requestId ? 'admin-administration-partner-highlight' : ''}
+                >
                   <td>{formatDate(request.createdAt)}</td>
                   <td>{request.username}</td>
                   <td>{request.email}</td>

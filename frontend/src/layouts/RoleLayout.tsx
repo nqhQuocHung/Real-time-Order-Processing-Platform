@@ -14,6 +14,10 @@ import { menuConfig } from '../config/menuConfig'
 import { hasPermission, type PermissionKey } from '../config/permissionConfig'
 import { getDefaultPathByRole } from '../config/roleConfig'
 import defaultAvatar from '../assets/default-avatar.svg'
+import NotificationBell, {
+  type NotificationItem,
+} from '../components/notifications/NotificationBell'
+import useNotificationStream from '../hooks/useNotificationStream'
 import './RoleLayout.css'
 
 type ChangePasswordOtpResponse = {
@@ -38,6 +42,110 @@ type NavigationMenuItem = {
   parentMenuId?: string | null
   parentMenuKey?: string | null
   isContainer?: boolean
+}
+
+type NotificationPayload = Record<string, unknown>
+
+type NotificationStreamEventDetail = {
+  eventName: string
+  payload: unknown
+}
+
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+
+function toNotificationPayload(payload: unknown): NotificationPayload {
+  if (!payload || typeof payload !== 'object') {
+    return {}
+  }
+  return payload as NotificationPayload
+}
+
+function normalizeText(value: unknown): string {
+  if (typeof value !== 'string') {
+    return ''
+  }
+  return value.trim()
+}
+
+function truncateText(value: string, maxLength = 220) {
+  if (value.length <= maxLength) {
+    return value
+  }
+  return `${value.slice(0, maxLength)}...`
+}
+
+function buildNotificationLink(eventName: string, requestId: string) {
+  if (!requestId) {
+    return ''
+  }
+
+  const encodedRequestId = encodeURIComponent(requestId)
+  if (eventName === 'partner.request.created') {
+    return `/admin/administration?focusPartnerRequest=${encodedRequestId}`
+  }
+
+  if (eventName === 'partner.request.decided') {
+    return `/user/dashboard?focusPartnerRequest=${encodedRequestId}`
+  }
+
+  return ''
+}
+
+function buildNotificationMessage(eventName: string, payload: unknown): NotificationItem | null {
+  if (eventName === 'connected') {
+    return null
+  }
+
+  const data = toNotificationPayload(payload)
+  const eventId = normalizeText(data.eventId)
+  const requestId = normalizeText(data.requestId)
+  const username = normalizeText(data.username)
+  const email = normalizeText(data.email)
+  const requestNote = normalizeText(data.requestNote)
+  const reviewNote = normalizeText(data.reviewNote)
+  const decision = normalizeText(data.decision).toUpperCase()
+  const fallbackMessage =
+    typeof payload === 'string'
+      ? payload
+      : JSON.stringify(data)
+
+  let title = 'New notification'
+  let message = truncateText(fallbackMessage || 'You have a new notification from the system.')
+
+  if (eventName === 'partner.request.created') {
+    const actor = username || email || 'user'
+    title = 'New partner request'
+    message = `New partner request from ${actor}.${requestNote ? ` Note: ${requestNote}` : ''}`
+  }
+
+  if (eventName === 'partner.request.decided') {
+    const actor = username || email || 'user'
+    const decisionLabel = decision.includes('REJECT')
+      ? 'rejected'
+      : decision.includes('APPROV')
+        ? 'approved'
+        : decision.toLowerCase() || 'updated'
+
+    title = 'Partner request decision'
+    message = `Partner request of ${actor} was ${decisionLabel}.${reviewNote ? ` Note: ${reviewNote}` : ''}`
+  }
+
+  const occurredAt =
+    normalizeText(data.occurredAt) ||
+    normalizeText(data.reviewedAt) ||
+    new Date().toISOString()
+
+  const notificationId = eventId || requestId || `${eventName}-${Date.now()}-${Math.random()}`
+  const link = buildNotificationLink(eventName, requestId)
+
+  return {
+    id: notificationId,
+    title,
+    message,
+    eventType: eventName,
+    occurredAt,
+    link,
+  }
 }
 
 function isDeprecatedAdminMenuItem(item: NavigationMenuItem): boolean {
@@ -199,11 +307,15 @@ function RoleLayout() {
   const location = useLocation()
   const session = getAuthSession()
   const userMenuRef = useRef<HTMLDivElement | null>(null)
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null)
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [openMenuGroups, setOpenMenuGroups] = useState<Record<string, boolean>>({})
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
 
   const [avatarUrl, setAvatarUrl] = useState('')
   const [useFallbackAvatar, setUseFallbackAvatar] = useState(false)
@@ -321,6 +433,33 @@ function RoleLayout() {
   const isChildMenuPage = nonStaticActiveMenuKeyChain.length > 1
   const shouldShowMobileMenuToggle = !isChildMenuPage
 
+  useNotificationStream({
+    enabled: Boolean(session?.accessToken),
+    onEvent: (eventName, payload) => {
+      const notification = buildNotificationMessage(eventName, payload)
+      if (!notification) {
+        return
+      }
+
+      setNotifications((prev) => [notification, ...prev].slice(0, 30))
+      if (!isNotificationOpen) {
+        setUnreadNotificationCount((prev) => prev + 1)
+      }
+
+      window.dispatchEvent(
+        new CustomEvent<NotificationStreamEventDetail>(APP_NOTIFICATION_EVENT, {
+          detail: {
+            eventName,
+            payload,
+          },
+        }),
+      )
+    },
+    onError: (streamError) => {
+      console.error('Notification stream error:', streamError)
+    },
+  })
+
   useEffect(() => {
     let active = true
 
@@ -388,7 +527,15 @@ function RoleLayout() {
   useEffect(() => {
     setIsMobileMenuOpen(false)
     setIsUserMenuOpen(false)
+    setIsNotificationOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!isNotificationOpen) {
+      return
+    }
+    setUnreadNotificationCount(0)
+  }, [isNotificationOpen])
 
   useEffect(() => {
     if (!activeMenuChainKey) {
@@ -409,23 +556,31 @@ function RoleLayout() {
   }, [activeMenuChainKey])
 
   useEffect(() => {
-    if (!isUserMenuOpen) {
+    if (!isUserMenuOpen && !isNotificationOpen) {
       return
     }
 
     function handleMouseDown(event: MouseEvent) {
-      if (!userMenuRef.current) {
+      const targetNode = event.target as Node
+      const clickedInsideUserMenu = Boolean(
+        userMenuRef.current?.contains(targetNode),
+      )
+      const clickedInsideNotificationMenu = Boolean(
+        notificationMenuRef.current?.contains(targetNode),
+      )
+
+      if (clickedInsideUserMenu || clickedInsideNotificationMenu) {
         return
       }
 
-      if (!userMenuRef.current.contains(event.target as Node)) {
-        setIsUserMenuOpen(false)
-      }
+      setIsUserMenuOpen(false)
+      setIsNotificationOpen(false)
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsUserMenuOpen(false)
+        setIsNotificationOpen(false)
       }
     }
 
@@ -436,7 +591,7 @@ function RoleLayout() {
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('keydown', handleEscape)
     }
-  }, [isUserMenuOpen])
+  }, [isNotificationOpen, isUserMenuOpen])
 
   function resetChangePasswordForm() {
     setOldPassword('')
@@ -566,6 +721,7 @@ function RoleLayout() {
 
   function handleGoDashboard() {
     setIsUserMenuOpen(false)
+    setIsNotificationOpen(false)
     setIsMobileMenuOpen(false)
     navigate(dashboardPath)
   }
@@ -635,60 +791,84 @@ function RoleLayout() {
     const usernameLabel = session?.username || 'User'
 
     return (
-      <div
-        className={`role-user-menu ${compact ? 'role-user-menu-compact' : ''}`}
-        ref={userMenuRef}
-      >
-        <button
-          type="button"
-          className={`role-user-trigger ${compact ? 'compact' : ''}`}
-          onClick={() => setIsUserMenuOpen((state) => !state)}
-          aria-expanded={isUserMenuOpen}
+      <div className={`role-user-controls ${compact ? 'role-user-controls-compact' : ''}`}>
+        <NotificationBell
+          ref={notificationMenuRef}
+          compact={compact}
+          isOpen={isNotificationOpen}
+          notifications={notifications}
+          onItemClick={(item) => {
+            setIsNotificationOpen(false)
+            if (!item.link) {
+              return
+            }
+            navigate(item.link)
+          }}
+          unreadCount={unreadNotificationCount}
+          onToggle={() => {
+            setIsUserMenuOpen(false)
+            setIsNotificationOpen((state) => !state)
+          }}
+        />
+
+        <div
+          className={`role-user-menu ${compact ? 'role-user-menu-compact' : ''}`}
+          ref={userMenuRef}
         >
-          <img
-            src={displayedAvatar}
-            alt="User avatar"
-            className="role-avatar"
-            onError={() => setUseFallbackAvatar(true)}
-          />
-          {!compact && (
-            <div className="role-user-meta">
-              <strong>{session?.username || 'Unknown user'}</strong>
-              <span>{session?.email || '-'}</span>
+          <button
+            type="button"
+            className={`role-user-trigger ${compact ? 'compact' : ''}`}
+            onClick={() => {
+              setIsNotificationOpen(false)
+              setIsUserMenuOpen((state) => !state)
+            }}
+            aria-expanded={isUserMenuOpen}
+          >
+            <img
+              src={displayedAvatar}
+              alt="User avatar"
+              className="role-avatar"
+              onError={() => setUseFallbackAvatar(true)}
+            />
+            {!compact && (
+              <div className="role-user-meta">
+                <strong>{session?.username || 'Unknown user'}</strong>
+                <span>{session?.email || '-'}</span>
+              </div>
+            )}
+            {compact ? (
+              <span className="role-user-trigger-label">{usernameLabel}</span>
+            ) : (
+              <span className={`role-user-caret ${isUserMenuOpen ? 'open' : ''}`}>v</span>
+            )}
+          </button>
+
+          {isUserMenuOpen && (
+            <div className="role-user-dropdown" role="menu">
+              <button
+                type="button"
+                className="role-user-dropdown-item"
+                onClick={handleEditProfile}
+              >
+                Edit profile
+              </button>
+              <button
+                type="button"
+                className="role-user-dropdown-item"
+                onClick={openChangePasswordModal}
+              >
+                Change password
+              </button>
+              <button
+                type="button"
+                className="role-user-dropdown-item danger"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
             </div>
           )}
-          {compact ? (
-            <span className="role-user-trigger-label">{usernameLabel}</span>
-          ) : (
-            <span className={`role-user-caret ${isUserMenuOpen ? 'open' : ''}`}>v</span>
-          )}
-        </button>
-
-        {isUserMenuOpen && (
-          <div className="role-user-dropdown" role="menu">
-            <button
-              type="button"
-              className="role-user-dropdown-item"
-              onClick={handleEditProfile}
-            >
-              Edit profile
-            </button>
-            <button
-              type="button"
-              className="role-user-dropdown-item"
-              onClick={openChangePasswordModal}
-            >
-              Change password
-            </button>
-            <button
-              type="button"
-              className="role-user-dropdown-item danger"
-              onClick={handleLogout}
-            >
-              Logout
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     )
   }

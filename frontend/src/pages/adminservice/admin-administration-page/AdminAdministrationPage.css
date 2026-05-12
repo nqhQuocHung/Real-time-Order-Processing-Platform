@@ -256,6 +256,11 @@
   color: #ffd4dd;
 }
 
+.admin-administration-partner-highlight {
+  background: rgba(39, 194, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(39, 194, 255, 0.46);
+}
+
 @media (max-width: 1200px) {
   .admin-administration-page .role-inline-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
