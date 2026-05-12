@@ -10,8 +10,9 @@ import {
   setAuthSession,
 } from '../../../config/apis'
 import { AppRole, resolvePrimaryRole } from '../../../constants/roles'
-import useNotificationStream from '../../../hooks/useNotificationStream'
 import './UserDashboardPage.css'
+
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
 
 type OrderSummary = {
   orderCode: string
@@ -43,6 +44,21 @@ type PartnerUpgradeRequestResponse = {
   reviewedBy?: string
   reviewedAt?: string
   createdAt?: string
+}
+
+type PartnerRequestDecidedEvent = {
+  requestId: string
+  userId: string
+  decision?: string
+  status?: string
+  reviewNote?: string
+  reviewedBy?: string
+  reviewedAt?: string
+}
+
+type NotificationStreamEventDetail = {
+  eventName?: string
+  payload?: unknown
 }
 
 function formatDate(value?: string) {
@@ -163,34 +179,56 @@ function UserDashboardPage() {
     }
   }
 
-  useNotificationStream({
-    enabled: Boolean(session?.accessToken),
-    onPartnerRequestDecided: (event) => {
-      if (!session?.userId || event.userId !== session.userId) {
+  useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<NotificationStreamEventDetail>
+      if (customEvent.detail?.eventName !== 'partner.request.decided') {
+        return
+      }
+
+      const payload = customEvent.detail?.payload
+      if (!payload || typeof payload !== 'object') {
+        return
+      }
+
+      const streamEvent = payload as PartnerRequestDecidedEvent
+      if (!session?.userId || streamEvent.userId !== session.userId) {
         return
       }
 
       setPartnerRequest((previous) => ({
-        requestId: event.requestId,
-        status: (event.status as PartnerRequestStatus) || previous?.status || 'PENDING',
+        requestId: streamEvent.requestId,
+        status: (streamEvent.status as PartnerRequestStatus) || previous?.status || 'PENDING',
         requestNote: previous?.requestNote,
-        reviewNote: event.reviewNote,
-        reviewedBy: event.reviewedBy,
-        reviewedAt: event.reviewedAt,
+        reviewNote: streamEvent.reviewNote,
+        reviewedBy: streamEvent.reviewedBy,
+        reviewedAt: streamEvent.reviewedAt,
         createdAt: previous?.createdAt,
       }))
 
-      if (event.status === 'APPROVED' || event.decision === 'APPROVE') {
+      if (streamEvent.status === 'APPROVED' || streamEvent.decision === 'APPROVE') {
         setPartnerRequestError('')
         void promoteSessionToPartnerIfNeeded()
       }
 
-      if (event.status === 'REJECTED' || event.decision === 'REJECT') {
+      if (streamEvent.status === 'REJECTED' || streamEvent.decision === 'REJECT') {
         setPartnerRequestSuccess('')
-        setPartnerRequestError(event.reviewNote || 'Your partner upgrade request was rejected.')
+        setPartnerRequestError(streamEvent.reviewNote || 'Your partner upgrade request was rejected.')
       }
-    },
-  })
+    }
+
+    window.addEventListener(
+      APP_NOTIFICATION_EVENT,
+      handleNotificationEvent as EventListener,
+    )
+
+    return () => {
+      window.removeEventListener(
+        APP_NOTIFICATION_EVENT,
+        handleNotificationEvent as EventListener,
+      )
+    }
+  }, [session?.userId])
 
   async function handleSubmitPartnerRequest() {
     if (!isUserRole) {

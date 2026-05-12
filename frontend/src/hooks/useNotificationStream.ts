@@ -31,6 +31,7 @@ type PartnerRequestDecidedEvent = {
 
 type UseNotificationStreamOptions = {
   enabled?: boolean
+  onEvent?: (eventName: string, payload: unknown) => void
   onConnected?: (payload: unknown) => void
   onPartnerRequestCreated?: (event: PartnerRequestCreatedEvent) => void
   onPartnerRequestDecided?: (event: PartnerRequestDecidedEvent) => void
@@ -54,12 +55,14 @@ function isAbortError(error: unknown) {
 
 function useNotificationStream({
   enabled = true,
+  onEvent,
   onConnected,
   onPartnerRequestCreated,
   onPartnerRequestDecided,
   onError,
 }: UseNotificationStreamOptions) {
   const callbacksRef = useRef({
+    onEvent,
     onConnected,
     onPartnerRequestCreated,
     onPartnerRequestDecided,
@@ -68,12 +71,13 @@ function useNotificationStream({
 
   useEffect(() => {
     callbacksRef.current = {
+      onEvent,
       onConnected,
       onPartnerRequestCreated,
       onPartnerRequestDecided,
       onError,
     }
-  }, [onConnected, onPartnerRequestCreated, onPartnerRequestDecided, onError])
+  }, [onEvent, onConnected, onPartnerRequestCreated, onPartnerRequestDecided, onError])
 
   useEffect(() => {
     if (!enabled) {
@@ -103,15 +107,19 @@ function useNotificationStream({
       },
       onmessage(event) {
         const payload = parseJson(event.data)
-        if (event.event === 'connected') {
+        const eventName = event.event || 'message'
+
+        callbacksRef.current.onEvent?.(eventName, payload)
+
+        if (eventName === 'connected') {
           callbacksRef.current.onConnected?.(payload)
           return
         }
-        if (event.event === 'partner.request.created') {
+        if (eventName === 'partner.request.created') {
           callbacksRef.current.onPartnerRequestCreated?.(payload as PartnerRequestCreatedEvent)
           return
         }
-        if (event.event === 'partner.request.decided') {
+        if (eventName === 'partner.request.decided') {
           callbacksRef.current.onPartnerRequestDecided?.(payload as PartnerRequestDecidedEvent)
         }
       },
