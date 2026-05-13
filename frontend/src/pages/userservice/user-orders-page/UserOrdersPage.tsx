@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   apis,
   endpoints,
@@ -13,8 +14,20 @@ import {
   writeUserCartToStorage,
 } from '../../../features/cart/userCartStorage'
 import './UserOrdersPage.css'
+import { QRCodeCanvas } from 'qrcode.react'
 
 const orderStatuses = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
+const paymentReturnRoutePath = '/payment-return'
+const paymentReturnFlashStorageKey = 'user-orders-payment-return-flash-v1'
+
+type PaymentFlashType = 'success' | 'error'
+
+type PaymentDialogState = {
+  orderCode: string
+  paymentUrl: string
+}
+
+
 
 type ProductCatalogItem = {
   productId: string
@@ -120,6 +133,50 @@ function buildCatalogMap(catalog: ProductCatalogItem[]): Record<string, ProductC
   return result
 }
 
+function parseVnpOrderCode(orderInfo: string | null, txnRef: string | null): string | undefined {
+  const matchedFromOrderInfo = orderInfo?.toUpperCase().match(/ORD-?(\d{14})-?(\d{6})/)
+  if (matchedFromOrderInfo) {
+    return `ORD-${matchedFromOrderInfo[1]}-${matchedFromOrderInfo[2]}`
+  }
+
+  const matchedFromTxnRef = txnRef?.toUpperCase().match(/ORD-?(\d{14})-?(\d{6})/)
+  if (matchedFromTxnRef) {
+    return `ORD-${matchedFromTxnRef[1]}-${matchedFromTxnRef[2]}`
+  }
+
+  return undefined
+}
+
+function readPaymentFlash(): { type: PaymentFlashType; message: string } | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const raw = window.localStorage.getItem(paymentReturnFlashStorageKey)
+  if (!raw) {
+    return null
+  }
+
+  window.localStorage.removeItem(paymentReturnFlashStorageKey)
+
+  try {
+    const parsed = JSON.parse(raw) as { type?: PaymentFlashType; message?: string }
+    if (!parsed?.message || (parsed.type !== 'success' && parsed.type !== 'error')) {
+      return null
+    }
+    return { type: parsed.type, message: parsed.message }
+  } catch {
+    return null
+  }
+}
+
+function writePaymentFlash(type: PaymentFlashType, message: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.localStorage.setItem(paymentReturnFlashStorageKey, JSON.stringify({ type, message }))
+}
+
 function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, ProductCatalogItem>): UserCartMap {
   if (!Object.keys(cart).length) {
     return cart
@@ -130,17 +187,19 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, 
   for (const [productId, cartItem] of Object.entries(cart)) {
     const stock = catalogMap[productId]
     if (!stock) {
-      changed = true
+      nextCart[productId] = {
+        ...cartItem,
+        maxAvailable: 0,
+      }
+      if (cartItem.maxAvailable !== 0) {
+        changed = true
+      }
       continue
     }
 
     const availableQuantity = normalizeQuantity(stock.availableQuantity)
-    if (availableQuantity <= 0) {
-      changed = true
-      continue
-    }
-
-    const nextQuantity = Math.min(cartItem.quantity, availableQuantity)
+    const nextQuantity =
+      availableQuantity > 0 ? Math.min(cartItem.quantity, availableQuantity) : cartItem.quantity
     const nextUnitPrice = normalizePrice(stock.price)
     const nextCurrency = stock.currency?.trim() || cartItem.currency || 'VND'
     const nextName = stock.name?.trim() || stock.productName?.trim() || cartItem.productName
@@ -172,14 +231,19 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, 
 }
 
 function UserOrdersPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const session = getAuthSession()
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [showQrCode, setShowQrCode] = useState(false)
+  const [activePaymentDialog, setActivePaymentDialog] = useState<PaymentDialogState | null>(null)
 
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [catalogMap, setCatalogMap] = useState<Record<string, ProductCatalogItem>>({})
-  const [cart, setCart] = useState<UserCartMap>({})
+  const [cart, setCart] = useState<UserCartMap>(() => readUserCartFromStorage())
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [checkoutSuccess, setCheckoutSuccess] = useState('')
@@ -224,10 +288,6 @@ function UserOrdersPage() {
   }, [])
 
   useEffect(() => {
-    setCart(readUserCartFromStorage())
-  }, [])
-
-  useEffect(() => {
     writeUserCartToStorage(cart)
   }, [cart])
 
@@ -260,6 +320,135 @@ function UserOrdersPage() {
     }, 1000)
     return () => window.clearInterval(tickTimer)
   }, [])
+
+  useEffect(() => {
+    const flash = readPaymentFlash()
+    if (!flash) {
+      return
+    }
+
+    if (flash.type === 'success') {
+      setCheckoutError('')
+      setCheckoutSuccess(flash.message)
+    } else {
+      setCheckoutSuccess('')
+      setCheckoutError(flash.message)
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const responseCode = searchParams.get('vnp_ResponseCode')
+    const transactionStatus = searchParams.get('vnp_TransactionStatus')
+
+    if (!responseCode && !transactionStatus) {
+      if (location.pathname === paymentReturnRoutePath) {
+        navigate('/user/orders', { replace: true })
+      }
+      return
+    }
+
+    const orderCode = parseVnpOrderCode(
+      searchParams.get('vnp_OrderInfo'),
+      searchParams.get('vnp_TxnRef'),
+    )
+    const providerTransactionId =
+      searchParams.get('vnp_TransactionNo')?.trim() || searchParams.get('vnp_TxnRef')?.trim() || undefined
+    const orderCodeLabel = orderCode ? ` for ${orderCode}` : ''
+    const isSuccess = responseCode === '00' && transactionStatus === '00'
+    const defaultMessage = isSuccess
+      ? `Payment successful${orderCodeLabel}. You can continue from your cart now.`
+      : `Payment failed${orderCodeLabel}. Please check order status and try again.`
+    const targetPath = '/user/orders'
+
+    async function reconcilePaymentReturn() {
+      let flashType: PaymentFlashType = isSuccess ? 'success' : 'error'
+      let flashMessage = defaultMessage
+
+      if (orderCode) {
+        const payload = {
+          orderCode,
+          providerTransactionId,
+          actor: 'USER_PAYMENT_RETURN',
+          idempotencyKey: buildIdempotencyKey(),
+          note: isSuccess
+            ? 'Payment confirmed from VNPay return.'
+            : 'Payment failed or cancelled from VNPay return.',
+        }
+
+        try {
+          if (isSuccess) {
+            const apiResponse = await apis().post(endpoints.payments.confirm, payload)
+            const payment = extractApiData<PaymentTransactionResponse>(apiResponse)
+            setPaymentByOrder((previous) => ({
+              ...previous,
+              [orderCode]: payment,
+            }))
+          } else {
+            const apiResponse = await apis().post(endpoints.payments.fail, payload)
+            const payment = extractApiData<PaymentTransactionResponse>(apiResponse)
+            setPaymentByOrder((previous) => ({
+              ...previous,
+              [orderCode]: payment,
+            }))
+          }
+        } catch (err) {
+          flashType = 'error'
+          flashMessage = extractApiErrorMessage(
+            err,
+            `Cannot reconcile payment status${orderCodeLabel}. Please refresh and check again.`,
+          )
+        }
+      } else {
+        flashType = 'error'
+        flashMessage =
+          'Cannot identify order from payment return. Please refresh orders and verify status manually.'
+      }
+
+      writePaymentFlash(flashType, flashMessage)
+      if (flashType === 'success') {
+        setCheckoutError('')
+        setCheckoutSuccess(flashMessage)
+      } else {
+        setCheckoutSuccess('')
+        setCheckoutError(flashMessage)
+      }
+      setShowPaymentDialog(false)
+      setShowQrCode(false)
+      setActivePaymentDialog(null)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+
+      try {
+        await Promise.all([loadOrders(), loadCatalog()])
+      } catch {
+        // Keep redirect flow even if refresh fails.
+      }
+
+      if (location.pathname !== targetPath || location.search) {
+        navigate(targetPath, { replace: true })
+      }
+    }
+
+    void reconcilePaymentReturn()
+  }, [loadCatalog, loadOrders, location.pathname, location.search, navigate])
+
+  useEffect(() => {
+    if (!showPaymentDialog) {
+      return
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowPaymentDialog(false)
+        setShowQrCode(false)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showPaymentDialog])
 
   const cartItems = useMemo(() => {
     return Object.values(cart).sort((firstItem, secondItem) =>
@@ -442,6 +631,26 @@ function UserOrdersPage() {
     }
   }
 
+  function openPaymentDialog(orderCode: string, paymentUrl: string) {
+    if (!paymentUrl) {
+      setError(`Payment URL is missing for order ${orderCode}.`)
+      return
+    }
+
+    setActivePaymentDialog({
+      orderCode,
+      paymentUrl,
+    })
+    setShowPaymentDialog(true)
+    setShowQrCode(false)
+  }
+
+  function closePaymentDialog() {
+    setShowPaymentDialog(false)
+    setShowQrCode(false)
+    setActivePaymentDialog(null)
+  }
+
   return (
     <section className="user-orders-page role-page-stack">
       <article className="role-card">
@@ -484,14 +693,77 @@ function UserOrdersPage() {
         {latestCreatedOrder?.paymentUrl && (
           <div className="user-orders-payment-hint">
             <span>
-              Latest order <strong>{latestCreatedOrder.orderCode}</strong> is waiting for payment.
+              Order <strong>{latestCreatedOrder.orderCode}</strong> is waiting for payment.
             </span>
-            <a href={latestCreatedOrder.paymentUrl} target="_blank" rel="noreferrer">
-              Open Payment Page
-            </a>
+
+            <button
+              type="button"
+              className="role-btn-primary"
+              onClick={() => {
+                openPaymentDialog(latestCreatedOrder.orderCode, latestCreatedOrder.paymentUrl || '')
+              }}
+            >
+              Open Payment Dialog
+            </button>
           </div>
         )}
 
+        {showPaymentDialog && activePaymentDialog && (
+          <div className="payment-dialog-overlay" onClick={closePaymentDialog}>
+            <div className="payment-dialog" onClick={(event) => event.stopPropagation()}>
+              <header className="payment-dialog-header">
+                <h3>Complete Payment</h3>
+                <button
+                  type="button"
+                  className="role-btn-ghost payment-dialog-close"
+                  onClick={closePaymentDialog}
+                >
+                  Close
+                </button>
+              </header>
+
+              <p className="payment-dialog-message">
+                Order <strong>{activePaymentDialog.orderCode}</strong> is reserved. Complete payment
+                before it expires.
+              </p>
+
+              {showQrCode && (
+                <div className="payment-qrcode">
+                  <QRCodeCanvas value={activePaymentDialog.paymentUrl} size={220} includeMargin />
+                  <p>Scan QR to continue payment.</p>
+                </div>
+              )}
+
+              <div className="payment-dialog-actions">
+                <button
+                  type="button"
+                  className="role-btn-primary"
+                  onClick={() => {
+                    window.location.assign(activePaymentDialog.paymentUrl)
+                  }}
+                >
+                  Pay Now
+                </button>
+                <button
+                  type="button"
+                  className="role-btn-ghost"
+                  onClick={() => {
+                    window.open(activePaymentDialog.paymentUrl, '_blank', 'noopener,noreferrer')
+                  }}
+                >
+                  Open New Tab
+                </button>
+                <button
+                  type="button"
+                  className="role-btn-ghost"
+                  onClick={() => setShowQrCode((previous) => !previous)}
+                >
+                  {showQrCode ? 'Hide QR Code' : 'Show QR Code'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="role-table-wrap">
           <table>
             <thead>
@@ -596,9 +868,12 @@ function UserOrdersPage() {
               {orders.map((order) => {
                 const paymentInfo = paymentByOrder[order.orderCode]
                 const paymentUrl = paymentInfo?.paymentUrl || order.paymentUrl
-                const remaining = formatRemainingSeconds(order.paymentDeadlineAt, nowTick)
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
                 const isReserved = order.status === 'RESERVED'
+                const isPendingPayment = !paymentInfo?.status || paymentInfo.status === 'PENDING'
+                const remaining = isReserved && isPendingPayment
+                  ? formatRemainingSeconds(order.paymentDeadlineAt, nowTick)
+                  : '-'
                 return (
                   <tr key={order.orderCode}>
                     <td>{order.orderCode}</td>
@@ -612,9 +887,13 @@ function UserOrdersPage() {
                     <td>
                       <div className="user-orders-row-actions">
                         {paymentUrl && isReserved && (
-                          <a href={paymentUrl} target="_blank" rel="noreferrer">
+                          <button
+                            type="button"
+                            className="role-btn-primary user-orders-pay-button"
+                            onClick={() => openPaymentDialog(order.orderCode, paymentUrl)}
+                          >
                             Pay Now
-                          </a>
+                          </button>
                         )}
                         {isReserved && (
                           <button
@@ -658,3 +937,4 @@ function UserOrdersPage() {
 }
 
 export default UserOrdersPage
+

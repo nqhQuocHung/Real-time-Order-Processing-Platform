@@ -95,17 +95,32 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalog: ProductCardData[])
   for (const [productId, cartItem] of Object.entries(cart)) {
     const catalogItem = catalogMap.get(productId)
     if (!catalogItem) {
-      changed = true
+      nextCart[productId] = {
+        ...cartItem,
+        maxAvailable: 0,
+      }
+      if (cartItem.maxAvailable !== 0) {
+        changed = true
+      }
       continue
     }
 
     const availableQuantity = normalizeQuantity(catalogItem.availableQuantity)
-    if (availableQuantity <= 0) {
-      changed = true
-      continue
+    const nextQuantity =
+      availableQuantity > 0 ? Math.min(cartItem.quantity, availableQuantity) : cartItem.quantity
+    const nextItem: UserCartItem = {
+      ...cartItem,
+      productName:
+        catalogItem.name?.trim() || catalogItem.productName?.trim() || cartItem.productName || productId,
+      quantity: Math.max(1, nextQuantity),
+      unitPrice: normalizePrice(catalogItem.price) || cartItem.unitPrice,
+      currency: catalogItem.currency?.trim() || cartItem.currency || 'VND',
+      maxAvailable: availableQuantity,
+      categoryId: catalogItem.categoryId?.trim() || cartItem.categoryId,
+      categoryName: catalogItem.categoryName?.trim() || cartItem.categoryName,
+      shopName: catalogItem.shopName?.trim() || catalogItem.shopId || cartItem.shopName,
+      imageUrl: catalogItem.imageUrl?.trim() || cartItem.imageUrl,
     }
-
-    const nextItem = buildCartItem(catalogItem, Math.min(cartItem.quantity, availableQuantity))
     nextCart[productId] = nextItem
 
     if (
@@ -136,7 +151,7 @@ function UserProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [shopKeyword, setShopKeyword] = useState('')
   const [page, setPage] = useState(0)
-  const [cart, setCart] = useState<UserCartMap>({})
+  const [cart, setCart] = useState<UserCartMap>(() => readUserCartFromStorage())
   const [selectedProduct, setSelectedProduct] = useState<ProductCardData | null>(null)
 
   const loadCatalog = useCallback(async () => {
@@ -159,13 +174,6 @@ function UserProductsPage() {
   useEffect(() => {
     void loadCatalog()
   }, [loadCatalog])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-    setCart(readUserCartFromStorage())
-  }, [])
 
   useEffect(() => {
     writeUserCartToStorage(cart)

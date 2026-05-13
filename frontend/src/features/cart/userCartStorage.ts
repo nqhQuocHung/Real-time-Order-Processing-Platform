@@ -57,12 +57,12 @@ export function parseCartStorage(raw: string): UserCartMap {
 
       const cartItem = rawItem as Partial<UserCartItem>
       const quantity = Math.max(1, normalizeInteger(cartItem.quantity, 1))
-      const maxAvailable = Math.max(0, normalizeInteger(cartItem.maxAvailable, quantity))
+      const maxAvailable = Math.max(0, normalizeInteger(cartItem.maxAvailable, 0))
       const unitPrice = normalizePrice(cartItem.unitPrice)
       result[productId] = {
         productId,
         productName: normalizeText(cartItem.productName) || productId,
-        quantity: Math.min(quantity, Math.max(1, maxAvailable)),
+        quantity,
         unitPrice,
         currency: normalizeText(cartItem.currency) || 'VND',
         maxAvailable,

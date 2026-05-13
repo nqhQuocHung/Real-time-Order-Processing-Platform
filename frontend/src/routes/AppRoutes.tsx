@@ -13,6 +13,7 @@ import { getAllowedRolesForRouteOwner } from '../config/roleConfig'
 import ForbiddenPage from '../pages/commonservice/forbidden-page/ForbiddenPage'
 import NotFoundPage from '../pages/commonservice/not-found-page/NotFoundPage'
 import { isAuthenticated } from '../config/apis'
+import UserOrdersPage from '../pages/userservice/user-orders-page/UserOrdersPage'
 
 function AppRoutes() {
   const userRoutes = roleRouteConfig.filter((route) => route.role === AppRole.USER)
@@ -47,6 +48,7 @@ function AppRoutes() {
         }
       >
         <Route element={<RoleLayout />}>
+          <Route path="/payment-return" element={<UserOrdersPage />} />
           {userRoutes.map((route) => {
             const Component = route.component
             return <Route key={route.path} path={route.path} element={<Component />} />
