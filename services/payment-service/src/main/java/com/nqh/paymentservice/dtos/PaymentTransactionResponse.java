@@ -20,6 +20,7 @@ public class PaymentTransactionResponse {
     private UUID paymentId;
     private UUID paymentUuid;
     private String orderCode;
+    private UUID customerId;
     private BigDecimal amount;
     private String currency;
     private PaymentMethodEnum method;

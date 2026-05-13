@@ -37,6 +37,9 @@ public class PaymentTransaction extends BasePojo {
     @Column(name = "order_code", nullable = false, unique = true, length = 64)
     private String orderCode;
 
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 

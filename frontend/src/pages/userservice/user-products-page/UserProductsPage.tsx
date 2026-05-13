@@ -1,23 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../../config/apis'
+import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
 import './UserProductsPage.css'
-
-type ProductCatalogItem = {
-  stockId?: string
-  productId: string
-  sku?: string | null
-  productName?: string | null
-  availableQuantity?: number | null
-  reservedQuantity?: number | null
-  totalQuantity?: number | null
-}
 
 function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Number(value) : 0
 }
 
 function UserProductsPage() {
-  const [products, setProducts] = useState<ProductCatalogItem[]>([])
+  const [products, setProducts] = useState<ProductCardData[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -26,7 +17,7 @@ function UserProductsPage() {
     setError('')
     try {
       const response = await apis().get(endpoints.inventories.catalog)
-      const data = extractApiData<ProductCatalogItem[]>(response)
+      const data = extractApiData<ProductCardData[]>(response)
       setProducts(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(extractApiErrorMessage(err, 'Cannot load product catalog.'))
@@ -63,38 +54,15 @@ function UserProductsPage() {
       </article>
 
       <article className="role-card">
-        <div className="role-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Product ID</th>
-                <th>Product Name</th>
-                <th>SKU</th>
-                <th>Available</th>
-                <th>Reserved</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleProducts.map((item) => (
-                <tr key={item.stockId || item.productId}>
-                  <td>{item.productId}</td>
-                  <td>{item.productName?.trim() || '-'}</td>
-                  <td>{item.sku?.trim() || '-'}</td>
-                  <td>{normalizeQuantity(item.availableQuantity)}</td>
-                  <td>{normalizeQuantity(item.reservedQuantity)}</td>
-                  <td>{normalizeQuantity(item.totalQuantity)}</td>
-                </tr>
-              ))}
-              {!visibleProducts.length && (
-                <tr>
-                  <td colSpan={6} className="role-empty-cell">
-                    Khong co san pham dang ban.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="user-products-page-grid">
+          {visibleProducts.map((item) => (
+            <ProductCard key={item.stockId || item.itemId || item.productId} product={item} />
+          ))}
+          {!visibleProducts.length && (
+            <p className="role-empty-cell user-products-page-empty">
+              Khong co san pham dang ban.
+            </p>
+          )}
         </div>
       </article>
     </section>

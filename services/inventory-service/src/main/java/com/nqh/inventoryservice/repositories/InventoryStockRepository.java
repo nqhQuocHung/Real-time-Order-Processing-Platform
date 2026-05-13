@@ -18,6 +18,8 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
 
     List<InventoryStock> findByIsActiveTrueOrderByUpdatedAtDesc();
 
+    List<InventoryStock> findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(UUID shopId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from InventoryStock s where s.productId = :productId")
     Optional<InventoryStock> findWithLockByProductId(@Param("productId") UUID productId);

@@ -5,8 +5,15 @@
   margin-top: 0.75rem;
 }
 
-.user-products-page .role-table-wrap td:first-child {
-  font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace;
-  font-size: 0.82rem;
-  word-break: break-all;
+.user-products-page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.user-products-page-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed rgba(133, 169, 214, 0.35);
+  border-radius: 10px;
 }

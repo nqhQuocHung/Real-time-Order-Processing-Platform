@@ -9,6 +9,14 @@ import './PartnerInventoryPage.css'
 
 type InventoryStock = {
   productId: string
+  itemId?: string
+  shopId?: string
+  name?: string
+  description?: string
+  categoryId?: string
+  brand?: string
+  status?: string
+  imageUrl?: string
   sku?: string
   productName?: string
   availableQuantity: number
@@ -79,7 +87,7 @@ function PartnerInventoryPage() {
             </div>
             <div>
               <span>Product Name</span>
-              <strong>{stock.productName || '-'}</strong>
+              <strong>{stock.name || stock.productName || '-'}</strong>
             </div>
             <div>
               <span>Available</span>

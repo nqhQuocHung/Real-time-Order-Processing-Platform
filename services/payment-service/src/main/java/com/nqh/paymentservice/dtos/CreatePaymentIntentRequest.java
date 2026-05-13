@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,6 +17,9 @@ public class CreatePaymentIntentRequest {
     @NotBlank
     @Size(max = 64)
     private String orderCode;
+
+    @NotNull
+    private UUID customerId;
 
     @NotNull
     @DecimalMin(value = "0.01", message = "Amount must be greater than zero")

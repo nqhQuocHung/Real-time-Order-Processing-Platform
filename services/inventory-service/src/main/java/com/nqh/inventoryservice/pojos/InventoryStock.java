@@ -33,6 +33,30 @@ public class InventoryStock extends BasePojo {
     @Column(name = "product_id", nullable = false, unique = true)
     private UUID productId;
 
+    @Column(name = "item_id", unique = true)
+    private UUID itemId;
+
+    @Column(name = "shop_id")
+    private UUID shopId;
+
+    @Column(name = "name", length = 255)
+    private String name;
+
+    @Column(name = "description", length = 1000)
+    private String description;
+
+    @Column(name = "category_id")
+    private UUID categoryId;
+
+    @Column(name = "brand", length = 120)
+    private String brand;
+
+    @Column(name = "product_status", length = 40)
+    private String productStatus;
+
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
     @Column(name = "sku", length = 64)
     private String sku;
 

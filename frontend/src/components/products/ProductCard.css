@@ -1,0 +1,128 @@
+.product-card {
+  border: 1px solid rgba(133, 169, 214, 0.28);
+  border-radius: 12px;
+  background: rgba(8, 24, 40, 0.82);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-card-image-wrap {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(135deg, rgba(39, 194, 255, 0.14), rgba(34, 228, 198, 0.15));
+}
+
+.product-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-card-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--role-text-sub);
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+}
+
+.product-card-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.product-card-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.product-card-status {
+  border-radius: 999px;
+  border: 1px solid rgba(133, 169, 214, 0.4);
+  padding: 3px 9px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.product-card-status.active {
+  color: #78ffd8;
+  border-color: rgba(120, 255, 216, 0.45);
+  background: rgba(25, 140, 111, 0.2);
+}
+
+.product-card-status.inactive {
+  color: #ffb3c4;
+  border-color: rgba(255, 179, 196, 0.45);
+  background: rgba(140, 47, 67, 0.25);
+}
+
+.product-card-description {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  min-height: 2.5em;
+}
+
+.product-card-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.product-card-meta span {
+  color: var(--role-text-sub);
+  font-size: 0.77rem;
+  word-break: break-word;
+}
+
+.product-card-quantities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.product-card-quantities > div {
+  border: 1px solid rgba(133, 169, 214, 0.22);
+  border-radius: 8px;
+  background: rgba(6, 20, 33, 0.85);
+  padding: 8px;
+}
+
+.product-card-quantities small {
+  display: block;
+  color: var(--role-text-sub);
+  font-size: 0.68rem;
+}
+
+.product-card-quantities strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.88rem;
+}
+
+.product-card-footer {
+  display: grid;
+  gap: 3px;
+}
+
+.product-card-footer span {
+  color: var(--role-text-sub);
+  font-size: 0.71rem;
+}

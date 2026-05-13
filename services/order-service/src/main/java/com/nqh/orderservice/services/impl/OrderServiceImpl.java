@@ -431,6 +431,7 @@ public class OrderServiceImpl implements OrderService {
     private void callPaymentCreateIntent(CustomerOrder order) {
         Map<String, Object> body = new HashMap<>();
         body.put("orderCode", order.getOrderCode());
+        body.put("customerId", order.getCustomerId());
         body.put("amount", order.getTotalAmount());
         body.put("currency", order.getCurrency());
         body.put("method", defaultPaymentMethod);

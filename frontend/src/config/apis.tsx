@@ -179,6 +179,11 @@ const endpoints = {
   },
   inventories: {
     catalog: '/api/v1/inventories/catalog',
+    myProducts: '/api/v1/inventories/my-products',
+    createProduct: '/api/v1/inventories/products',
+    categories: '/api/v1/inventories/categories',
+    createCategory: '/api/v1/inventories/categories',
+    uploadProductImage: '/api/v1/inventories/products/upload-image',
     stock: (productId: string) => `/api/v1/inventories/${productId}`,
     summary: '/api/v1/inventories/summary',
     check: '/api/v1/inventories/check',
