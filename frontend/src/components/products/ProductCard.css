@@ -141,11 +141,22 @@
   font-size: 0.78rem;
   padding: 6px 10px;
   cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .product-card-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.product-card-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(133, 169, 214, 0.55);
+  box-shadow: 0 10px 18px rgba(3, 12, 22, 0.25);
 }
 
 .product-card-btn-edit:hover {

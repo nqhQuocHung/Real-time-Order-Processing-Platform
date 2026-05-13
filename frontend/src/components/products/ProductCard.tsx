@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import './ProductCard.css'
 
 export type ProductCardData = {
@@ -27,6 +28,7 @@ type ProductCardProps = {
   onEdit?: (product: ProductCardData) => void
   onDelete?: (product: ProductCardData) => void
   deleting?: boolean
+  actionSlot?: ReactNode
 }
 
 function normalizeQuantity(value: number | null | undefined): number {
@@ -46,7 +48,7 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleString('vi-VN')
 }
 
-function ProductCard({ product, onEdit, onDelete, deleting }: ProductCardProps) {
+function ProductCard({ product, onEdit, onDelete, deleting, actionSlot }: ProductCardProps) {
   const displayName = product.name?.trim() || product.productName?.trim() || 'Unnamed Product'
   const displayStatus = product.status?.trim() || (product.isActive ? 'ACTIVE' : 'INACTIVE')
   const imageUrl = product.imageUrl?.trim() || ''
@@ -102,8 +104,9 @@ function ProductCard({ product, onEdit, onDelete, deleting }: ProductCardProps) 
           <span>Updated: {formatDate(product.updatedAt)}</span>
         </footer>
 
-        {(onEdit || onDelete) && (
+        {(onEdit || onDelete || actionSlot) && (
           <div className="product-card-actions">
+            {actionSlot}
             {onEdit && (
               <button type="button" className="product-card-btn product-card-btn-edit" onClick={() => onEdit(product)}>
                 Edit

@@ -41,8 +41,36 @@ type ProductImageUploadResponse = {
 const DEFAULT_PRODUCT_IMAGE_URL =
   'https://img.freepik.com/vector-cao-cap/khong-co-bieu-tuong-vector-anh-co-san-bieu-tuong-hinh-anh-mac-dinh-hinh-anh-sap-co-cho-trang-web-hoac-ung-dung-di-dong_87543-18055.jpg'
 
+const CATEGORY_PAGE_SIZE = 5
+const PRODUCT_PAGE_SIZE = 8
+
 function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Number(value) : 0
+}
+
+function normalizeText(value?: string | null): string {
+  return value?.trim().toLowerCase() || ''
+}
+
+function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+  if (totalPages <= 0) {
+    return []
+  }
+
+  const half = Math.floor(maxButtons / 2)
+  let start = Math.max(0, currentPage - half)
+  let end = Math.min(totalPages - 1, start + maxButtons - 1)
+
+  if (end - start + 1 < maxButtons) {
+    start = Math.max(0, end - maxButtons + 1)
+  }
+
+  const pages: number[] = []
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i)
+  }
+
+  return pages
 }
 
 function PartnerProductsPage() {
@@ -77,6 +105,11 @@ function PartnerProductsPage() {
 
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryDescription, setNewCategoryDescription] = useState('')
+  const [categoryKeyword, setCategoryKeyword] = useState('')
+  const [categoryPage, setCategoryPage] = useState(0)
+  const [productKeyword, setProductKeyword] = useState('')
+  const [productCategoryFilter, setProductCategoryFilter] = useState('')
+  const [productPage, setProductPage] = useState(0)
 
   async function loadProducts() {
     setLoading(true)
@@ -128,6 +161,135 @@ function PartnerProductsPage() {
     () => products.filter((item) => normalizeQuantity(item.totalQuantity) >= 0),
     [products],
   )
+
+  const filteredCategories = useMemo(() => {
+    const keyword = normalizeText(categoryKeyword)
+    if (!keyword) {
+      return categories
+    }
+
+    return categories.filter((category) => {
+      return [category.categoryName, category.description, category.categoryId]
+        .map((value) => normalizeText(value))
+        .some((value) => value.includes(keyword))
+    })
+  }, [categories, categoryKeyword])
+
+  const totalCategoryPages = useMemo(() => {
+    if (!filteredCategories.length) {
+      return 0
+    }
+    return Math.ceil(filteredCategories.length / CATEGORY_PAGE_SIZE)
+  }, [filteredCategories.length])
+
+  useEffect(() => {
+    setCategoryPage(0)
+  }, [categoryKeyword])
+
+  useEffect(() => {
+    if (totalCategoryPages > 0 && categoryPage >= totalCategoryPages) {
+      setCategoryPage(totalCategoryPages - 1)
+      return
+    }
+    if (totalCategoryPages === 0 && categoryPage !== 0) {
+      setCategoryPage(0)
+    }
+  }, [categoryPage, totalCategoryPages])
+
+  const categoryPaginationPages = useMemo(
+    () => buildPaginationPages(categoryPage, totalCategoryPages),
+    [categoryPage, totalCategoryPages],
+  )
+
+  const pagedCategories = useMemo(() => {
+    if (!filteredCategories.length) {
+      return []
+    }
+    const start = categoryPage * CATEGORY_PAGE_SIZE
+    return filteredCategories.slice(start, start + CATEGORY_PAGE_SIZE)
+  }, [categoryPage, filteredCategories])
+
+  const filteredProducts = useMemo(() => {
+    const keyword = normalizeText(productKeyword)
+    return activeProducts.filter((item) => {
+      const itemCategoryId = item.categoryId?.trim() || ''
+      const keywordMatched =
+        !keyword ||
+        [
+          item.name,
+          item.productName,
+          item.description,
+          item.brand,
+          item.sku,
+          item.productId,
+          item.itemId,
+        ]
+          .map((value) => normalizeText(value))
+          .some((value) => value.includes(keyword))
+
+      const categoryMatched = !productCategoryFilter || itemCategoryId === productCategoryFilter
+      return keywordMatched && categoryMatched
+    })
+  }, [activeProducts, productCategoryFilter, productKeyword])
+
+  const totalProductPages = useMemo(() => {
+    if (!filteredProducts.length) {
+      return 0
+    }
+    return Math.ceil(filteredProducts.length / PRODUCT_PAGE_SIZE)
+  }, [filteredProducts.length])
+
+  useEffect(() => {
+    setProductPage(0)
+  }, [productKeyword, productCategoryFilter])
+
+  useEffect(() => {
+    if (totalProductPages > 0 && productPage >= totalProductPages) {
+      setProductPage(totalProductPages - 1)
+      return
+    }
+    if (totalProductPages === 0 && productPage !== 0) {
+      setProductPage(0)
+    }
+  }, [productPage, totalProductPages])
+
+  const productPaginationPages = useMemo(
+    () => buildPaginationPages(productPage, totalProductPages),
+    [productPage, totalProductPages],
+  )
+
+  const pagedProducts = useMemo(() => {
+    if (!filteredProducts.length) {
+      return []
+    }
+    const start = productPage * PRODUCT_PAGE_SIZE
+    return filteredProducts.slice(start, start + PRODUCT_PAGE_SIZE)
+  }, [filteredProducts, productPage])
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const category of categories) {
+      if (category.categoryId) {
+        map.set(category.categoryId, category.categoryName || category.categoryId)
+      }
+    }
+    return map
+  }, [categories])
+
+  const filterableCategoryIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const item of activeProducts) {
+      const value = item.categoryId?.trim()
+      if (value) {
+        ids.add(value)
+      }
+    }
+    return Array.from(ids.values()).sort((a, b) => {
+      const first = categoryNameById.get(a) || a
+      const second = categoryNameById.get(b) || b
+      return first.localeCompare(second)
+    })
+  }, [activeProducts, categoryNameById])
 
   function resetCategoryForm() {
     setNewCategoryName('')
@@ -317,7 +479,9 @@ function PartnerProductsPage() {
         return
       }
     } else if (editingProductId) {
-      resolvedImageUrl = editingProductImageUrl || undefined
+      resolvedImageUrl = editingProductImageUrl || DEFAULT_PRODUCT_IMAGE_URL
+    } else {
+      resolvedImageUrl = DEFAULT_PRODUCT_IMAGE_URL
     }
 
     const payload: UpsertPartnerProductRequest = {
@@ -408,8 +572,19 @@ function PartnerProductsPage() {
           {createCategorySuccess && <p className="role-muted">{createCategorySuccess}</p>}
           {categoryError && <p className="role-error">{categoryError}</p>}
 
+          <div className="partner-products-page-filter role-inline-form">
+            <label className="partner-products-page-full-width">
+              Search category
+              <input
+                value={categoryKeyword}
+                onChange={(event) => setCategoryKeyword(event.target.value)}
+                placeholder="Search by name, description, or ID"
+              />
+            </label>
+          </div>
+
           <div className="partner-products-page-category-list">
-            {categories.map((category) => (
+            {pagedCategories.map((category) => (
               <div key={category.categoryId} className="partner-products-page-category-row">
                 <div>
                   <strong>{category.categoryName}</strong>
@@ -435,10 +610,52 @@ function PartnerProductsPage() {
                 </div>
               </div>
             ))}
-            {!categories.length && (
-              <p className="role-empty-cell partner-products-page-empty">No category found.</p>
+            {!filteredCategories.length && (
+              <p className="role-empty-cell partner-products-page-empty">
+                No category matched the current filter.
+              </p>
             )}
           </div>
+
+          {totalCategoryPages > 0 && (
+            <div className="partner-products-page-pagination">
+              <p className="partner-products-page-pagination-summary">
+                Showing {Math.min(categoryPage * CATEGORY_PAGE_SIZE + 1, filteredCategories.length)}-
+                {Math.min((categoryPage + 1) * CATEGORY_PAGE_SIZE, filteredCategories.length)} of{' '}
+                {filteredCategories.length} categories
+              </p>
+              <div className="partner-products-page-pagination-controls">
+                <button
+                  type="button"
+                  className="role-btn-ghost partner-products-page-btn-page"
+                  onClick={() => setCategoryPage((prev) => Math.max(0, prev - 1))}
+                  disabled={categoryPage <= 0}
+                >
+                  Prev
+                </button>
+                {categoryPaginationPages.map((pageNumber) => (
+                  <button
+                    key={`category-page-${pageNumber}`}
+                    type="button"
+                    className={`role-btn-ghost partner-products-page-btn-page ${pageNumber === categoryPage ? 'is-active' : ''}`}
+                    onClick={() => setCategoryPage(pageNumber)}
+                  >
+                    {pageNumber + 1}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="role-btn-ghost partner-products-page-btn-page"
+                  onClick={() =>
+                    setCategoryPage((prev) => Math.min(totalCategoryPages - 1, prev + 1))
+                  }
+                  disabled={categoryPage >= totalCategoryPages - 1}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <h3>{editingProductId ? 'Edit Product' : 'Create Product'}</h3>
@@ -506,14 +723,16 @@ function PartnerProductsPage() {
               }}
             />
             <small className="partner-products-page-help">
-              If you do not upload an image, system will use default image.
+              If you do not upload an image, system will attach a default image silently.
             </small>
-            <div className="partner-products-page-image-preview">
-              <img
-                src={selectedImagePreviewUrl || editingProductImageUrl || DEFAULT_PRODUCT_IMAGE_URL}
-                alt="Product preview"
-              />
-            </div>
+            {(selectedImagePreviewUrl || editingProductImageUrl) && (
+              <div className="partner-products-page-image-preview">
+                <img
+                  src={selectedImagePreviewUrl || editingProductImageUrl}
+                  alt="Product preview"
+                />
+              </div>
+            )}
           </label>
           <label className="partner-products-page-full-width">
             Description
@@ -552,8 +771,33 @@ function PartnerProductsPage() {
       </article>
 
       <article className="role-card">
+        <div className="partner-products-page-filter role-inline-form">
+          <label>
+            Search product
+            <input
+              value={productKeyword}
+              onChange={(event) => setProductKeyword(event.target.value)}
+              placeholder="Search by name, SKU, brand, ID..."
+            />
+          </label>
+          <label>
+            Filter by category
+            <select
+              value={productCategoryFilter}
+              onChange={(event) => setProductCategoryFilter(event.target.value)}
+            >
+              <option value="">All categories</option>
+              {filterableCategoryIds.map((categoryValue) => (
+                <option key={categoryValue} value={categoryValue}>
+                  {categoryNameById.get(categoryValue) || categoryValue}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="partner-products-page-grid">
-          {activeProducts.map((item) => (
+          {pagedProducts.map((item) => (
             <ProductCard
               key={item.stockId || item.itemId || item.productId}
               product={item}
@@ -562,12 +806,50 @@ function PartnerProductsPage() {
               deleting={deletingProductId === item.productId}
             />
           ))}
-          {!activeProducts.length && (
+          {!filteredProducts.length && (
             <p className="role-empty-cell partner-products-page-empty">
-              Chua co san pham nao trong shop cua ban.
+              No products matched the current filter.
             </p>
           )}
         </div>
+
+        {totalProductPages > 0 && (
+          <div className="partner-products-page-pagination">
+            <p className="partner-products-page-pagination-summary">
+              Showing {Math.min(productPage * PRODUCT_PAGE_SIZE + 1, filteredProducts.length)}-
+              {Math.min((productPage + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length)} of{' '}
+              {filteredProducts.length} products
+            </p>
+            <div className="partner-products-page-pagination-controls">
+              <button
+                type="button"
+                className="role-btn-ghost partner-products-page-btn-page"
+                onClick={() => setProductPage((prev) => Math.max(0, prev - 1))}
+                disabled={productPage <= 0}
+              >
+                Prev
+              </button>
+              {productPaginationPages.map((pageNumber) => (
+                <button
+                  key={`product-page-${pageNumber}`}
+                  type="button"
+                  className={`role-btn-ghost partner-products-page-btn-page ${pageNumber === productPage ? 'is-active' : ''}`}
+                  onClick={() => setProductPage(pageNumber)}
+                >
+                  {pageNumber + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="role-btn-ghost partner-products-page-btn-page"
+                onClick={() => setProductPage((prev) => Math.min(totalProductPages - 1, prev + 1))}
+                disabled={productPage >= totalProductPages - 1}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </article>
     </section>
   )

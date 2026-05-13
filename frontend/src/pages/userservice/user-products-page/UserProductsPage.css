@@ -5,6 +5,14 @@
   margin-top: 0.75rem;
 }
 
+.user-products-page-cart-summary {
+  margin-top: 10px;
+}
+
+.user-products-page-filter {
+  margin-top: 0.8rem;
+}
+
 .user-products-page-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -16,4 +24,77 @@
   padding: 16px;
   border: 1px dashed rgba(133, 169, 214, 0.35);
   border-radius: 10px;
+}
+
+.user-products-page-cart-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.user-products-page-cart-actions label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--role-text-sub);
+}
+
+.user-products-page-cart-actions input {
+  width: 80px;
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.user-products-page-btn-add-cart {
+  border-color: rgba(120, 255, 216, 0.44);
+  color: #78ffd8;
+}
+
+.user-products-page-btn-add-cart:hover:not(:disabled) {
+  background: rgba(25, 140, 111, 0.22);
+}
+
+.user-products-page-btn-remove-cart {
+  border-color: rgba(255, 143, 161, 0.45);
+  color: #ff9caf;
+}
+
+.user-products-page-btn-remove-cart:hover:not(:disabled) {
+  background: rgba(148, 45, 67, 0.22);
+}
+
+.user-products-page-pagination {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-products-page-pagination-summary {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.user-products-page-pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-products-page-btn-page {
+  min-width: 40px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+}
+
+.user-products-page-btn-page.is-active {
+  border-color: rgba(39, 194, 255, 0.6);
+  background: rgba(39, 194, 255, 0.2);
 }
