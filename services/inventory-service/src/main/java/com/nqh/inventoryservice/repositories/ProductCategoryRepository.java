@@ -33,4 +33,19 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
             @Param("shopId") UUID shopId,
             @Param("categoryName") String categoryName
     );
+
+    Optional<ProductCategory> findByIsActiveTrueAndIdAndShopId(UUID id, UUID shopId);
+
+    @Query("""
+            select c from ProductCategory c
+            where c.isActive = true
+                and c.shopId = :shopId
+                and c.id <> :categoryId
+                and lower(c.categoryName) = lower(:categoryName)
+            """)
+    Optional<ProductCategory> findActiveByShopIdAndCategoryNameExcludingId(
+            @Param("shopId") UUID shopId,
+            @Param("categoryId") UUID categoryId,
+            @Param("categoryName") String categoryName
+    );
 }

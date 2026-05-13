@@ -17,6 +17,8 @@ import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
+import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import com.nqh.inventoryservice.enums.InventoryReservationStatusEnum;
 import com.nqh.inventoryservice.pojos.InventoryReservation;
 import com.nqh.inventoryservice.pojos.InventoryReservationItem;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.time.LocalDateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -119,18 +122,69 @@ public class InventoryServiceImpl implements InventoryService {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_ALREADY_EXISTS);
         }
 
-        UUID generatedCategoryId = UUID.randomUUID();
+        String generatedCategoryCode = UUID.randomUUID().toString();
         ProductCategory savedCategory = productCategoryRepository.save(
                 ProductCategory.builder()
-                        .id(generatedCategoryId)
                         .shopId(resolvedShopId)
-                        .categoryCode(generatedCategoryId.toString())
+                        .categoryCode(generatedCategoryCode)
                         .categoryName(normalizedCategoryName)
                         .description(trimToNull(request.getDescription()))
                         .build()
         );
 
         return mapToProductCategoryResponse(savedCategory);
+    }
+
+    @Override
+    @Transactional
+    public ProductCategoryResponse updateProductCategory(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID categoryId,
+            UpdateProductCategoryRequest request
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
+        String normalizedCategoryName = trimToNull(request.getCategoryName());
+        if (normalizedCategoryName == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndIdAndShopId(categoryId, resolvedShopId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_CATEGORY_NOT_FOUND));
+
+        if (productCategoryRepository
+                .findActiveByShopIdAndCategoryNameExcludingId(resolvedShopId, categoryId, normalizedCategoryName)
+                .isPresent()) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_ALREADY_EXISTS);
+        }
+
+        category.setCategoryName(normalizedCategoryName);
+        category.setDescription(trimToNull(request.getDescription()));
+        ProductCategory updatedCategory = productCategoryRepository.save(category);
+        return mapToProductCategoryResponse(updatedCategory);
+    }
+
+    @Override
+    @Transactional
+    public ProductCategoryResponse deleteProductCategory(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID requestedShopId,
+            UUID categoryId
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, requestedShopId);
+        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndIdAndShopId(categoryId, resolvedShopId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_CATEGORY_NOT_FOUND));
+
+        long activeProducts = inventoryStockRepository.countByIsActiveTrueAndShopIdAndCategoryId(resolvedShopId, categoryId);
+        if (activeProducts > 0) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_IN_USE);
+        }
+
+        category.setIsActive(false);
+        category.setDeletedAt(LocalDateTime.now());
+        ProductCategory deletedCategory = productCategoryRepository.save(category);
+        return mapToProductCategoryResponse(deletedCategory);
     }
 
     @Override
@@ -182,6 +236,65 @@ public class InventoryServiceImpl implements InventoryService {
 
         InventoryStock saved = inventoryStockRepository.save(product);
         return mapToStockResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
+    public InventoryStockResponse updatePartnerProduct(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID productId,
+            UpdatePartnerProductRequest request
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
+        InventoryStock product = inventoryStockRepository.findByIsActiveTrueAndProductIdAndShopId(productId, resolvedShopId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
+
+        UUID resolvedCategoryId = request.getCategoryId();
+        if (resolvedCategoryId != null
+                && productCategoryRepository.findActiveByShopIdAndCategoryId(resolvedShopId, resolvedCategoryId).isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_CATEGORY_NOT_FOUND);
+        }
+
+        product.setName(trimToNull(request.getName()));
+        product.setProductName(trimToNull(request.getName()));
+        product.setDescription(trimToNull(request.getDescription()));
+        product.setCategoryId(resolvedCategoryId);
+        product.setBrand(trimToNull(request.getBrand()));
+        product.setProductStatus(trimToNull(request.getStatus()));
+        product.setSku(trimToNull(request.getSku()));
+        product.setAvailableQuantity(request.getAvailableQuantity());
+
+        String normalizedImageUrl = trimToNull(request.getImageUrl());
+        if (normalizedImageUrl != null) {
+            product.setImageUrl(normalizedImageUrl);
+        } else if (trimToNull(product.getImageUrl()) == null) {
+            product.setImageUrl(productImageUploadService.resolveDefaultProductImageUrl());
+        }
+
+        InventoryStock updated = inventoryStockRepository.save(product);
+        return mapToStockResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
+    public InventoryStockResponse deletePartnerProduct(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID requestedShopId,
+            UUID productId
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, requestedShopId);
+        InventoryStock product = inventoryStockRepository.findByIsActiveTrueAndProductIdAndShopId(productId, resolvedShopId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
+
+        product.setIsActive(false);
+        product.setDeletedAt(LocalDateTime.now());
+        product.setProductStatus("INACTIVE");
+        InventoryStock deletedProduct = inventoryStockRepository.save(product);
+        return mapToStockResponse(deletedProduct);
     }
 
     @Override

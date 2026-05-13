@@ -15,6 +15,11 @@
   font-size: 1rem;
 }
 
+.partner-products-page h3 {
+  margin: 0.6rem 0 0;
+  font-size: 1rem;
+}
+
 .partner-products-page-form {
   margin-top: 0.9rem;
 }
@@ -65,4 +70,59 @@
   padding: 16px;
   border: 1px dashed rgba(133, 169, 214, 0.35);
   border-radius: 10px;
+}
+
+.partner-products-page-category-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.partner-products-page-category-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid rgba(133, 169, 214, 0.25);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: rgba(6, 20, 33, 0.82);
+}
+
+.partner-products-page-category-row strong {
+  display: block;
+  font-size: 0.92rem;
+}
+
+.partner-products-page-category-row p {
+  margin: 4px 0;
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+}
+
+.partner-products-page-category-row span {
+  color: var(--role-text-sub);
+  font-size: 0.72rem;
+  word-break: break-all;
+}
+
+.partner-products-page-category-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.partner-products-page-btn-delete {
+  border-radius: 8px;
+  border: 1px solid rgba(255, 143, 161, 0.45);
+  padding: 7px 10px;
+  background: rgba(148, 45, 67, 0.2);
+  color: #ff9caf;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.partner-products-page-btn-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

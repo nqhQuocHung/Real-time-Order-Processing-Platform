@@ -12,6 +12,8 @@ import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
+import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,7 +32,35 @@ public interface InventoryService {
 
     ProductCategoryResponse createProductCategory(UUID requesterUserId, boolean isAdmin, CreateProductCategoryRequest request);
 
+    ProductCategoryResponse updateProductCategory(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID categoryId,
+            UpdateProductCategoryRequest request
+    );
+
+    ProductCategoryResponse deleteProductCategory(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID requestedShopId,
+            UUID categoryId
+    );
+
     ProductImageUploadResponse uploadProductImage(MultipartFile image);
+
+    InventoryStockResponse updatePartnerProduct(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID productId,
+            UpdatePartnerProductRequest request
+    );
+
+    InventoryStockResponse deletePartnerProduct(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID requestedShopId,
+            UUID productId
+    );
 
     InventoryCheckResponse checkStock(InventoryCheckRequest request);
 
