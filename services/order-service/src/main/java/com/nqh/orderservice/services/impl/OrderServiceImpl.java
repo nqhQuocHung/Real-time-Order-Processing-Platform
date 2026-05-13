@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.net.http.HttpClient;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -46,12 +47,13 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -65,10 +67,10 @@ public class OrderServiceImpl implements OrderService {
     private static final String ACTION_PAYMENT_CONFIRM = "PAYMENT_CONFIRM";
     private static final String ACTION_PAYMENT_FAIL = "PAYMENT_FAIL";
     private static final String ACTION_SHIPPING_CONFIRM = "SHIPPING_CONFIRM";
+    private static final String ACTION_PAYMENT_TIMEOUT = "PAYMENT_TIMEOUT";
     private static final String ACTION_INVENTORY_RESERVE = "INVENTORY_RESERVE";
     private static final String ACTION_INVENTORY_COMMIT = "INVENTORY_COMMIT";
     private static final String ACTION_AUTO_WORKFLOW_FAIL = "AUTO_WORKFLOW_FAIL";
-    private static final String ACTION_AUTO_WORKFLOW_COMPLETE = "AUTO_WORKFLOW_COMPLETE";
     private static final String DEFAULT_SYSTEM_ACTOR = "SYSTEM";
     private static final String WORKFLOW_ACTOR = "ORDER_WORKFLOW";
     private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
@@ -93,6 +95,7 @@ public class OrderServiceImpl implements OrderService {
     private final String defaultCurrency;
     private final String internalRpcToken;
     private final String defaultPaymentMethod;
+    private final long paymentTimeoutMinutes;
     private final String topicOrderCreated;
     private final String topicOrderCompleted;
     private final String topicOrderFailed;
@@ -108,6 +111,7 @@ public class OrderServiceImpl implements OrderService {
             @Value("${app.order.rpc.payment-base-url:http://localhost:8084}") String paymentBaseUrl,
             @Value("${app.order.rpc.internal-token:change-me}") String internalRpcToken,
             @Value("${app.order.rpc.default-payment-method:VNPAY}") String defaultPaymentMethod,
+            @Value("${app.order.payment-timeout-minutes:15}") long paymentTimeoutMinutes,
             @Value("${app.order.topic.created:order.lifecycle.created.v1}") String topicOrderCreated,
             @Value("${app.order.topic.completed:order.lifecycle.completed.v1}") String topicOrderCompleted,
             @Value("${app.order.topic.failed:order.lifecycle.failed.v1}") String topicOrderFailed
@@ -120,6 +124,7 @@ public class OrderServiceImpl implements OrderService {
         this.defaultCurrency = defaultCurrency;
         this.internalRpcToken = internalRpcToken;
         this.defaultPaymentMethod = defaultPaymentMethod;
+        this.paymentTimeoutMinutes = paymentTimeoutMinutes;
         this.topicOrderCreated = topicOrderCreated;
         this.topicOrderCompleted = topicOrderCompleted;
         this.topicOrderFailed = topicOrderFailed;
@@ -180,7 +185,7 @@ public class OrderServiceImpl implements OrderService {
                     "Order created"
             );
             publishOrderCreatedEvent(savedOrder);
-            CustomerOrder processedOrder = processRealtimeWorkflow(savedOrder, request);
+            CustomerOrder processedOrder = processOrderCreationWorkflow(savedOrder, request);
             return mapToCreateOrderResponse(processedOrder, false);
         } catch (DataIntegrityViolationException ex) {
             CustomerOrder deduplicatedOrder = customerOrderRepository.findByIdempotencyKey(normalizedIdempotencyKey)
@@ -234,6 +239,10 @@ public class OrderServiceImpl implements OrderService {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.ORDER_CANCEL_NOT_ALLOWED);
         }
 
+        if (order.getStatus() == OrderStatusEnum.RESERVED) {
+            releaseInventory(order, "Release inventory after order cancellation");
+        }
+
         CustomerOrder updatedOrder = updateOrderStatusInternal(
                 order,
                 OrderStatusEnum.CANCELLED,
@@ -264,6 +273,16 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDetailResponse confirmPayment(String orderCode, OrderActionRequest request) {
         CustomerOrder order = findByOrderCodeOrThrow(orderCode);
+
+        if (order.getStatus() == OrderStatusEnum.PAID || order.getStatus() == OrderStatusEnum.COMPLETED) {
+            return mapToOrderDetailResponse(order);
+        }
+        if (order.getStatus() != OrderStatusEnum.RESERVED) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.ORDER_STATUS_TRANSITION_INVALID);
+        }
+
+        callInventoryCommit(order);
+
         CustomerOrder updatedOrder = updateOrderStatusInternal(
                 order,
                 OrderStatusEnum.PAID,
@@ -272,6 +291,8 @@ public class OrderServiceImpl implements OrderService {
                 resolveNote(request),
                 MessageCode.ORDER_STATUS_TRANSITION_INVALID
         );
+        updatedOrder.setPaymentDeadlineAt(null);
+        customerOrderRepository.save(updatedOrder);
         return mapToOrderDetailResponse(updatedOrder);
     }
 
@@ -279,6 +300,18 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderDetailResponse failPayment(String orderCode, OrderActionRequest request) {
         CustomerOrder order = findByOrderCodeOrThrow(orderCode);
+
+        if (order.getStatus() == OrderStatusEnum.FAILED || order.getStatus() == OrderStatusEnum.CANCELLED) {
+            return mapToOrderDetailResponse(order);
+        }
+        if (order.getStatus() == OrderStatusEnum.PAID || order.getStatus() == OrderStatusEnum.COMPLETED) {
+            return mapToOrderDetailResponse(order);
+        }
+
+        if (order.getStatus() == OrderStatusEnum.RESERVED) {
+            releaseInventory(order, "Release inventory after payment failure");
+        }
+
         CustomerOrder updatedOrder = updateOrderStatusInternal(
                 order,
                 OrderStatusEnum.FAILED,
@@ -287,6 +320,8 @@ public class OrderServiceImpl implements OrderService {
                 resolveNote(request),
                 MessageCode.ORDER_STATUS_TRANSITION_INVALID
         );
+        updatedOrder.setPaymentDeadlineAt(null);
+        customerOrderRepository.save(updatedOrder);
         return mapToOrderDetailResponse(updatedOrder);
     }
 
@@ -322,7 +357,52 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
     }
 
-    private CustomerOrder processRealtimeWorkflow(CustomerOrder order, CreateOrderRequest request) {
+    @Scheduled(fixedDelayString = "${app.order.payment-expiry-scan-delay-ms:10000}")
+    public void releaseExpiredReservedOrders() {
+        List<CustomerOrder> expiredOrders = customerOrderRepository
+                .findTop100ByStatusAndPaymentDeadlineAtBeforeOrderByPaymentDeadlineAtAsc(
+                        OrderStatusEnum.RESERVED,
+                        LocalDateTime.now()
+                );
+
+        if (expiredOrders.isEmpty()) {
+            return;
+        }
+
+        for (CustomerOrder expiredOrder : new ArrayList<>(expiredOrders)) {
+            expireReservedOrder(expiredOrder.getOrderCode());
+        }
+    }
+
+    private void expireReservedOrder(String orderCode) {
+        try {
+            CustomerOrder order = customerOrderRepository.findByOrderCode(orderCode).orElse(null);
+            if (order == null || order.getStatus() != OrderStatusEnum.RESERVED) {
+                return;
+            }
+
+            LocalDateTime paymentDeadlineAt = order.getPaymentDeadlineAt();
+            if (paymentDeadlineAt == null || paymentDeadlineAt.isAfter(LocalDateTime.now())) {
+                return;
+            }
+
+            releaseInventory(order, "Release inventory after payment timeout");
+            CustomerOrder failedOrder = updateOrderStatusInternal(
+                    order,
+                    OrderStatusEnum.FAILED,
+                    ACTION_PAYMENT_TIMEOUT,
+                    WORKFLOW_ACTOR,
+                    "Payment timeout. Inventory released automatically.",
+                    MessageCode.ORDER_STATUS_TRANSITION_INVALID
+            );
+            failedOrder.setPaymentDeadlineAt(null);
+            customerOrderRepository.save(failedOrder);
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to auto-release timed-out order. orderCode={}", orderCode, ex);
+        }
+    }
+
+    private CustomerOrder processOrderCreationWorkflow(CustomerOrder order, CreateOrderRequest request) {
         CustomerOrder currentOrder = order;
 
         try {
@@ -339,44 +419,15 @@ public class OrderServiceImpl implements OrderService {
             return failWorkflow(currentOrder, "Inventory reserve failed: " + sanitizeErrorMessage(ex));
         }
 
-        boolean paymentSuccess;
         try {
-            callPaymentCreateIntent(currentOrder);
-            paymentSuccess = callPaymentConfirm(currentOrder);
+            PaymentIntentResult paymentIntentResult = callPaymentCreateIntent(currentOrder);
+            currentOrder.setPaymentUrl(paymentIntentResult.paymentUrl());
+            currentOrder.setPaymentDeadlineAt(resolvePaymentDeadline(LocalDateTime.now()));
+            return customerOrderRepository.save(currentOrder);
         } catch (Exception ex) {
             releaseInventoryQuietly(currentOrder, "Release after payment RPC exception");
             return failWorkflow(currentOrder, "Payment RPC failed: " + sanitizeErrorMessage(ex));
         }
-
-        if (!paymentSuccess) {
-            releaseInventoryQuietly(currentOrder, "Release after payment returned non-success");
-            return failWorkflow(currentOrder, "Payment was not successful");
-        }
-
-        currentOrder = updateOrderStatusInternal(
-                currentOrder,
-                OrderStatusEnum.PAID,
-                ACTION_PAYMENT_CONFIRM,
-                WORKFLOW_ACTOR,
-                "Payment confirmed by internal RPC workflow",
-                MessageCode.ORDER_STATUS_TRANSITION_INVALID
-        );
-
-        try {
-            callInventoryCommit(currentOrder);
-        } catch (Exception ex) {
-            releaseInventoryQuietly(currentOrder, "Release after inventory commit failure");
-            return failWorkflow(currentOrder, "Inventory commit failed: " + sanitizeErrorMessage(ex));
-        }
-
-        return updateOrderStatusInternal(
-                currentOrder,
-                OrderStatusEnum.COMPLETED,
-                ACTION_AUTO_WORKFLOW_COMPLETE,
-                WORKFLOW_ACTOR,
-                "Order completed by realtime orchestration workflow",
-                MessageCode.ORDER_STATUS_TRANSITION_INVALID
-        );
     }
 
     private CustomerOrder failWorkflow(CustomerOrder order, String note) {
@@ -416,19 +467,23 @@ public class OrderServiceImpl implements OrderService {
         callInternalPost(inventoryRpcClient, "/internal/v1/inventories/confirm-deduct", body);
     }
 
+    private void releaseInventory(CustomerOrder order, String note) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("orderCode", order.getOrderCode());
+        body.put("actor", WORKFLOW_ACTOR);
+        body.put("note", note);
+        callInternalPost(inventoryRpcClient, "/internal/v1/inventories/release", body);
+    }
+
     private void releaseInventoryQuietly(CustomerOrder order, String note) {
         try {
-            Map<String, Object> body = new HashMap<>();
-            body.put("orderCode", order.getOrderCode());
-            body.put("actor", WORKFLOW_ACTOR);
-            body.put("note", note);
-            callInternalPost(inventoryRpcClient, "/internal/v1/inventories/release", body);
+            releaseInventory(order, note);
         } catch (Exception ex) {
             LOGGER.warn("Failed to release inventory for orderCode={} after workflow error", order.getOrderCode(), ex);
         }
     }
 
-    private void callPaymentCreateIntent(CustomerOrder order) {
+    private PaymentIntentResult callPaymentCreateIntent(CustomerOrder order) {
         Map<String, Object> body = new HashMap<>();
         body.put("orderCode", order.getOrderCode());
         body.put("customerId", order.getCustomerId());
@@ -437,18 +492,20 @@ public class OrderServiceImpl implements OrderService {
         body.put("method", defaultPaymentMethod);
         body.put("actor", WORKFLOW_ACTOR);
         body.put("note", "Auto payment intent from order workflow");
-        callInternalPost(paymentRpcClient, "/internal/v1/payments/intents", body);
+        JsonNode responseNode = callInternalPost(paymentRpcClient, "/internal/v1/payments/intents", body);
+        JsonNode dataNode = responseNode.path("data");
+        String paymentStatus = dataNode.path("status").asText("");
+        if (StringUtils.hasText(paymentStatus) && !"PENDING".equalsIgnoreCase(paymentStatus)) {
+            throw new IllegalStateException("Payment intent was not created in pending state: " + paymentStatus);
+        }
+        String paymentUrl = trimToNull(dataNode.path("paymentUrl").asText(null));
+        return new PaymentIntentResult(paymentUrl);
     }
 
-    private boolean callPaymentConfirm(CustomerOrder order) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("orderCode", order.getOrderCode());
-        body.put("actor", WORKFLOW_ACTOR);
-        body.put("note", "Auto payment confirm from order workflow");
-
-        JsonNode responseNode = callInternalPost(paymentRpcClient, "/internal/v1/payments/confirm", body);
-        JsonNode statusNode = responseNode.path("data").path("status");
-        return "SUCCESS".equalsIgnoreCase(statusNode.asText());
+    private LocalDateTime resolvePaymentDeadline(LocalDateTime baseTime) {
+        LocalDateTime normalizedBaseTime = baseTime != null ? baseTime : LocalDateTime.now();
+        long timeoutMinutes = paymentTimeoutMinutes > 0 ? paymentTimeoutMinutes : 15;
+        return normalizedBaseTime.plusMinutes(timeoutMinutes);
     }
 
     private JsonNode callInternalPost(RestClient restClient, String uri, Object body) {
@@ -510,6 +567,8 @@ public class OrderServiceImpl implements OrderService {
         payload.put("status", order.getStatus().name());
         payload.put("totalAmount", order.getTotalAmount());
         payload.put("currency", order.getCurrency());
+        payload.put("paymentUrl", order.getPaymentUrl());
+        payload.put("paymentDeadlineAt", order.getPaymentDeadlineAt());
         payload.put("createdAt", order.getCreatedAt());
         payload.put("updatedAt", order.getUpdatedAt());
         return payload;
@@ -564,6 +623,13 @@ public class OrderServiceImpl implements OrderService {
             return normalized.substring(0, maxLength);
         }
         return normalized;
+    }
+
+    private String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private String normalizeIdempotencyKey(String idempotencyKey) {
@@ -736,6 +802,8 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalAmount())
                 .currency(order.getCurrency())
                 .idempotencyKey(order.getIdempotencyKey())
+                .paymentUrl(order.getPaymentUrl())
+                .paymentDeadlineAt(order.getPaymentDeadlineAt())
                 .replayed(replayed)
                 .createdAt(order.getCreatedAt())
                 .items(items)
@@ -752,6 +820,8 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(order.getTotalAmount())
                 .currency(order.getCurrency())
                 .idempotencyKey(order.getIdempotencyKey())
+                .paymentUrl(order.getPaymentUrl())
+                .paymentDeadlineAt(order.getPaymentDeadlineAt())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .items(mapToOrderItemResponses(order))
@@ -767,6 +837,7 @@ public class OrderServiceImpl implements OrderService {
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
                 .currency(order.getCurrency())
+                .paymentDeadlineAt(order.getPaymentDeadlineAt())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .build();
@@ -782,5 +853,8 @@ public class OrderServiceImpl implements OrderService {
                         .lineTotal(item.getLineTotal())
                         .build())
                 .toList();
+    }
+
+    private record PaymentIntentResult(String paymentUrl) {
     }
 }

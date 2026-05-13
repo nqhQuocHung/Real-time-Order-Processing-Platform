@@ -7,14 +7,18 @@ export type ProductCardData = {
   productId: string
   itemId?: string
   shopId?: string
+  shopName?: string
   name?: string | null
   productName?: string | null
   description?: string | null
   categoryId?: string | null
+  categoryName?: string | null
   brand?: string | null
   status?: string | null
   imageUrl?: string | null
   sku?: string | null
+  price?: number | null
+  currency?: string | null
   availableQuantity?: number | null
   reservedQuantity?: number | null
   totalQuantity?: number | null
@@ -27,6 +31,7 @@ type ProductCardProps = {
   product: ProductCardData
   onEdit?: (product: ProductCardData) => void
   onDelete?: (product: ProductCardData) => void
+  onViewDetail?: (product: ProductCardData) => void
   deleting?: boolean
   actionSlot?: ReactNode
 }
@@ -35,54 +40,85 @@ function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Number(value) : 0
 }
 
-function formatDate(value?: string | null) {
-  if (!value) {
-    return '-'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-
-  return parsed.toLocaleString('vi-VN')
-}
-
-function ProductCard({ product, onEdit, onDelete, deleting, actionSlot }: ProductCardProps) {
+function ProductCard({
+  product,
+  onEdit,
+  onDelete,
+  onViewDetail,
+  deleting,
+  actionSlot,
+}: ProductCardProps) {
   const displayName = product.name?.trim() || product.productName?.trim() || 'Unnamed Product'
   const displayStatus = product.status?.trim() || (product.isActive ? 'ACTIVE' : 'INACTIVE')
   const imageUrl = product.imageUrl?.trim() || ''
+  const displayShopName = product.shopName?.trim() || product.shopId || '-'
+  const displayCategoryName = product.categoryName?.trim() || product.categoryId?.trim() || '-'
+  const statusClass = displayStatus.toLowerCase()
+  const isViewable = typeof onViewDetail === 'function'
+
+  function handleOpenDetail() {
+    onViewDetail?.(product)
+  }
 
   return (
-    <article className="product-card">
+    <article
+      className={`product-card ${isViewable ? 'is-clickable' : ''}`}
+      onClick={isViewable ? handleOpenDetail : undefined}
+      onKeyDown={
+        isViewable
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                handleOpenDetail()
+              }
+            }
+          : undefined
+      }
+      tabIndex={isViewable ? 0 : undefined}
+      role={isViewable ? 'button' : undefined}
+      aria-label={isViewable ? `View details for ${displayName}` : undefined}
+    >
       <div className="product-card-image-wrap">
         {imageUrl ? (
           <img src={imageUrl} alt={displayName} className="product-card-image" loading="lazy" />
         ) : (
           <div className="product-card-image-placeholder">No image</div>
         )}
+        <span className="product-card-image-sku">{product.sku?.trim() || 'No SKU'}</span>
       </div>
 
       <div className="product-card-body">
         <header className="product-card-header">
+          <span className={`product-card-status ${statusClass}`}>{displayStatus}</span>
           <h3>{displayName}</h3>
-          <span className={`product-card-status ${displayStatus.toLowerCase()}`}>
-            {displayStatus}
-          </span>
         </header>
 
         <p className="product-card-description">
           {product.description?.trim() || 'No description.'}
         </p>
 
-        <div className="product-card-meta">
-          <span>Item ID: {product.itemId || product.productId}</span>
-          <span>Shop ID: {product.shopId || '-'}</span>
-          <span>Category: {product.categoryId?.trim() || '-'}</span>
-          <span>Brand: {product.brand?.trim() || '-'}</span>
-          <span>SKU: {product.sku?.trim() || '-'}</span>
-          <span>Stock UUID: {product.stockUuid || '-'}</span>
-        </div>
+        <dl className="product-card-meta">
+          <div>
+            <dt>Item Name</dt>
+            <dd>{displayName}</dd>
+          </div>
+          <div>
+            <dt>Shop Name</dt>
+            <dd>{displayShopName}</dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd>{displayCategoryName}</dd>
+          </div>
+          <div>
+            <dt>Brand</dt>
+            <dd>{product.brand?.trim() || '-'}</dd>
+          </div>
+          <div>
+            <dt>SKU</dt>
+            <dd>{product.sku?.trim() || '-'}</dd>
+          </div>
+        </dl>
 
         <div className="product-card-quantities">
           <div>
@@ -99,16 +135,19 @@ function ProductCard({ product, onEdit, onDelete, deleting, actionSlot }: Produc
           </div>
         </div>
 
-        <footer className="product-card-footer">
-          <span>Created: {formatDate(product.createdAt)}</span>
-          <span>Updated: {formatDate(product.updatedAt)}</span>
-        </footer>
-
         {(onEdit || onDelete || actionSlot) && (
-          <div className="product-card-actions">
+          <div
+            className="product-card-actions"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
             {actionSlot}
             {onEdit && (
-              <button type="button" className="product-card-btn product-card-btn-edit" onClick={() => onEdit(product)}>
+              <button
+                type="button"
+                className="product-card-btn product-card-btn-edit"
+                onClick={() => onEdit(product)}
+              >
                 Edit
               </button>
             )}

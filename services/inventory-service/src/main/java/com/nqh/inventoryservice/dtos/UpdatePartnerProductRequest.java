@@ -14,6 +14,9 @@ public class UpdatePartnerProductRequest {
 
     private UUID shopId;
 
+    @Size(max = 120)
+    private String shopName;
+
     @NotBlank
     @Size(max = 255)
     private String name;

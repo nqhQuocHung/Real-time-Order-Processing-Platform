@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+
+import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,6 +41,9 @@ public class InventoryStock extends BasePojo {
     @Column(name = "shop_id")
     private UUID shopId;
 
+    @Column(name = "shop_name", length = 120)
+    private String shopName;
+
     @Column(name = "name", length = 255)
     private String name;
 
@@ -68,6 +73,9 @@ public class InventoryStock extends BasePojo {
 
     @Column(name = "reserved_quantity", nullable = false)
     private Integer reservedQuantity;
+
+    @Column(name = "price", precision = 15, scale = 2)
+    private BigDecimal price;
 
     @Version
     @Column(name = "version", nullable = false)
