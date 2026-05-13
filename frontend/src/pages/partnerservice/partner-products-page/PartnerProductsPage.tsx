@@ -20,11 +20,6 @@ type UpsertPartnerProductRequest = {
   availableQuantity: number
 }
 
-type UpsertProductCategoryRequest = {
-  categoryName: string
-  description?: string
-}
-
 type ProductCategory = {
   categoryUid?: string
   categoryUuid?: string
@@ -84,19 +79,14 @@ function PartnerProductsPage() {
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [savingCategory, setSavingCategory] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
-  const [deletingCategoryId, setDeletingCategoryId] = useState('')
   const [editingProductId, setEditingProductId] = useState('')
   const [editingProductImageUrl, setEditingProductImageUrl] = useState('')
-  const [editingCategoryId, setEditingCategoryId] = useState('')
   const [error, setError] = useState('')
   const [categoryError, setCategoryError] = useState('')
   const [createError, setCreateError] = useState('')
   const [createSuccess, setCreateSuccess] = useState('')
-  const [createCategoryError, setCreateCategoryError] = useState('')
-  const [createCategorySuccess, setCreateCategorySuccess] = useState('')
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -108,8 +98,6 @@ function PartnerProductsPage() {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
   const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState('')
 
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [newCategoryDescription, setNewCategoryDescription] = useState('')
   const [categoryKeyword, setCategoryKeyword] = useState('')
   const [categoryPage, setCategoryPage] = useState(0)
   const [productKeyword, setProductKeyword] = useState('')
@@ -310,12 +298,6 @@ function PartnerProductsPage() {
     })
   }, [activeProducts, categoryNameById])
 
-  function resetCategoryForm() {
-    setNewCategoryName('')
-    setNewCategoryDescription('')
-    setEditingCategoryId('')
-  }
-
   function resetProductForm() {
     setName('')
     setDescription('')
@@ -328,86 +310,6 @@ function PartnerProductsPage() {
     setSelectedImagePreviewUrl('')
     setEditingProductId('')
     setEditingProductImageUrl('')
-  }
-
-  async function handleSaveCategory() {
-    setCreateCategoryError('')
-    setCreateCategorySuccess('')
-
-    const normalizedCategoryName = newCategoryName.trim()
-    if (!normalizedCategoryName) {
-      setCreateCategoryError('Please enter category name.')
-      return
-    }
-
-    const payload: UpsertProductCategoryRequest = {
-      categoryName: normalizedCategoryName,
-      description: newCategoryDescription.trim() || undefined,
-    }
-
-    setSavingCategory(true)
-    try {
-      const response = editingCategoryId
-        ? await apis().put(endpoints.inventories.updateCategory(editingCategoryId), payload)
-        : await apis().post(endpoints.inventories.createCategory, payload)
-
-      const savedCategory = extractApiData<ProductCategory>(response)
-      setCreateCategorySuccess(
-        editingCategoryId ? 'Category updated successfully.' : 'Category created successfully.',
-      )
-      resetCategoryForm()
-
-      if (savedCategory?.categoryId) {
-        setCategoryId(savedCategory.categoryId)
-      }
-
-      await loadCategories()
-    } catch (err) {
-      setCreateCategoryError(
-        extractApiErrorMessage(
-          err,
-          editingCategoryId ? 'Cannot update product category.' : 'Cannot create product category.',
-        ),
-      )
-    } finally {
-      setSavingCategory(false)
-    }
-  }
-
-  function handleEditCategory(category: ProductCategory) {
-    setCreateCategoryError('')
-    setCreateCategorySuccess('')
-    setEditingCategoryId(category.categoryId)
-    setNewCategoryName(category.categoryName || '')
-    setNewCategoryDescription(category.description || '')
-  }
-
-  async function handleDeleteCategory(category: ProductCategory) {
-    const shouldDelete = window.confirm(
-      `Delete category "${category.categoryName}"?\nOnly empty categories can be deleted.`,
-    )
-    if (!shouldDelete) {
-      return
-    }
-
-    setCreateCategoryError('')
-    setCreateCategorySuccess('')
-    setDeletingCategoryId(category.categoryId)
-    try {
-      await apis().delete(endpoints.inventories.deleteCategory(category.categoryId))
-      setCreateCategorySuccess('Category deleted successfully.')
-      if (editingCategoryId === category.categoryId) {
-        resetCategoryForm()
-      }
-      if (categoryId === category.categoryId) {
-        setCategoryId('')
-      }
-      await loadCategories()
-    } catch (err) {
-      setCreateCategoryError(extractApiErrorMessage(err, 'Cannot delete product category.'))
-    } finally {
-      setDeletingCategoryId('')
-    }
   }
 
   async function uploadProductImage(image: File): Promise<string> {
@@ -549,47 +451,16 @@ function PartnerProductsPage() {
         </p>
 
         <div className="partner-products-page-category-box">
-          <h3>{editingCategoryId ? 'Edit Category' : 'Create Category'}</h3>
-          <div className="partner-products-page-form role-inline-form">
-            <label>
-              Category Name
-              <input
-                value={newCategoryName}
-                onChange={(event) => setNewCategoryName(event.target.value)}
-                placeholder="Ex: Computer Chips"
-              />
-            </label>
-            <label className="partner-products-page-full-width">
-              Category Description
-              <textarea
-                value={newCategoryDescription}
-                onChange={(event) => setNewCategoryDescription(event.target.value)}
-                placeholder="Category description"
-                rows={2}
-              />
-            </label>
-          </div>
+          <h3>Category Catalog</h3>
+          <p className="role-muted">
+            Product categories are managed by system admins. Partner accounts can view categories
+            and assign them to products.
+          </p>
           <div className="role-inline-actions">
-            <button type="button" className="role-btn-primary" onClick={() => void handleSaveCategory()}>
-              {savingCategory
-                ? editingCategoryId
-                  ? 'Updating Category...'
-                  : 'Creating Category...'
-                : editingCategoryId
-                  ? 'Update Category'
-                  : 'Create Category'}
-            </button>
-            {editingCategoryId && (
-              <button type="button" className="role-btn-ghost" onClick={resetCategoryForm}>
-                Cancel Edit
-              </button>
-            )}
             <button type="button" className="role-btn-ghost" onClick={() => void loadCategories()}>
               {loadingCategories ? 'Loading Categories...' : 'Refresh Categories'}
             </button>
           </div>
-          {createCategoryError && <p className="role-error">{createCategoryError}</p>}
-          {createCategorySuccess && <p className="role-muted">{createCategorySuccess}</p>}
           {categoryError && <p className="role-error">{categoryError}</p>}
 
           <div className="partner-products-page-filter role-inline-form">
@@ -610,23 +481,6 @@ function PartnerProductsPage() {
                   <strong>{category.categoryName}</strong>
                   <p>{category.description || '-'}</p>
                   <span>{category.categoryId}</span>
-                </div>
-                <div className="partner-products-page-category-actions">
-                  <button
-                    type="button"
-                    className="role-btn-ghost"
-                    onClick={() => handleEditCategory(category)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="partner-products-page-btn-delete"
-                    disabled={deletingCategoryId === category.categoryId}
-                    onClick={() => void handleDeleteCategory(category)}
-                  >
-                    {deletingCategoryId === category.categoryId ? 'Deleting...' : 'Delete'}
-                  </button>
                 </div>
               </div>
             ))}

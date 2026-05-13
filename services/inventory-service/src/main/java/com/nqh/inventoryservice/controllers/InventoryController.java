@@ -1,5 +1,6 @@
 package com.nqh.inventoryservice.controllers;
 
+import com.nqh.inventoryservice.common.exception.AppException;
 import com.nqh.inventoryservice.common.messages.MessageCode;
 import com.nqh.inventoryservice.common.response.ApiResponseFactory;
 import com.nqh.inventoryservice.common.response.BaseResponse;
@@ -115,6 +116,7 @@ public class InventoryController {
         boolean isAdmin = jwt != null
                 && jwt.getClaimAsStringList("roles") != null
                 && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+        ensureAdminForCategoryManagement(isAdmin);
 
         UUID requesterUserId = UUID.fromString(jwt.getSubject());
         ProductCategoryResponse response = inventoryService.createProductCategory(requesterUserId, isAdmin, request);
@@ -131,6 +133,7 @@ public class InventoryController {
         boolean isAdmin = jwt != null
                 && jwt.getClaimAsStringList("roles") != null
                 && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+        ensureAdminForCategoryManagement(isAdmin);
 
         UUID requesterUserId = UUID.fromString(jwt.getSubject());
         ProductCategoryResponse response = inventoryService.updateProductCategory(requesterUserId, isAdmin, categoryId, request);
@@ -147,6 +150,7 @@ public class InventoryController {
         boolean isAdmin = jwt != null
                 && jwt.getClaimAsStringList("roles") != null
                 && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+        ensureAdminForCategoryManagement(isAdmin);
 
         UUID requesterUserId = UUID.fromString(jwt.getSubject());
         ProductCategoryResponse response = inventoryService.deleteProductCategory(requesterUserId, isAdmin, shopId, categoryId);
@@ -245,5 +249,11 @@ public class InventoryController {
     ) {
         InventoryStockResponse response = inventoryService.adjustStock(request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_STOCK_ADJUST_SUCCESS, response, httpServletRequest);
+    }
+
+    private void ensureAdminForCategoryManagement(boolean isAdmin) {
+        if (!isAdmin) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.COMMON_FORBIDDEN);
+        }
     }
 }
