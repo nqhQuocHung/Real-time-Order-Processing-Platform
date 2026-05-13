@@ -242,6 +242,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.getStatus() == OrderStatusEnum.RESERVED) {
             releaseInventory(order, "Release inventory after order cancellation");
         }
+        order.setPaymentDeadlineAt(null);
 
         CustomerOrder updatedOrder = updateOrderStatusInternal(
                 order,
