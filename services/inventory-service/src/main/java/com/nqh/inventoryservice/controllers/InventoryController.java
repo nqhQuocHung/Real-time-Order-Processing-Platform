@@ -15,6 +15,8 @@ import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
+import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import com.nqh.inventoryservice.services.InventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,9 +29,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -117,6 +121,38 @@ public class InventoryController {
         return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_CATEGORY_CREATE_SUCCESS, response, httpServletRequest);
     }
 
+    @PutMapping("/categories/{categoryId}")
+    public ResponseEntity<BaseResponse<ProductCategoryResponse>> updateProductCategory(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID categoryId,
+            @RequestBody @Valid UpdateProductCategoryRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        ProductCategoryResponse response = inventoryService.updateProductCategory(requesterUserId, isAdmin, categoryId, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_CATEGORY_UPDATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @DeleteMapping("/categories/{categoryId}")
+    public ResponseEntity<BaseResponse<ProductCategoryResponse>> deleteProductCategory(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID categoryId,
+            @RequestParam(required = false) UUID shopId,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        ProductCategoryResponse response = inventoryService.deleteProductCategory(requesterUserId, isAdmin, shopId, categoryId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_CATEGORY_DELETE_SUCCESS, response, httpServletRequest);
+    }
+
     @PostMapping(value = "/products/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<BaseResponse<ProductImageUploadResponse>> uploadProductImage(
             @RequestParam(name = "image", required = false) MultipartFile image,
@@ -124,6 +160,38 @@ public class InventoryController {
     ) {
         ProductImageUploadResponse response = inventoryService.uploadProductImage(image);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_PRODUCT_IMAGE_UPLOAD_SUCCESS, response, httpServletRequest);
+    }
+
+    @PutMapping("/products/{productId}")
+    public ResponseEntity<BaseResponse<InventoryStockResponse>> updatePartnerProduct(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID productId,
+            @RequestBody @Valid UpdatePartnerProductRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        InventoryStockResponse response = inventoryService.updatePartnerProduct(requesterUserId, isAdmin, productId, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_PRODUCT_UPDATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @DeleteMapping("/products/{productId}")
+    public ResponseEntity<BaseResponse<InventoryStockResponse>> deletePartnerProduct(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID productId,
+            @RequestParam(required = false) UUID shopId,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        InventoryStockResponse response = inventoryService.deletePartnerProduct(requesterUserId, isAdmin, shopId, productId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_PRODUCT_DELETE_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/summary")

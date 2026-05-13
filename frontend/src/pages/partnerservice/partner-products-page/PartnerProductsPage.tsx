@@ -8,7 +8,7 @@ import {
 import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
 import './PartnerProductsPage.css'
 
-type CreatePartnerProductRequest = {
+type UpsertPartnerProductRequest = {
   name: string
   description?: string
   categoryId?: string
@@ -19,7 +19,7 @@ type CreatePartnerProductRequest = {
   availableQuantity: number
 }
 
-type CreateProductCategoryRequest = {
+type UpsertProductCategoryRequest = {
   categoryName: string
   description?: string
 }
@@ -51,8 +51,13 @@ function PartnerProductsPage() {
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [savingCategory, setSavingCategory] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [deletingProductId, setDeletingProductId] = useState('')
+  const [deletingCategoryId, setDeletingCategoryId] = useState('')
+  const [editingProductId, setEditingProductId] = useState('')
+  const [editingProductImageUrl, setEditingProductImageUrl] = useState('')
+  const [editingCategoryId, setEditingCategoryId] = useState('')
   const [error, setError] = useState('')
   const [categoryError, setCategoryError] = useState('')
   const [createError, setCreateError] = useState('')
@@ -91,7 +96,6 @@ function PartnerProductsPage() {
   async function loadCategories() {
     setLoadingCategories(true)
     setCategoryError('')
-
     try {
       const response = await apis().get(endpoints.inventories.categories)
       const data = extractApiData<ProductCategory[]>(response)
@@ -125,40 +129,103 @@ function PartnerProductsPage() {
     [products],
   )
 
-  async function handleCreateCategory() {
+  function resetCategoryForm() {
+    setNewCategoryName('')
+    setNewCategoryDescription('')
+    setEditingCategoryId('')
+  }
+
+  function resetProductForm() {
+    setName('')
+    setDescription('')
+    setCategoryId('')
+    setBrand('')
+    setStatus('ACTIVE')
+    setSku('')
+    setAvailableQuantity('0')
+    setSelectedImageFile(null)
+    setSelectedImagePreviewUrl('')
+    setEditingProductId('')
+    setEditingProductImageUrl('')
+  }
+
+  async function handleSaveCategory() {
     setCreateCategoryError('')
     setCreateCategorySuccess('')
 
     const normalizedCategoryName = newCategoryName.trim()
-
     if (!normalizedCategoryName) {
       setCreateCategoryError('Please enter category name.')
       return
     }
 
-    const payload: CreateProductCategoryRequest = {
+    const payload: UpsertProductCategoryRequest = {
       categoryName: normalizedCategoryName,
       description: newCategoryDescription.trim() || undefined,
     }
 
-    setCreatingCategory(true)
+    setSavingCategory(true)
     try {
-      const response = await apis().post(endpoints.inventories.createCategory, payload)
-      const createdCategory = extractApiData<ProductCategory>(response)
+      const response = editingCategoryId
+        ? await apis().put(endpoints.inventories.updateCategory(editingCategoryId), payload)
+        : await apis().post(endpoints.inventories.createCategory, payload)
 
-      setCreateCategorySuccess('Category created successfully.')
-      setNewCategoryName('')
-      setNewCategoryDescription('')
+      const savedCategory = extractApiData<ProductCategory>(response)
+      setCreateCategorySuccess(
+        editingCategoryId ? 'Category updated successfully.' : 'Category created successfully.',
+      )
+      resetCategoryForm()
 
-      if (createdCategory?.categoryId) {
-        setCategoryId(createdCategory.categoryId)
+      if (savedCategory?.categoryId) {
+        setCategoryId(savedCategory.categoryId)
       }
 
       await loadCategories()
     } catch (err) {
-      setCreateCategoryError(extractApiErrorMessage(err, 'Cannot create product category.'))
+      setCreateCategoryError(
+        extractApiErrorMessage(
+          err,
+          editingCategoryId ? 'Cannot update product category.' : 'Cannot create product category.',
+        ),
+      )
     } finally {
-      setCreatingCategory(false)
+      setSavingCategory(false)
+    }
+  }
+
+  function handleEditCategory(category: ProductCategory) {
+    setCreateCategoryError('')
+    setCreateCategorySuccess('')
+    setEditingCategoryId(category.categoryId)
+    setNewCategoryName(category.categoryName || '')
+    setNewCategoryDescription(category.description || '')
+  }
+
+  async function handleDeleteCategory(category: ProductCategory) {
+    const shouldDelete = window.confirm(
+      `Delete category "${category.categoryName}"?\nOnly empty categories can be deleted.`,
+    )
+    if (!shouldDelete) {
+      return
+    }
+
+    setCreateCategoryError('')
+    setCreateCategorySuccess('')
+    setDeletingCategoryId(category.categoryId)
+    try {
+      await apis().delete(endpoints.inventories.deleteCategory(category.categoryId))
+      setCreateCategorySuccess('Category deleted successfully.')
+      if (editingCategoryId === category.categoryId) {
+        resetCategoryForm()
+      }
+      if (categoryId === category.categoryId) {
+        setCategoryId('')
+      }
+      await loadCategories()
+    } catch (err) {
+      setCreateCategoryError(extractApiErrorMessage(err, 'Cannot delete product category.'))
+    } finally {
+      setDeletingCategoryId('')
     }
   }
 
@@ -183,7 +250,48 @@ function PartnerProductsPage() {
     }
   }
 
-  async function handleCreateProduct() {
+  function handleEditProduct(product: ProductCardData) {
+    setCreateError('')
+    setCreateSuccess('')
+    setEditingProductId(product.productId)
+    setEditingProductImageUrl(product.imageUrl?.trim() || '')
+    setName(product.name?.trim() || product.productName?.trim() || '')
+    setDescription(product.description?.trim() || '')
+    setCategoryId(product.categoryId?.trim() || '')
+    setBrand(product.brand?.trim() || '')
+    setStatus(product.status?.trim() || 'ACTIVE')
+    setSku(product.sku?.trim() || '')
+    setAvailableQuantity(String(normalizeQuantity(product.availableQuantity)))
+    setSelectedImageFile(null)
+    setSelectedImagePreviewUrl('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function handleDeleteProduct(product: ProductCardData) {
+    const displayName = product.name?.trim() || product.productName?.trim() || product.productId
+    const shouldDelete = window.confirm(`Delete product "${displayName}"?`)
+    if (!shouldDelete) {
+      return
+    }
+
+    setCreateError('')
+    setCreateSuccess('')
+    setDeletingProductId(product.productId)
+    try {
+      await apis().delete(endpoints.inventories.deleteProduct(product.productId))
+      setCreateSuccess('Product deleted successfully.')
+      if (editingProductId === product.productId) {
+        resetProductForm()
+      }
+      await loadProducts()
+    } catch (err) {
+      setCreateError(extractApiErrorMessage(err, 'Cannot delete partner product.'))
+    } finally {
+      setDeletingProductId('')
+    }
+  }
+
+  async function handleSaveProduct() {
     setCreateError('')
     setCreateSuccess('')
 
@@ -208,9 +316,11 @@ function PartnerProductsPage() {
         )
         return
       }
+    } else if (editingProductId) {
+      resolvedImageUrl = editingProductImageUrl || undefined
     }
 
-    const payload: CreatePartnerProductRequest = {
+    const payload: UpsertPartnerProductRequest = {
       name: name.trim(),
       description: description.trim() || undefined,
       categoryId: categoryId.trim() || undefined,
@@ -223,20 +333,24 @@ function PartnerProductsPage() {
 
     setSubmitting(true)
     try {
-      await apis().post(endpoints.inventories.createProduct, payload)
-      setCreateSuccess('Product created successfully.')
-      setName('')
-      setDescription('')
-      setCategoryId('')
-      setBrand('')
-      setStatus('ACTIVE')
-      setSku('')
-      setAvailableQuantity('0')
-      setSelectedImageFile(null)
-      setSelectedImagePreviewUrl('')
-      void loadProducts()
+      if (editingProductId) {
+        await apis().put(endpoints.inventories.updateProduct(editingProductId), payload)
+      } else {
+        await apis().post(endpoints.inventories.createProduct, payload)
+      }
+
+      setCreateSuccess(
+        editingProductId ? 'Product updated successfully.' : 'Product created successfully.',
+      )
+      resetProductForm()
+      await loadProducts()
     } catch (err) {
-      setCreateError(extractApiErrorMessage(err, 'Cannot create partner product.'))
+      setCreateError(
+        extractApiErrorMessage(
+          err,
+          editingProductId ? 'Cannot update partner product.' : 'Cannot create partner product.',
+        ),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -251,7 +365,7 @@ function PartnerProductsPage() {
         </p>
 
         <div className="partner-products-page-category-box">
-          <h3>Create Category</h3>
+          <h3>{editingCategoryId ? 'Edit Category' : 'Create Category'}</h3>
           <div className="partner-products-page-form role-inline-form">
             <label>
               Category Name
@@ -272,13 +386,20 @@ function PartnerProductsPage() {
             </label>
           </div>
           <div className="role-inline-actions">
-            <button
-              type="button"
-              className="role-btn-primary"
-              onClick={() => void handleCreateCategory()}
-            >
-              {creatingCategory ? 'Creating Category...' : 'Create Category'}
+            <button type="button" className="role-btn-primary" onClick={() => void handleSaveCategory()}>
+              {savingCategory
+                ? editingCategoryId
+                  ? 'Updating Category...'
+                  : 'Creating Category...'
+                : editingCategoryId
+                  ? 'Update Category'
+                  : 'Create Category'}
             </button>
+            {editingCategoryId && (
+              <button type="button" className="role-btn-ghost" onClick={resetCategoryForm}>
+                Cancel Edit
+              </button>
+            )}
             <button type="button" className="role-btn-ghost" onClick={() => void loadCategories()}>
               {loadingCategories ? 'Loading Categories...' : 'Refresh Categories'}
             </button>
@@ -286,8 +407,41 @@ function PartnerProductsPage() {
           {createCategoryError && <p className="role-error">{createCategoryError}</p>}
           {createCategorySuccess && <p className="role-muted">{createCategorySuccess}</p>}
           {categoryError && <p className="role-error">{categoryError}</p>}
+
+          <div className="partner-products-page-category-list">
+            {categories.map((category) => (
+              <div key={category.categoryId} className="partner-products-page-category-row">
+                <div>
+                  <strong>{category.categoryName}</strong>
+                  <p>{category.description || '-'}</p>
+                  <span>{category.categoryId}</span>
+                </div>
+                <div className="partner-products-page-category-actions">
+                  <button
+                    type="button"
+                    className="role-btn-ghost"
+                    onClick={() => handleEditCategory(category)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="partner-products-page-btn-delete"
+                    disabled={deletingCategoryId === category.categoryId}
+                    onClick={() => void handleDeleteCategory(category)}
+                  >
+                    {deletingCategoryId === category.categoryId ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!categories.length && (
+              <p className="role-empty-cell partner-products-page-empty">No category found.</p>
+            )}
+          </div>
         </div>
 
+        <h3>{editingProductId ? 'Edit Product' : 'Create Product'}</h3>
         <div className="partner-products-page-form role-inline-form">
           <label>
             Product Name
@@ -306,7 +460,7 @@ function PartnerProductsPage() {
               <option value="">Select category</option>
               {categories.map((category) => (
                 <option key={category.categoryUid || category.categoryId} value={category.categoryId}>
-                  {category.categoryName} ({category.categoryId})
+                  {category.categoryName}
                 </option>
               ))}
             </select>
@@ -356,7 +510,7 @@ function PartnerProductsPage() {
             </small>
             <div className="partner-products-page-image-preview">
               <img
-                src={selectedImagePreviewUrl || DEFAULT_PRODUCT_IMAGE_URL}
+                src={selectedImagePreviewUrl || editingProductImageUrl || DEFAULT_PRODUCT_IMAGE_URL}
                 alt="Product preview"
               />
             </div>
@@ -373,9 +527,20 @@ function PartnerProductsPage() {
         </div>
 
         <div className="role-inline-actions">
-          <button type="button" className="role-btn-primary" onClick={() => void handleCreateProduct()}>
-            {submitting || uploadingImage ? 'Creating...' : 'Create Product'}
+          <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
+            {submitting || uploadingImage
+              ? editingProductId
+                ? 'Updating...'
+                : 'Creating...'
+              : editingProductId
+                ? 'Update Product'
+                : 'Create Product'}
           </button>
+          {editingProductId && (
+            <button type="button" className="role-btn-ghost" onClick={resetProductForm}>
+              Cancel Edit
+            </button>
+          )}
           <button type="button" className="role-btn-ghost" onClick={() => void loadProducts()}>
             {loading ? 'Loading...' : 'Refresh My Products'}
           </button>
@@ -389,7 +554,13 @@ function PartnerProductsPage() {
       <article className="role-card">
         <div className="partner-products-page-grid">
           {activeProducts.map((item) => (
-            <ProductCard key={item.stockId || item.itemId || item.productId} product={item} />
+            <ProductCard
+              key={item.stockId || item.itemId || item.productId}
+              product={item}
+              onEdit={handleEditProduct}
+              onDelete={handleDeleteProduct}
+              deleting={deletingProductId === item.productId}
+            />
           ))}
           {!activeProducts.length && (
             <p className="role-empty-cell partner-products-page-empty">

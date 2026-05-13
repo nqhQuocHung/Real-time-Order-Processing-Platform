@@ -24,6 +24,9 @@ export type ProductCardData = {
 
 type ProductCardProps = {
   product: ProductCardData
+  onEdit?: (product: ProductCardData) => void
+  onDelete?: (product: ProductCardData) => void
+  deleting?: boolean
 }
 
 function normalizeQuantity(value: number | null | undefined): number {
@@ -43,7 +46,7 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleString('vi-VN')
 }
 
-function ProductCard({ product }: ProductCardProps) {
+function ProductCard({ product, onEdit, onDelete, deleting }: ProductCardProps) {
   const displayName = product.name?.trim() || product.productName?.trim() || 'Unnamed Product'
   const displayStatus = product.status?.trim() || (product.isActive ? 'ACTIVE' : 'INACTIVE')
   const imageUrl = product.imageUrl?.trim() || ''
@@ -98,6 +101,26 @@ function ProductCard({ product }: ProductCardProps) {
           <span>Created: {formatDate(product.createdAt)}</span>
           <span>Updated: {formatDate(product.updatedAt)}</span>
         </footer>
+
+        {(onEdit || onDelete) && (
+          <div className="product-card-actions">
+            {onEdit && (
+              <button type="button" className="product-card-btn product-card-btn-edit" onClick={() => onEdit(product)}>
+                Edit
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                className="product-card-btn product-card-btn-delete"
+                onClick={() => onDelete(product)}
+                disabled={Boolean(deleting)}
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </article>
   )

@@ -126,3 +126,37 @@
   color: var(--role-text-sub);
   font-size: 0.71rem;
 }
+
+.product-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.product-card-btn {
+  border-radius: 8px;
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.product-card-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.product-card-btn-edit:hover {
+  border-color: rgba(120, 255, 216, 0.5);
+}
+
+.product-card-btn-delete {
+  border-color: rgba(255, 143, 161, 0.45);
+  color: #ff9caf;
+}
+
+.product-card-btn-delete:hover {
+  background: rgba(148, 45, 67, 0.22);
+}
