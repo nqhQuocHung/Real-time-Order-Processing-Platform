@@ -2,6 +2,8 @@ package com.nqh.inventoryservice.services.impl;
 
 import com.nqh.inventoryservice.common.exception.AppException;
 import com.nqh.inventoryservice.common.messages.MessageCode;
+import com.nqh.inventoryservice.dtos.CreatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.CreateProductCategoryRequest;
 import com.nqh.inventoryservice.dtos.InventoryAdjustRequest;
 import com.nqh.inventoryservice.dtos.InventoryCheckItemRequest;
 import com.nqh.inventoryservice.dtos.InventoryCheckItemResponse;
@@ -13,13 +15,18 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
+import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.enums.InventoryReservationStatusEnum;
 import com.nqh.inventoryservice.pojos.InventoryReservation;
 import com.nqh.inventoryservice.pojos.InventoryReservationItem;
 import com.nqh.inventoryservice.pojos.InventoryStock;
+import com.nqh.inventoryservice.pojos.ProductCategory;
 import com.nqh.inventoryservice.repositories.InventoryReservationRepository;
 import com.nqh.inventoryservice.repositories.InventoryStockRepository;
+import com.nqh.inventoryservice.repositories.ProductCategoryRepository;
 import com.nqh.inventoryservice.services.InventoryService;
+import com.nqh.inventoryservice.services.ProductImageUploadService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,6 +40,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class InventoryServiceImpl implements InventoryService {
@@ -41,13 +49,19 @@ public class InventoryServiceImpl implements InventoryService {
 
     private final InventoryStockRepository inventoryStockRepository;
     private final InventoryReservationRepository inventoryReservationRepository;
+    private final ProductCategoryRepository productCategoryRepository;
+    private final ProductImageUploadService productImageUploadService;
 
     public InventoryServiceImpl(
             InventoryStockRepository inventoryStockRepository,
-            InventoryReservationRepository inventoryReservationRepository
+            InventoryReservationRepository inventoryReservationRepository,
+            ProductCategoryRepository productCategoryRepository,
+            ProductImageUploadService productImageUploadService
     ) {
         this.inventoryStockRepository = inventoryStockRepository;
         this.inventoryReservationRepository = inventoryReservationRepository;
+        this.productCategoryRepository = productCategoryRepository;
+        this.productImageUploadService = productImageUploadService;
     }
 
     @Override
@@ -65,6 +79,109 @@ public class InventoryServiceImpl implements InventoryService {
         return inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc().stream()
                 .map(this::mapToStockResponse)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InventoryStockResponse> getCatalogByShopId(UUID shopId) {
+        return inventoryStockRepository.findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(shopId).stream()
+                .map(this::mapToStockResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductCategoryResponse> getProductCategories(
+            UUID requesterUserId,
+            boolean isAdmin,
+            UUID requestedShopId
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, requestedShopId);
+        return productCategoryRepository.findByIsActiveTrueAndShopIdOrderByCategoryNameAsc(resolvedShopId).stream()
+                .map(this::mapToProductCategoryResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ProductCategoryResponse createProductCategory(
+            UUID requesterUserId,
+            boolean isAdmin,
+            CreateProductCategoryRequest request
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
+        String normalizedCategoryName = trimToNull(request.getCategoryName());
+        if (normalizedCategoryName == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        if (productCategoryRepository.findActiveByShopIdAndCategoryName(resolvedShopId, normalizedCategoryName).isPresent()) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_ALREADY_EXISTS);
+        }
+
+        UUID generatedCategoryId = UUID.randomUUID();
+        ProductCategory savedCategory = productCategoryRepository.save(
+                ProductCategory.builder()
+                        .id(generatedCategoryId)
+                        .shopId(resolvedShopId)
+                        .categoryCode(generatedCategoryId.toString())
+                        .categoryName(normalizedCategoryName)
+                        .description(trimToNull(request.getDescription()))
+                        .build()
+        );
+
+        return mapToProductCategoryResponse(savedCategory);
+    }
+
+    @Override
+    public ProductImageUploadResponse uploadProductImage(MultipartFile image) {
+        boolean useDefaultImage = image == null || image.isEmpty();
+        String imageUrl = productImageUploadService.uploadProductImageOrDefault(image);
+        return ProductImageUploadResponse.builder()
+                .imageUrl(imageUrl)
+                .defaultImageUsed(useDefaultImage)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = "inventory-stock", allEntries = true)
+    public InventoryStockResponse createPartnerProduct(
+            UUID requesterUserId,
+            boolean isAdmin,
+            CreatePartnerProductRequest request
+    ) {
+        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
+        UUID resolvedItemId = request.getItemId() != null ? request.getItemId() : UUID.randomUUID();
+        UUID resolvedCategoryId = request.getCategoryId();
+
+        if (inventoryStockRepository.findByProductId(resolvedItemId).isPresent()) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_DUPLICATE_PRODUCT);
+        }
+
+        if (resolvedCategoryId != null
+                && productCategoryRepository.findActiveByShopIdAndCategoryId(resolvedShopId, resolvedCategoryId).isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_CATEGORY_NOT_FOUND);
+        }
+
+        InventoryStock product = InventoryStock.builder()
+                .productId(resolvedItemId)
+                .itemId(resolvedItemId)
+                .shopId(resolvedShopId)
+                .name(trimToNull(request.getName()))
+                .description(trimToNull(request.getDescription()))
+                .categoryId(resolvedCategoryId)
+                .brand(trimToNull(request.getBrand()))
+                .productStatus(trimToNull(request.getStatus()))
+                .imageUrl(resolveProductImageUrl(request.getImageUrl()))
+                .sku(trimToNull(request.getSku()))
+                .productName(trimToNull(request.getName()))
+                .availableQuantity(request.getAvailableQuantity())
+                .reservedQuantity(0)
+                .build();
+
+        InventoryStock saved = inventoryStockRepository.save(product);
+        return mapToStockResponse(saved);
     }
 
     @Override
@@ -258,7 +375,9 @@ public class InventoryServiceImpl implements InventoryService {
 
             stock = InventoryStock.builder()
                     .productId(request.getProductId())
+                    .itemId(request.getProductId())
                     .sku(trimToNull(request.getSku()))
+                    .name(trimToNull(request.getProductName()))
                     .productName(trimToNull(request.getProductName()))
                     .availableQuantity(request.getDeltaQuantity())
                     .reservedQuantity(0)
@@ -277,7 +396,9 @@ public class InventoryServiceImpl implements InventoryService {
             stock.setSku(request.getSku().trim());
         }
         if (StringUtils.hasText(request.getProductName())) {
-            stock.setProductName(request.getProductName().trim());
+            String normalizedProductName = request.getProductName().trim();
+            stock.setProductName(normalizedProductName);
+            stock.setName(normalizedProductName);
         }
 
         InventoryStock saved = inventoryStockRepository.save(stock);
@@ -335,6 +456,24 @@ public class InventoryServiceImpl implements InventoryService {
         return actor.trim();
     }
 
+    private UUID resolveShopId(UUID requesterUserId, boolean isAdmin, UUID requestedShopId) {
+        if (!isAdmin) {
+            return requesterUserId;
+        }
+        if (requestedShopId == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_PRODUCT_SHOP_ID_REQUIRED);
+        }
+        return requestedShopId;
+    }
+
+    private String resolveProductImageUrl(String imageUrl) {
+        String normalizedImageUrl = trimToNull(imageUrl);
+        if (normalizedImageUrl != null) {
+            return normalizedImageUrl;
+        }
+        return productImageUploadService.resolveDefaultProductImageUrl();
+    }
+
     private String trimToNull(String value) {
         if (!StringUtils.hasText(value)) {
             return null;
@@ -347,11 +486,36 @@ public class InventoryServiceImpl implements InventoryService {
                 .stockId(stock.getId())
                 .stockUuid(stock.getUuid())
                 .productId(stock.getProductId())
+                .itemId(stock.getItemId() != null ? stock.getItemId() : stock.getProductId())
+                .shopId(stock.getShopId())
+                .name(stock.getName() != null ? stock.getName() : stock.getProductName())
+                .description(stock.getDescription())
+                .categoryId(stock.getCategoryId())
+                .brand(stock.getBrand())
+                .status(stock.getProductStatus())
+                .imageUrl(stock.getImageUrl())
                 .sku(stock.getSku())
-                .productName(stock.getProductName())
+                .productName(stock.getProductName() != null ? stock.getProductName() : stock.getName())
                 .availableQuantity(stock.getAvailableQuantity())
                 .reservedQuantity(stock.getReservedQuantity())
                 .totalQuantity(stock.getAvailableQuantity() + stock.getReservedQuantity())
+                .createdAt(stock.getCreatedAt())
+                .updatedAt(stock.getUpdatedAt())
+                .deletedAt(stock.getDeletedAt())
+                .isActive(stock.getIsActive())
+                .build();
+    }
+
+    private ProductCategoryResponse mapToProductCategoryResponse(ProductCategory category) {
+        return ProductCategoryResponse.builder()
+                .categoryUid(category.getId())
+                .categoryUuid(category.getUuid())
+                .shopId(category.getShopId())
+                .categoryId(category.getId())
+                .categoryName(category.getCategoryName())
+                .description(category.getDescription())
+                .createdAt(category.getCreatedAt())
+                .updatedAt(category.getUpdatedAt())
                 .build();
     }
 

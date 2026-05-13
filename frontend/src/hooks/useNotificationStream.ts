@@ -1,6 +1,6 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { useEffect, useRef } from 'react'
-import { BASE_URL, endpoints, getAuthSession } from '../config/apis'
+import { BASE_URL, endpoints, getAuthSession, refreshSessionToken } from '../config/apis'
 
 type PartnerRequestCreatedEvent = {
   eventId: string
@@ -37,6 +37,12 @@ type UseNotificationStreamOptions = {
   onPartnerRequestDecided?: (event: PartnerRequestDecidedEvent) => void
   onError?: (error: unknown) => void
 }
+
+const STREAM_RETRY_DELAY_MS = 2000
+
+class NotificationStreamRetryableError extends Error {}
+
+class NotificationStreamFatalError extends Error {}
 
 function parseJson(data: string): unknown {
   if (!data) {
@@ -84,26 +90,50 @@ function useNotificationStream({
       return undefined
     }
 
-    const session = getAuthSession()
-    if (!session?.accessToken) {
+    const initialAccessToken = getAuthSession()?.accessToken
+    if (!initialAccessToken) {
       return undefined
     }
 
     const controller = new AbortController()
     const streamUrl = `${BASE_URL}${endpoints.notifications.stream}`
+    const requestHeaders: Record<string, string> = {
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${initialAccessToken}`,
+    }
+
+    function syncLatestTokenToHeaders() {
+      const latestAccessToken = getAuthSession()?.accessToken
+      if (latestAccessToken) {
+        requestHeaders.Authorization = `Bearer ${latestAccessToken}`
+      }
+    }
 
     void fetchEventSource(streamUrl, {
       method: 'GET',
-      headers: {
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${session.accessToken}`,
-      },
+      headers: requestHeaders,
       openWhenHidden: true,
       signal: controller.signal,
       async onopen(response) {
-        if (!response.ok) {
-          throw new Error(`Notification stream open failed: ${response.status}`)
+        if (response.ok) {
+          return
         }
+
+        if (response.status === 401) {
+          const refreshed = await refreshSessionToken()
+          if (refreshed) {
+            syncLatestTokenToHeaders()
+            throw new NotificationStreamRetryableError('Notification token refreshed. Reconnecting stream.')
+          }
+
+          throw new NotificationStreamFatalError('Notification stream unauthorized. Please login again.')
+        }
+
+        if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+          throw new NotificationStreamFatalError(`Notification stream open failed: ${response.status}`)
+        }
+
+        throw new NotificationStreamRetryableError(`Notification stream open failed: ${response.status}`)
       },
       onmessage(event) {
         const payload = parseJson(event.data)
@@ -124,11 +154,22 @@ function useNotificationStream({
         }
       },
       onerror(error) {
-        if (!isAbortError(error)) {
-          callbacksRef.current.onError?.(error)
+        if (isAbortError(error)) {
+          throw error
         }
-        return 2000
+
+        if (error instanceof NotificationStreamFatalError) {
+          callbacksRef.current.onError?.(error)
+          throw error
+        }
+
+        callbacksRef.current.onError?.(error)
+        return STREAM_RETRY_DELAY_MS
       },
+    }).catch((error) => {
+      if (!isAbortError(error)) {
+        callbacksRef.current.onError?.(error)
+      }
     })
 
     return () => {

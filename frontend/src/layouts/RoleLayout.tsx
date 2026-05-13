@@ -75,17 +75,23 @@ function truncateText(value: string, maxLength = 220) {
 }
 
 function buildNotificationLink(eventName: string, requestId: string) {
-  if (!requestId) {
-    return ''
-  }
-
-  const encodedRequestId = encodeURIComponent(requestId)
-  if (eventName === 'partner.request.created') {
+  if (eventName === 'partner.request.created' && requestId) {
+    const encodedRequestId = encodeURIComponent(requestId)
     return `/admin/administration?focusPartnerRequest=${encodedRequestId}`
   }
 
-  if (eventName === 'partner.request.decided') {
+  if (eventName === 'partner.request.decided' && requestId) {
+    const encodedRequestId = encodeURIComponent(requestId)
     return `/user/dashboard?focusPartnerRequest=${encodedRequestId}`
+  }
+
+  if (
+    eventName === 'payment.transaction.succeeded' ||
+    eventName === 'payment.transaction.failed' ||
+    eventName === 'order.lifecycle.completed' ||
+    eventName === 'order.lifecycle.failed'
+  ) {
+    return '/user/orders'
   }
 
   return ''
@@ -104,6 +110,10 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
   const requestNote = normalizeText(data.requestNote)
   const reviewNote = normalizeText(data.reviewNote)
   const decision = normalizeText(data.decision).toUpperCase()
+  const orderCode = normalizeText(data.orderCode)
+  const amount = normalizeText(data.amount)
+  const currency = normalizeText(data.currency) || 'VND'
+  const paymentStatus = normalizeText(data.status)
   const fallbackMessage =
     typeof payload === 'string'
       ? payload
@@ -128,6 +138,26 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
 
     title = 'Partner request decision'
     message = `Partner request of ${actor} was ${decisionLabel}.${reviewNote ? ` Note: ${reviewNote}` : ''}`
+  }
+
+  if (eventName === 'payment.transaction.succeeded') {
+    title = 'Payment successful'
+    message = `Order ${orderCode || '-'} was paid successfully.${amount ? ` Amount: ${amount} ${currency}.` : ''}`
+  }
+
+  if (eventName === 'payment.transaction.failed') {
+    title = 'Payment failed'
+    message = `Order ${orderCode || '-'} payment failed.${paymentStatus ? ` Status: ${paymentStatus}.` : ''}`
+  }
+
+  if (eventName === 'order.lifecycle.completed') {
+    title = 'Order completed'
+    message = `Order ${orderCode || '-'} is completed.`
+  }
+
+  if (eventName === 'order.lifecycle.failed') {
+    title = 'Order failed'
+    message = `Order ${orderCode || '-'} processing failed.`
   }
 
   const occurredAt =

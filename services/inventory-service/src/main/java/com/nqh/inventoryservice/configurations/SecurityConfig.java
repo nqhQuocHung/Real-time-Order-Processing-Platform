@@ -63,10 +63,21 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/catalog")
                         .hasAnyAuthority(
                                 "PERM_VIEW_PRODUCT_CATALOG",
+                                "PERM_MANAGE_PARTNER_PRODUCTS",
                                 "PERM_MANAGE_PARTNER_INVENTORY",
                                 "PERM_MANAGE_PRODUCTS",
                                 "PERM_MANAGE_ALL_ORDERS"
                         )
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventories/my-products")
+                        .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventories/categories")
+                        .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/inventories/categories")
+                        .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/inventories/products")
+                        .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/inventories/products/upload-image")
+                        .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/*")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_INVENTORY", "PERM_MANAGE_PRODUCTS", "PERM_MANAGE_ALL_ORDERS")
                         .requestMatchers(

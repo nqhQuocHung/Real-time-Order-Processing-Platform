@@ -3,6 +3,8 @@ package com.nqh.inventoryservice.controllers;
 import com.nqh.inventoryservice.common.messages.MessageCode;
 import com.nqh.inventoryservice.common.response.ApiResponseFactory;
 import com.nqh.inventoryservice.common.response.BaseResponse;
+import com.nqh.inventoryservice.dtos.CreatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.CreateProductCategoryRequest;
 import com.nqh.inventoryservice.dtos.InventoryAdjustRequest;
 import com.nqh.inventoryservice.dtos.InventoryCheckRequest;
 import com.nqh.inventoryservice.dtos.InventoryCheckResponse;
@@ -11,6 +13,8 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
+import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.services.InventoryService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -18,14 +22,19 @@ import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/inventories")
@@ -51,6 +60,70 @@ public class InventoryController {
     ) {
         List<InventoryStockResponse> response = inventoryService.getCatalog();
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/my-products")
+    public ResponseEntity<BaseResponse<List<InventoryStockResponse>>> getMyProducts(
+            @AuthenticationPrincipal Jwt jwt,
+            HttpServletRequest httpServletRequest
+    ) {
+        UUID shopId = UUID.fromString(jwt.getSubject());
+        List<InventoryStockResponse> response = inventoryService.getCatalogByShopId(shopId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/products")
+    public ResponseEntity<BaseResponse<InventoryStockResponse>> createPartnerProduct(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid CreatePartnerProductRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        InventoryStockResponse response = inventoryService.createPartnerProduct(requesterUserId, isAdmin, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_PRODUCT_CREATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<BaseResponse<List<ProductCategoryResponse>>> getProductCategories(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) UUID shopId,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        List<ProductCategoryResponse> response = inventoryService.getProductCategories(requesterUserId, isAdmin, shopId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/categories")
+    public ResponseEntity<BaseResponse<ProductCategoryResponse>> createProductCategory(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid CreateProductCategoryRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+
+        UUID requesterUserId = UUID.fromString(jwt.getSubject());
+        ProductCategoryResponse response = inventoryService.createProductCategory(requesterUserId, isAdmin, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_CATEGORY_CREATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping(value = "/products/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse<ProductImageUploadResponse>> uploadProductImage(
+            @RequestParam(name = "image", required = false) MultipartFile image,
+            HttpServletRequest httpServletRequest
+    ) {
+        ProductImageUploadResponse response = inventoryService.uploadProductImage(image);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_PRODUCT_IMAGE_UPLOAD_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/summary")

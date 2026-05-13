@@ -84,6 +84,7 @@ public class PaymentServiceImpl implements PaymentService {
         String providerTransactionId = buildProviderTransactionId(request.getMethod(), orderCode);
         PaymentTransaction paymentTransaction = PaymentTransaction.builder()
                 .orderCode(orderCode)
+                .customerId(request.getCustomerId())
                 .amount(request.getAmount().setScale(2, RoundingMode.HALF_UP))
                 .currency(request.getCurrency().trim().toUpperCase(Locale.ROOT))
                 .method(request.getMethod())
@@ -351,6 +352,7 @@ public class PaymentServiceImpl implements PaymentService {
             payload.put("paymentId", paymentTransaction.getId());
             payload.put("paymentUuid", paymentTransaction.getUuid());
             payload.put("orderCode", paymentTransaction.getOrderCode());
+            payload.put("customerId", paymentTransaction.getCustomerId());
             payload.put("status", paymentTransaction.getStatus().name());
             payload.put("method", paymentTransaction.getMethod().name());
             payload.put("amount", paymentTransaction.getAmount());
@@ -391,6 +393,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentId(paymentTransaction.getId())
                 .paymentUuid(paymentTransaction.getUuid())
                 .orderCode(paymentTransaction.getOrderCode())
+                .customerId(paymentTransaction.getCustomerId())
                 .amount(paymentTransaction.getAmount())
                 .currency(paymentTransaction.getCurrency())
                 .method(paymentTransaction.getMethod())

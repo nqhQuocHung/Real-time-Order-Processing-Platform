@@ -1,6 +1,11 @@
 package com.nqh.notificationservice.consumers;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nqh.notificationservice.services.AdminSseService;
 import com.nqh.notificationservice.services.NotificationService;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +20,9 @@ public class NotificationEventConsumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificationEventConsumer.class);
 
+    private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final AdminSseService adminSseService;
 
     @KafkaListener(
             topics = "${app.notification.topic.payment-succeeded}",
@@ -26,6 +33,7 @@ public class NotificationEventConsumer {
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
     ) {
         consumeEvent(topic, "PAYMENT_SUCCEEDED", message);
+        pushToUserIfPossible(message, "payment.transaction.succeeded");
     }
 
     @KafkaListener(
@@ -37,6 +45,7 @@ public class NotificationEventConsumer {
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
     ) {
         consumeEvent(topic, "PAYMENT_FAILED", message);
+        pushToUserIfPossible(message, "payment.transaction.failed");
     }
 
     @KafkaListener(
@@ -48,6 +57,7 @@ public class NotificationEventConsumer {
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
     ) {
         consumeEvent(topic, "ORDER_COMPLETED", message);
+        pushToUserIfPossible(message, "order.lifecycle.completed");
     }
 
     @KafkaListener(
@@ -59,6 +69,7 @@ public class NotificationEventConsumer {
             @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
     ) {
         consumeEvent(topic, "ORDER_FAILED", message);
+        pushToUserIfPossible(message, "order.lifecycle.failed");
     }
 
     private void consumeEvent(String topic, String eventType, String message) {
@@ -67,5 +78,45 @@ public class NotificationEventConsumer {
         } catch (Exception ex) {
             LOGGER.error("Failed to log notification event. topic={}, eventType={}", topic, eventType, ex);
         }
+    }
+
+    private void pushToUserIfPossible(String message, String eventName) {
+        try {
+            JsonNode rootNode = objectMapper.readTree(message);
+            JsonNode payloadNode = rootNode.path("payload");
+            String customerId = firstNonBlank(
+                    payloadNode.path("customerId").asText(null),
+                    payloadNode.path("userId").asText(null)
+            );
+
+            if (customerId == null) {
+                return;
+            }
+
+            Map<String, Object> outboundPayload = new LinkedHashMap<>();
+            outboundPayload.put("eventId", rootNode.path("eventId").asText(null));
+            outboundPayload.put("eventType", rootNode.path("eventType").asText(null));
+            outboundPayload.put("occurredAt", rootNode.path("occurredAt").asText(null));
+            outboundPayload.put("orderCode", payloadNode.path("orderCode").asText(null));
+            outboundPayload.put("customerId", customerId);
+            outboundPayload.put("status", payloadNode.path("status").asText(null));
+            outboundPayload.put("amount", payloadNode.path("amount").isMissingNode() ? null : payloadNode.path("amount").asText(null));
+            outboundPayload.put("currency", payloadNode.path("currency").asText(null));
+            outboundPayload.put("method", payloadNode.path("method").asText(null));
+            outboundPayload.put("note", payloadNode.path("note").asText(null));
+
+            adminSseService.sendToUser(customerId, eventName, outboundPayload);
+        } catch (Exception ex) {
+            LOGGER.warn("Failed to push realtime notification event. eventName={}", eventName, ex);
+        }
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 }

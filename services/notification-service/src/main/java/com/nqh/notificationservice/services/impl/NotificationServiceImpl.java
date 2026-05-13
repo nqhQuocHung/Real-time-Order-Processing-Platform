@@ -156,6 +156,7 @@ public class NotificationServiceImpl implements NotificationService {
         String recipient = firstNonBlank(
                 extractField(rootNode, "payload.recipient"),
                 extractField(rootNode, "payload.customerEmail"),
+                extractField(rootNode, "payload.customerId"),
                 extractField(rootNode, "recipient"),
                 extractField(rootNode, "customerEmail"),
                 defaultRecipient
