@@ -30,6 +30,7 @@ import com.nqh.inventoryservice.repositories.ProductCategoryRepository;
 import com.nqh.inventoryservice.services.InventoryService;
 import com.nqh.inventoryservice.services.ProductImageUploadService;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -73,22 +74,26 @@ public class InventoryServiceImpl implements InventoryService {
     public InventoryStockResponse getStock(UUID productId) {
         InventoryStock stock = inventoryStockRepository.findByProductId(productId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
-        return mapToStockResponse(stock);
+        return mapToStockResponse(stock, resolveCategoryName(stock.getCategoryId(), new HashMap<>()));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<InventoryStockResponse> getCatalog() {
-        return inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc().stream()
-                .map(this::mapToStockResponse)
+        List<InventoryStock> stocks = inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc();
+        Map<UUID, String> categoryNameById = buildCategoryNameMap(stocks);
+        return stocks.stream()
+                .map(stock -> mapToStockResponse(stock, resolveCategoryName(stock.getCategoryId(), categoryNameById)))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<InventoryStockResponse> getCatalogByShopId(UUID shopId) {
-        return inventoryStockRepository.findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(shopId).stream()
-                .map(this::mapToStockResponse)
+        List<InventoryStock> stocks = inventoryStockRepository.findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(shopId);
+        Map<UUID, String> categoryNameById = buildCategoryNameMap(stocks);
+        return stocks.stream()
+                .map(stock -> mapToStockResponse(stock, resolveCategoryName(stock.getCategoryId(), categoryNameById)))
                 .toList();
     }
 
@@ -222,6 +227,7 @@ public class InventoryServiceImpl implements InventoryService {
                 .productId(resolvedItemId)
                 .itemId(resolvedItemId)
                 .shopId(resolvedShopId)
+                .shopName(resolveShopName(request.getShopName(), resolvedShopId))
                 .name(trimToNull(request.getName()))
                 .description(trimToNull(request.getDescription()))
                 .categoryId(resolvedCategoryId)
@@ -235,7 +241,7 @@ public class InventoryServiceImpl implements InventoryService {
                 .build();
 
         InventoryStock saved = inventoryStockRepository.save(product);
-        return mapToStockResponse(saved);
+        return mapToStockResponse(saved, resolveCategoryName(saved.getCategoryId(), new HashMap<>()));
     }
 
     @Override
@@ -265,6 +271,7 @@ public class InventoryServiceImpl implements InventoryService {
         product.setProductStatus(trimToNull(request.getStatus()));
         product.setSku(trimToNull(request.getSku()));
         product.setAvailableQuantity(request.getAvailableQuantity());
+        product.setShopName(resolveShopName(request.getShopName(), resolvedShopId));
 
         String normalizedImageUrl = trimToNull(request.getImageUrl());
         if (normalizedImageUrl != null) {
@@ -274,7 +281,7 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         InventoryStock updated = inventoryStockRepository.save(product);
-        return mapToStockResponse(updated);
+        return mapToStockResponse(updated, resolveCategoryName(updated.getCategoryId(), new HashMap<>()));
     }
 
     @Override
@@ -294,7 +301,10 @@ public class InventoryServiceImpl implements InventoryService {
         product.setDeletedAt(LocalDateTime.now());
         product.setProductStatus("INACTIVE");
         InventoryStock deletedProduct = inventoryStockRepository.save(product);
-        return mapToStockResponse(deletedProduct);
+        return mapToStockResponse(
+                deletedProduct,
+                resolveCategoryName(deletedProduct.getCategoryId(), new HashMap<>())
+        );
     }
 
     @Override
@@ -496,7 +506,7 @@ public class InventoryServiceImpl implements InventoryService {
                     .reservedQuantity(0)
                     .build();
             InventoryStock saved = inventoryStockRepository.save(stock);
-            return mapToStockResponse(saved);
+            return mapToStockResponse(saved, resolveCategoryName(saved.getCategoryId(), new HashMap<>()));
         }
 
         int nextAvailable = stock.getAvailableQuantity() + request.getDeltaQuantity();
@@ -515,7 +525,7 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         InventoryStock saved = inventoryStockRepository.save(stock);
-        return mapToStockResponse(saved);
+        return mapToStockResponse(saved, resolveCategoryName(saved.getCategoryId(), new HashMap<>()));
     }
 
     private InventoryReservationResponse handleExistingReservationOnReserve(InventoryReservation reservation) {
@@ -587,6 +597,21 @@ public class InventoryServiceImpl implements InventoryService {
         return productImageUploadService.resolveDefaultProductImageUrl();
     }
 
+    private String resolveShopName(String shopName, UUID shopId) {
+        String normalizedShopName = trimToNull(shopName);
+        if (normalizedShopName != null) {
+            return normalizedShopName;
+        }
+
+        if (shopId == null) {
+            return null;
+        }
+
+        String compactShopId = shopId.toString().replace("-", "");
+        int maxLength = Math.min(compactShopId.length(), 8);
+        return "Shop-" + compactShopId.substring(0, maxLength).toUpperCase();
+    }
+
     private String trimToNull(String value) {
         if (!StringUtils.hasText(value)) {
             return null;
@@ -594,21 +619,61 @@ public class InventoryServiceImpl implements InventoryService {
         return value.trim();
     }
 
-    private InventoryStockResponse mapToStockResponse(InventoryStock stock) {
+    private Map<UUID, String> buildCategoryNameMap(Collection<InventoryStock> stocks) {
+        Set<UUID> categoryIds = new HashSet<>();
+        for (InventoryStock stock : stocks) {
+            if (stock.getCategoryId() != null) {
+                categoryIds.add(stock.getCategoryId());
+            }
+        }
+
+        if (categoryIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<UUID, String> categoryNameById = new HashMap<>();
+        for (ProductCategory category : productCategoryRepository.findAllById(categoryIds)) {
+            if (category.getId() != null) {
+                categoryNameById.put(category.getId(), trimToNull(category.getCategoryName()));
+            }
+        }
+        return categoryNameById;
+    }
+
+    private String resolveCategoryName(UUID categoryId, Map<UUID, String> categoryNameById) {
+        if (categoryId == null) {
+            return null;
+        }
+
+        String fromMap = categoryNameById.get(categoryId);
+        if (fromMap != null) {
+            return fromMap;
+        }
+
+        return productCategoryRepository.findById(categoryId)
+                .map(ProductCategory::getCategoryName)
+                .map(this::trimToNull)
+                .orElse(null);
+    }
+
+    private InventoryStockResponse mapToStockResponse(InventoryStock stock, String categoryName) {
         return InventoryStockResponse.builder()
                 .stockId(stock.getId())
                 .stockUuid(stock.getUuid())
                 .productId(stock.getProductId())
                 .itemId(stock.getItemId() != null ? stock.getItemId() : stock.getProductId())
                 .shopId(stock.getShopId())
+                .shopName(resolveShopName(stock.getShopName(), stock.getShopId()))
                 .name(stock.getName() != null ? stock.getName() : stock.getProductName())
                 .description(stock.getDescription())
                 .categoryId(stock.getCategoryId())
+                .categoryName(categoryName)
                 .brand(stock.getBrand())
                 .status(stock.getProductStatus())
                 .imageUrl(stock.getImageUrl())
                 .sku(stock.getSku())
                 .productName(stock.getProductName() != null ? stock.getProductName() : stock.getName())
+                .price(stock.getPrice())
                 .availableQuantity(stock.getAvailableQuantity())
                 .reservedQuantity(stock.getReservedQuantity())
                 .totalQuantity(stock.getAvailableQuantity() + stock.getReservedQuantity())

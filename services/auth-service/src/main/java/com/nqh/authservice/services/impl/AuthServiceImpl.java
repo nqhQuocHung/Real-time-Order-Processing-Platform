@@ -552,6 +552,7 @@ public class AuthServiceImpl implements AuthService {
         PartnerUpgradeRequest partnerUpgradeRequest = PartnerUpgradeRequest.builder()
                 .user(authenticatedUser)
                 .status(PartnerRequestStatusEnum.PENDING)
+                .shopName(trimToNull(request.getShopName()))
                 .requestNote(trimToNull(request.getRequestNote()))
                 .build();
 
@@ -1481,6 +1482,7 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user != null ? user.getId() : null)
                 .username(user != null ? user.getUsername() : null)
                 .email(user != null ? user.getEmail() : null)
+                .shopName(request.getShopName())
                 .status(request.getStatus())
                 .requestNote(request.getRequestNote())
                 .reviewNote(request.getReviewNote())

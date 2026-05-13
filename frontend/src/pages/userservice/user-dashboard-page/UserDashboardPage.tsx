@@ -39,6 +39,7 @@ type PartnerRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 type PartnerUpgradeRequestResponse = {
   requestId: string
   status: PartnerRequestStatus
+  shopName?: string
   requestNote?: string
   reviewNote?: string
   reviewedBy?: string
@@ -86,6 +87,7 @@ function UserDashboardPage() {
   const [totalOrders, setTotalOrders] = useState(0)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [partnerRequest, setPartnerRequest] = useState<PartnerUpgradeRequestResponse | null>(null)
+  const [partnerShopName, setPartnerShopName] = useState('')
   const [partnerRequestNote, setPartnerRequestNote] = useState('')
   const [partnerRequestSubmitting, setPartnerRequestSubmitting] = useState(false)
   const [partnerRequestError, setPartnerRequestError] = useState('')
@@ -127,6 +129,7 @@ function UserDashboardPage() {
         setOrders(orderData.content || [])
         setTotalOrders(orderData.totalElements || 0)
         setPartnerRequest(partnerRequestData || null)
+        setPartnerShopName(partnerRequestData?.shopName || '')
       } catch (err) {
         setError(extractApiErrorMessage(err, 'Cannot load user dashboard data.'))
       } finally {
@@ -199,6 +202,7 @@ function UserDashboardPage() {
       setPartnerRequest((previous) => ({
         requestId: streamEvent.requestId,
         status: (streamEvent.status as PartnerRequestStatus) || previous?.status || 'PENDING',
+        shopName: previous?.shopName,
         requestNote: previous?.requestNote,
         reviewNote: streamEvent.reviewNote,
         reviewedBy: streamEvent.reviewedBy,
@@ -235,16 +239,24 @@ function UserDashboardPage() {
       return
     }
 
+    const normalizedShopName = partnerShopName.trim()
+    if (!normalizedShopName) {
+      setPartnerRequestError('Shop name is required.')
+      return
+    }
+
     setPartnerRequestError('')
     setPartnerRequestSuccess('')
     setPartnerRequestSubmitting(true)
 
     try {
       const response = await apis().post(endpoints.auth.partnerRequests, {
+        shopName: normalizedShopName,
         requestNote: partnerRequestNote.trim() || undefined,
       })
       const createdRequest = extractApiData<PartnerUpgradeRequestResponse>(response)
       setPartnerRequest(createdRequest)
+      setPartnerShopName(createdRequest.shopName || normalizedShopName)
       setPartnerRequestNote('')
       setPartnerRequestSuccess('Partner upgrade request sent successfully. Admin will review soon.')
     } catch (err) {
@@ -295,6 +307,7 @@ function UserDashboardPage() {
             <div className="user-dashboard-partner-status">
               <span>Current Request Status</span>
               <strong>{partnerRequest.status}</strong>
+              <small>Shop name: {partnerRequest.shopName || '-'}</small>
               <small>
                 Requested at: {formatDate(partnerRequest.createdAt)} | Reviewed at:{' '}
                 {formatDate(partnerRequest.reviewedAt)}
@@ -310,6 +323,15 @@ function UserDashboardPage() {
 
           {(partnerRequest?.status !== 'PENDING' && partnerRequest?.status !== 'APPROVED') && (
             <>
+              <label className="user-dashboard-partner-note">
+                Shop name
+                <input
+                  value={partnerShopName}
+                  onChange={(event) => setPartnerShopName(event.target.value)}
+                  placeholder="Your public shop name"
+                  disabled={partnerRequestSubmitting}
+                />
+              </label>
               <label className="user-dashboard-partner-note">
                 Request note (optional)
                 <textarea

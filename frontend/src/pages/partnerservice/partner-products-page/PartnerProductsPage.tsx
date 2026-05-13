@@ -12,6 +12,7 @@ type UpsertPartnerProductRequest = {
   name: string
   description?: string
   categoryId?: string
+  shopName?: string
   brand?: string
   status?: string
   imageUrl?: string
@@ -36,6 +37,10 @@ type ProductCategory = {
 type ProductImageUploadResponse = {
   imageUrl: string
   defaultImageUsed?: boolean
+}
+
+type PartnerRequestOverview = {
+  shopName?: string | null
 }
 
 const DEFAULT_PRODUCT_IMAGE_URL =
@@ -110,6 +115,7 @@ function PartnerProductsPage() {
   const [productKeyword, setProductKeyword] = useState('')
   const [productCategoryFilter, setProductCategoryFilter] = useState('')
   const [productPage, setProductPage] = useState(0)
+  const [partnerShopName, setPartnerShopName] = useState('')
 
   async function loadProducts() {
     setLoading(true)
@@ -141,9 +147,21 @@ function PartnerProductsPage() {
     }
   }
 
+  async function loadPartnerShopName() {
+    try {
+      const response = await apis().get(endpoints.auth.myPartnerRequest)
+      const data = extractApiData<PartnerRequestOverview | null>(response)
+      const resolvedShopName = data?.shopName?.trim() || ''
+      setPartnerShopName(resolvedShopName)
+    } catch {
+      setPartnerShopName('')
+    }
+  }
+
   useEffect(() => {
     void loadProducts()
     void loadCategories()
+    void loadPartnerShopName()
   }, [])
 
   useEffect(() => {
@@ -219,6 +237,7 @@ function PartnerProductsPage() {
           item.name,
           item.productName,
           item.description,
+          item.shopName,
           item.brand,
           item.sku,
           item.productId,
@@ -488,6 +507,7 @@ function PartnerProductsPage() {
       name: name.trim(),
       description: description.trim() || undefined,
       categoryId: categoryId.trim() || undefined,
+      shopName: partnerShopName.trim() || undefined,
       brand: brand.trim() || undefined,
       status: status.trim() || undefined,
       imageUrl: resolvedImageUrl,
@@ -681,6 +701,13 @@ function PartnerProductsPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label>
+            Shop Name
+            <input
+              value={partnerShopName || 'No shop name from partner request yet'}
+              readOnly
+            />
           </label>
           <label>
             Brand

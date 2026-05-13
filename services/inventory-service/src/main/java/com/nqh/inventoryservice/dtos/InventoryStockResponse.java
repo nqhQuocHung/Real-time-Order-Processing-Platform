@@ -1,5 +1,6 @@
 package com.nqh.inventoryservice.dtos;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
@@ -19,14 +20,17 @@ public class InventoryStockResponse {
     private UUID productId;
     private UUID itemId;
     private UUID shopId;
+    private String shopName;
     private String name;
     private String description;
     private UUID categoryId;
+    private String categoryName;
     private String brand;
     private String status;
     private String imageUrl;
     private String sku;
     private String productName;
+    private BigDecimal price;
     private Integer availableQuantity;
     private Integer reservedQuantity;
     private Integer totalQuantity;

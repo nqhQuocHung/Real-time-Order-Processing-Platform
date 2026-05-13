@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -57,6 +58,12 @@ public class CustomerOrder extends BasePojo {
 
     @Column(name = "idempotency_key", nullable = false, length = 255, unique = true)
     private String idempotencyKey;
+
+    @Column(name = "payment_url", length = 1000)
+    private String paymentUrl;
+
+    @Column(name = "payment_deadline_at")
+    private LocalDateTime paymentDeadlineAt;
 
     @Builder.Default
     @ToString.Exclude

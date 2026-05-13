@@ -25,6 +25,8 @@ public class OrderDetailResponse {
     private BigDecimal totalAmount;
     private String currency;
     private String idempotencyKey;
+    private String paymentUrl;
+    private LocalDateTime paymentDeadlineAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<CreateOrderItemResponse> items;

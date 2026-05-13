@@ -90,6 +90,7 @@ type PartnerUpgradeRequestSummary = {
   userId: string
   username: string
   email: string
+  shopName?: string
   status: PartnerRequestStatus
   requestNote?: string
   reviewNote?: string
@@ -870,6 +871,7 @@ async function loadPartnerRequests(
                 <th>Requested At</th>
                 <th>Username</th>
                 <th>Email</th>
+                <th>Shop Name</th>
                 <th>Note</th>
                 <th>Status</th>
                 <th>Decision</th>
@@ -878,7 +880,7 @@ async function loadPartnerRequests(
             <tbody>
               {!partnerRequests.length && (
                 <tr>
-                  <td colSpan={6} className="role-empty-cell">
+                  <td colSpan={7} className="role-empty-cell">
                     No pending partner requests.
                   </td>
                 </tr>
@@ -892,6 +894,7 @@ async function loadPartnerRequests(
                   <td>{formatDate(request.createdAt)}</td>
                   <td>{request.username}</td>
                   <td>{request.email}</td>
+                  <td>{request.shopName || '-'}</td>
                   <td>{request.requestNote || '-'}</td>
                   <td>{request.status}</td>
                   <td>

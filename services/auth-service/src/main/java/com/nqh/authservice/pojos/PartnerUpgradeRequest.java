@@ -47,6 +47,9 @@ public class PartnerUpgradeRequest extends BasePojo {
     @Column(name = "request_note", length = 500)
     private String requestNote;
 
+    @Column(name = "shop_name", length = 120)
+    private String shopName;
+
     @Column(name = "review_note", length = 500)
     private String reviewNote;
 

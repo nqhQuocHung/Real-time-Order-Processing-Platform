@@ -19,6 +19,7 @@ public class PartnerUpgradeRequestResponse {
     private UUID userId;
     private String username;
     private String email;
+    private String shopName;
     private PartnerRequestStatusEnum status;
     private String requestNote;
     private String reviewNote;

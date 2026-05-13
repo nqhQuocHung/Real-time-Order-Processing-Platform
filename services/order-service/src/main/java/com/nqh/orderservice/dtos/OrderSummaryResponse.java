@@ -23,6 +23,7 @@ public class OrderSummaryResponse {
     private OrderStatusEnum status;
     private BigDecimal totalAmount;
     private String currency;
+    private LocalDateTime paymentDeadlineAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

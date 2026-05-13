@@ -43,3 +43,11 @@
   color: var(--role-text);
   padding: 10px;
 }
+
+.user-dashboard-partner-note input {
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  border-radius: 8px;
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  padding: 10px;
+}
