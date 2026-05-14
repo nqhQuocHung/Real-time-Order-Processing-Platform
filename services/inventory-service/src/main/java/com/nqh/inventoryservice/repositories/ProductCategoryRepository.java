@@ -10,41 +10,35 @@ import org.springframework.data.repository.query.Param;
 
 public interface ProductCategoryRepository extends JpaRepository<ProductCategory, UUID> {
 
-    List<ProductCategory> findByIsActiveTrueAndShopIdOrderByCategoryNameAsc(UUID shopId);
+    List<ProductCategory> findByIsActiveTrueOrderByCategoryNameAsc();
 
     @Query("""
             select c from ProductCategory c
             where c.isActive = true
-                and c.shopId = :shopId
                 and c.id = :categoryId
             """)
-    Optional<ProductCategory> findActiveByShopIdAndCategoryId(
-            @Param("shopId") UUID shopId,
+    Optional<ProductCategory> findActiveByCategoryId(
             @Param("categoryId") UUID categoryId
     );
 
     @Query("""
             select c from ProductCategory c
             where c.isActive = true
-                and c.shopId = :shopId
                 and lower(c.categoryName) = lower(:categoryName)
             """)
-    Optional<ProductCategory> findActiveByShopIdAndCategoryName(
-            @Param("shopId") UUID shopId,
+    Optional<ProductCategory> findActiveByCategoryName(
             @Param("categoryName") String categoryName
     );
 
-    Optional<ProductCategory> findByIsActiveTrueAndIdAndShopId(UUID id, UUID shopId);
+    Optional<ProductCategory> findByIsActiveTrueAndId(UUID id);
 
     @Query("""
             select c from ProductCategory c
             where c.isActive = true
-                and c.shopId = :shopId
                 and c.id <> :categoryId
                 and lower(c.categoryName) = lower(:categoryName)
             """)
-    Optional<ProductCategory> findActiveByShopIdAndCategoryNameExcludingId(
-            @Param("shopId") UUID shopId,
+    Optional<ProductCategory> findActiveByCategoryNameExcludingId(
             @Param("categoryId") UUID categoryId,
             @Param("categoryName") String categoryName
     );

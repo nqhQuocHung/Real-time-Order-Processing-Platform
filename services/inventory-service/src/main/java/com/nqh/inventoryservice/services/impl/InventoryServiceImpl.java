@@ -16,7 +16,6 @@ import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
-import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import com.nqh.inventoryservice.enums.InventoryReservationStatusEnum;
@@ -28,7 +27,7 @@ import com.nqh.inventoryservice.repositories.InventoryReservationRepository;
 import com.nqh.inventoryservice.repositories.InventoryStockRepository;
 import com.nqh.inventoryservice.repositories.ProductCategoryRepository;
 import com.nqh.inventoryservice.services.InventoryService;
-import com.nqh.inventoryservice.services.ProductImageUploadService;
+import com.nqh.inventoryservice.services.UploadService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,7 +43,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class InventoryServiceImpl implements InventoryService {
@@ -54,18 +52,18 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryStockRepository inventoryStockRepository;
     private final InventoryReservationRepository inventoryReservationRepository;
     private final ProductCategoryRepository productCategoryRepository;
-    private final ProductImageUploadService productImageUploadService;
+    private final UploadService uploadService;
 
     public InventoryServiceImpl(
             InventoryStockRepository inventoryStockRepository,
             InventoryReservationRepository inventoryReservationRepository,
             ProductCategoryRepository productCategoryRepository,
-            ProductImageUploadService productImageUploadService
+            UploadService uploadService
     ) {
         this.inventoryStockRepository = inventoryStockRepository;
         this.inventoryReservationRepository = inventoryReservationRepository;
         this.productCategoryRepository = productCategoryRepository;
-        this.productImageUploadService = productImageUploadService;
+        this.uploadService = uploadService;
     }
 
     @Override
@@ -99,38 +97,28 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductCategoryResponse> getProductCategories(
-            UUID requesterUserId,
-            boolean isAdmin,
-            UUID requestedShopId
-    ) {
-        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, requestedShopId);
-        return productCategoryRepository.findByIsActiveTrueAndShopIdOrderByCategoryNameAsc(resolvedShopId).stream()
+    public List<ProductCategoryResponse> getProductCategories() {
+        return productCategoryRepository.findByIsActiveTrueOrderByCategoryNameAsc().stream()
                 .map(this::mapToProductCategoryResponse)
                 .toList();
     }
 
     @Override
     @Transactional
-    public ProductCategoryResponse createProductCategory(
-            UUID requesterUserId,
-            boolean isAdmin,
-            CreateProductCategoryRequest request
-    ) {
-        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
+    public ProductCategoryResponse createProductCategory(CreateProductCategoryRequest request) {
         String normalizedCategoryName = trimToNull(request.getCategoryName());
         if (normalizedCategoryName == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
 
-        if (productCategoryRepository.findActiveByShopIdAndCategoryName(resolvedShopId, normalizedCategoryName).isPresent()) {
+        if (productCategoryRepository.findActiveByCategoryName(normalizedCategoryName).isPresent()) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_ALREADY_EXISTS);
         }
 
         String generatedCategoryCode = UUID.randomUUID().toString();
         ProductCategory savedCategory = productCategoryRepository.save(
                 ProductCategory.builder()
-                        .shopId(resolvedShopId)
+                        .shopId(null)
                         .categoryCode(generatedCategoryCode)
                         .categoryName(normalizedCategoryName)
                         .description(trimToNull(request.getDescription()))
@@ -143,22 +131,19 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public ProductCategoryResponse updateProductCategory(
-            UUID requesterUserId,
-            boolean isAdmin,
             UUID categoryId,
             UpdateProductCategoryRequest request
     ) {
-        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, request.getShopId());
         String normalizedCategoryName = trimToNull(request.getCategoryName());
         if (normalizedCategoryName == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
 
-        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndIdAndShopId(categoryId, resolvedShopId)
+        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndId(categoryId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_CATEGORY_NOT_FOUND));
 
         if (productCategoryRepository
-                .findActiveByShopIdAndCategoryNameExcludingId(resolvedShopId, categoryId, normalizedCategoryName)
+                .findActiveByCategoryNameExcludingId(categoryId, normalizedCategoryName)
                 .isPresent()) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_ALREADY_EXISTS);
         }
@@ -172,16 +157,12 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public ProductCategoryResponse deleteProductCategory(
-            UUID requesterUserId,
-            boolean isAdmin,
-            UUID requestedShopId,
             UUID categoryId
     ) {
-        UUID resolvedShopId = resolveShopId(requesterUserId, isAdmin, requestedShopId);
-        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndIdAndShopId(categoryId, resolvedShopId)
+        ProductCategory category = productCategoryRepository.findByIsActiveTrueAndId(categoryId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_CATEGORY_NOT_FOUND));
 
-        long activeProducts = inventoryStockRepository.countByIsActiveTrueAndShopIdAndCategoryId(resolvedShopId, categoryId);
+        long activeProducts = inventoryStockRepository.countByIsActiveTrueAndCategoryId(categoryId);
         if (activeProducts > 0) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_CATEGORY_IN_USE);
         }
@@ -190,16 +171,6 @@ public class InventoryServiceImpl implements InventoryService {
         category.setDeletedAt(LocalDateTime.now());
         ProductCategory deletedCategory = productCategoryRepository.save(category);
         return mapToProductCategoryResponse(deletedCategory);
-    }
-
-    @Override
-    public ProductImageUploadResponse uploadProductImage(MultipartFile image) {
-        boolean useDefaultImage = image == null || image.isEmpty();
-        String imageUrl = productImageUploadService.uploadProductImageOrDefault(image);
-        return ProductImageUploadResponse.builder()
-                .imageUrl(imageUrl)
-                .defaultImageUsed(useDefaultImage)
-                .build();
     }
 
     @Override
@@ -214,12 +185,15 @@ public class InventoryServiceImpl implements InventoryService {
         UUID resolvedItemId = request.getItemId() != null ? request.getItemId() : UUID.randomUUID();
         UUID resolvedCategoryId = request.getCategoryId();
 
+        if (resolvedCategoryId == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
         if (inventoryStockRepository.findByProductId(resolvedItemId).isPresent()) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.INVENTORY_DUPLICATE_PRODUCT);
         }
 
-        if (resolvedCategoryId != null
-                && productCategoryRepository.findActiveByShopIdAndCategoryId(resolvedShopId, resolvedCategoryId).isEmpty()) {
+        if (productCategoryRepository.findActiveByCategoryId(resolvedCategoryId).isEmpty()) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_CATEGORY_NOT_FOUND);
         }
 
@@ -236,8 +210,10 @@ public class InventoryServiceImpl implements InventoryService {
                 .imageUrl(resolveProductImageUrl(request.getImageUrl()))
                 .sku(trimToNull(request.getSku()))
                 .productName(trimToNull(request.getName()))
+                .price(request.getPrice())
                 .availableQuantity(request.getAvailableQuantity())
                 .reservedQuantity(0)
+                .soldQuantity(0)
                 .build();
 
         InventoryStock saved = inventoryStockRepository.save(product);
@@ -258,8 +234,10 @@ public class InventoryServiceImpl implements InventoryService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.INVENTORY_PRODUCT_NOT_FOUND));
 
         UUID resolvedCategoryId = request.getCategoryId();
-        if (resolvedCategoryId != null
-                && productCategoryRepository.findActiveByShopIdAndCategoryId(resolvedShopId, resolvedCategoryId).isEmpty()) {
+        if (resolvedCategoryId == null) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        if (productCategoryRepository.findActiveByCategoryId(resolvedCategoryId).isEmpty()) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_CATEGORY_NOT_FOUND);
         }
 
@@ -270,6 +248,7 @@ public class InventoryServiceImpl implements InventoryService {
         product.setBrand(trimToNull(request.getBrand()));
         product.setProductStatus(trimToNull(request.getStatus()));
         product.setSku(trimToNull(request.getSku()));
+        product.setPrice(request.getPrice());
         product.setAvailableQuantity(request.getAvailableQuantity());
         product.setShopName(resolveShopName(request.getShopName(), resolvedShopId));
 
@@ -277,7 +256,7 @@ public class InventoryServiceImpl implements InventoryService {
         if (normalizedImageUrl != null) {
             product.setImageUrl(normalizedImageUrl);
         } else if (trimToNull(product.getImageUrl()) == null) {
-            product.setImageUrl(productImageUploadService.resolveDefaultProductImageUrl());
+            product.setImageUrl(uploadService.resolveDefaultProductImageUrl());
         }
 
         InventoryStock updated = inventoryStockRepository.save(product);
@@ -471,6 +450,7 @@ public class InventoryServiceImpl implements InventoryService {
             }
 
             stock.setReservedQuantity(stock.getReservedQuantity() - item.getQuantity());
+            stock.setSoldQuantity(normalizeNonNegativeQuantity(stock.getSoldQuantity()) + item.getQuantity());
         }
 
         reservation.setStatus(InventoryReservationStatusEnum.COMMITTED);
@@ -504,6 +484,7 @@ public class InventoryServiceImpl implements InventoryService {
                     .productName(trimToNull(request.getProductName()))
                     .availableQuantity(request.getDeltaQuantity())
                     .reservedQuantity(0)
+                    .soldQuantity(0)
                     .build();
             InventoryStock saved = inventoryStockRepository.save(stock);
             return mapToStockResponse(saved, resolveCategoryName(saved.getCategoryId(), new HashMap<>()));
@@ -594,7 +575,7 @@ public class InventoryServiceImpl implements InventoryService {
         if (normalizedImageUrl != null) {
             return normalizedImageUrl;
         }
-        return productImageUploadService.resolveDefaultProductImageUrl();
+        return uploadService.resolveDefaultProductImageUrl();
     }
 
     private String resolveShopName(String shopName, UUID shopId) {
@@ -674,9 +655,13 @@ public class InventoryServiceImpl implements InventoryService {
                 .sku(stock.getSku())
                 .productName(stock.getProductName() != null ? stock.getProductName() : stock.getName())
                 .price(stock.getPrice())
-                .availableQuantity(stock.getAvailableQuantity())
-                .reservedQuantity(stock.getReservedQuantity())
-                .totalQuantity(stock.getAvailableQuantity() + stock.getReservedQuantity())
+                .availableQuantity(normalizeNonNegativeQuantity(stock.getAvailableQuantity()))
+                .reservedQuantity(normalizeNonNegativeQuantity(stock.getReservedQuantity()))
+                .soldQuantity(normalizeNonNegativeQuantity(stock.getSoldQuantity()))
+                .totalQuantity(
+                        normalizeNonNegativeQuantity(stock.getAvailableQuantity())
+                                + normalizeNonNegativeQuantity(stock.getReservedQuantity())
+                )
                 .createdAt(stock.getCreatedAt())
                 .updatedAt(stock.getUpdatedAt())
                 .deletedAt(stock.getDeletedAt())
@@ -688,7 +673,6 @@ public class InventoryServiceImpl implements InventoryService {
         return ProductCategoryResponse.builder()
                 .categoryUid(category.getId())
                 .categoryUuid(category.getUuid())
-                .shopId(category.getShopId())
                 .categoryId(category.getId())
                 .categoryName(category.getCategoryName())
                 .description(category.getDescription())
@@ -717,5 +701,12 @@ public class InventoryServiceImpl implements InventoryService {
                 .updatedAt(reservation.getUpdatedAt())
                 .items(items)
                 .build();
+    }
+
+    private int normalizeNonNegativeQuantity(Integer value) {
+        if (value == null || value < 0) {
+            return 0;
+        }
+        return value;
     }
 }

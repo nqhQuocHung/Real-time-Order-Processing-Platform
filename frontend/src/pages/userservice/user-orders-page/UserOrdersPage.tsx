@@ -19,6 +19,8 @@ import { QRCodeCanvas } from 'qrcode.react'
 const orderStatuses = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
 const paymentReturnRoutePath = '/payment-return'
 const paymentReturnFlashStorageKey = 'user-orders-payment-return-flash-v1'
+const DEFAULT_ORDER_PAGE_SIZE = 8
+const ORDER_PAGE_SIZE_OPTIONS = [8, 12, 20, 30]
 
 type PaymentFlashType = 'success' | 'error'
 
@@ -95,6 +97,27 @@ function normalizePrice(value: number | null | undefined): number {
   }
   const normalized = Number(value)
   return normalized > 0 ? Number(normalized.toFixed(2)) : 0
+}
+
+function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+  if (totalPages <= 0) {
+    return []
+  }
+
+  const half = Math.floor(maxButtons / 2)
+  let start = Math.max(0, currentPage - half)
+  let end = Math.min(totalPages - 1, start + maxButtons - 1)
+
+  if (end - start + 1 < maxButtons) {
+    start = Math.max(0, end - maxButtons + 1)
+  }
+
+  const pages: number[] = []
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i)
+  }
+
+  return pages
 }
 
 function buildIdempotencyKey(): string {
@@ -239,6 +262,9 @@ function UserOrdersPage() {
   const [activePaymentDialog, setActivePaymentDialog] = useState<PaymentDialogState | null>(null)
 
   const [orders, setOrders] = useState<OrderSummary[]>([])
+  const [orderPage, setOrderPage] = useState(0)
+  const [orderPageSize, setOrderPageSize] = useState(DEFAULT_ORDER_PAGE_SIZE)
+  const [totalOrdersResult, setTotalOrdersResult] = useState(0)
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -252,7 +278,7 @@ function UserOrdersPage() {
   const [refreshingPaymentOrder, setRefreshingPaymentOrder] = useState('')
   const [nowTick, setNowTick] = useState(Date.now())
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (targetPage = orderPage, targetPageSize = orderPageSize) => {
     if (!session?.userId) {
       setError('Cannot find user ID to load orders.')
       return
@@ -265,18 +291,25 @@ function UserOrdersPage() {
         params: {
           customerId: session.userId,
           status: statusFilter || undefined,
-          page: 0,
-          size: 20,
+          page: targetPage,
+          size: targetPageSize,
         },
       })
       const data = extractApiData<OrderListResponse>(response)
-      setOrders(data.content || [])
+      const resolvedOrders = Array.isArray(data.content) ? data.content : []
+      const resolvedTotal = Number.isFinite(data.totalElements as number)
+        ? Math.max(0, Math.floor(Number(data.totalElements)))
+        : resolvedOrders.length
+      setOrders(resolvedOrders)
+      setTotalOrdersResult(Math.max(resolvedTotal, resolvedOrders.length))
     } catch (err) {
       setError(extractApiErrorMessage(err, 'Cannot load order list.'))
+      setOrders([])
+      setTotalOrdersResult(0)
     } finally {
       setLoading(false)
     }
-  }, [session?.userId, statusFilter])
+  }, [orderPage, orderPageSize, session?.userId, statusFilter])
 
   const loadCatalog = useCallback(async () => {
     const response = await apis().get(endpoints.inventories.catalog)
@@ -292,8 +325,39 @@ function UserOrdersPage() {
   }, [cart])
 
   useEffect(() => {
-    void loadOrders()
-  }, [loadOrders])
+    void loadOrders(orderPage, orderPageSize)
+  }, [loadOrders, orderPage, orderPageSize])
+
+  useEffect(() => {
+    setOrderPage(0)
+  }, [statusFilter, orderPageSize])
+
+  const totalOrderPages = useMemo(() => {
+    if (!totalOrdersResult) {
+      return 0
+    }
+    return Math.ceil(totalOrdersResult / orderPageSize)
+  }, [orderPageSize, totalOrdersResult])
+
+  useEffect(() => {
+    if (totalOrderPages > 0 && orderPage >= totalOrderPages) {
+      setOrderPage(totalOrderPages - 1)
+      return
+    }
+    if (totalOrderPages === 0 && orderPage !== 0) {
+      setOrderPage(0)
+    }
+  }, [orderPage, totalOrderPages])
+
+  const orderPaginationPages = useMemo(
+    () => buildPaginationPages(orderPage, totalOrderPages),
+    [orderPage, totalOrderPages],
+  )
+
+  const currentOrderPageStart = totalOrdersResult === 0 ? 0 : orderPage * orderPageSize + 1
+  const currentOrderPageEnd = totalOrdersResult === 0
+    ? 0
+    : Math.min((orderPage + 1) * orderPageSize, totalOrdersResult)
 
   useEffect(() => {
     async function initCatalog() {
@@ -308,11 +372,11 @@ function UserOrdersPage() {
 
   useEffect(() => {
     const refreshTimer = window.setInterval(() => {
-      void loadOrders()
+      void loadOrders(orderPage, orderPageSize)
       void loadCatalog()
     }, 15000)
     return () => window.clearInterval(refreshTimer)
-  }, [loadCatalog, loadOrders])
+  }, [loadCatalog, loadOrders, orderPage, orderPageSize])
 
   useEffect(() => {
     const tickTimer = window.setInterval(() => {
@@ -421,7 +485,7 @@ function UserOrdersPage() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
 
       try {
-        await Promise.all([loadOrders(), loadCatalog()])
+        await Promise.all([loadOrders(orderPage, orderPageSize), loadCatalog()])
       } catch {
         // Keep redirect flow even if refresh fails.
       }
@@ -432,7 +496,7 @@ function UserOrdersPage() {
     }
 
     void reconcilePaymentReturn()
-  }, [loadCatalog, loadOrders, location.pathname, location.search, navigate])
+  }, [loadCatalog, loadOrders, location.pathname, location.search, navigate, orderPage, orderPageSize])
 
   useEffect(() => {
     if (!showPaymentDialog) {
@@ -593,7 +657,7 @@ function UserOrdersPage() {
         return next
       })
 
-      await Promise.all([loadOrders(), loadCatalog()])
+      await Promise.all([loadOrders(orderPage, orderPageSize), loadCatalog()])
     } catch (err) {
       setCheckoutError(extractApiErrorMessage(err, 'Cannot create order from current cart.'))
     } finally {
@@ -610,7 +674,7 @@ function UserOrdersPage() {
         ...previous,
         [orderCode]: payment,
       }))
-      await loadOrders()
+      await loadOrders(orderPage, orderPageSize)
       await loadCatalog()
     } catch (err) {
       setError(extractApiErrorMessage(err, `Cannot refresh payment for order ${orderCode}.`))
@@ -625,7 +689,7 @@ function UserOrdersPage() {
         actor: 'USER',
         note: 'Cancelled by customer from self-service page',
       })
-      await Promise.all([loadOrders(), loadCatalog()])
+      await Promise.all([loadOrders(orderPage, orderPageSize), loadCatalog()])
     } catch (err) {
       setError(extractApiErrorMessage(err, `Cannot cancel order ${orderCode}.`))
     }
@@ -825,11 +889,19 @@ function UserOrdersPage() {
         </div>
       </article>
 
-      <article className="role-card">
-        <h2>My Orders</h2>
-        <p className="role-muted">
-          Orders in RESERVED state are holding stock. If payment times out, stock is auto-released.
-        </p>
+      <article className="role-card user-orders-page-orders-card">
+        <div className="user-orders-page-orders-header">
+          <div>
+            <h2>My Orders</h2>
+            <p className="role-muted">
+              Orders in RESERVED state are holding stock. If payment times out, stock is auto-released.
+            </p>
+          </div>
+          <div className="user-orders-page-orders-metrics">
+            <span>Total: {totalOrdersResult}</span>
+            <span>Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}</span>
+          </div>
+        </div>
 
         <div className="role-inline-form">
           <label>
@@ -845,7 +917,27 @@ function UserOrdersPage() {
               ))}
             </select>
           </label>
-          <button type="button" className="role-btn-primary" onClick={() => void loadOrders()}>
+          <label>
+            Items / page
+            <select
+              value={orderPageSize}
+              onChange={(event) => setOrderPageSize(Number(event.target.value))}
+            >
+              {ORDER_PAGE_SIZE_OPTIONS.map((sizeOption) => (
+                <option key={sizeOption} value={sizeOption}>
+                  {sizeOption}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="role-btn-primary"
+            onClick={() => {
+              setOrderPage(0)
+              void loadOrders(0, orderPageSize)
+            }}
+          >
             {loading ? 'Loading...' : 'Filter Orders'}
           </button>
         </div>
@@ -931,6 +1023,42 @@ function UserOrdersPage() {
             </tbody>
           </table>
         </div>
+
+        {totalOrderPages > 0 && (
+          <div className="user-orders-page-pagination">
+            <p className="user-orders-page-pagination-summary">
+              Showing {currentOrderPageStart}-{currentOrderPageEnd} of {totalOrdersResult}
+            </p>
+            <div className="user-orders-page-pagination-controls">
+              <button
+                type="button"
+                className="role-btn-ghost user-orders-page-btn-page"
+                onClick={() => setOrderPage((prev) => Math.max(0, prev - 1))}
+                disabled={orderPage <= 0}
+              >
+                Prev
+              </button>
+              {orderPaginationPages.map((pageNumber) => (
+                <button
+                  key={`order-page-${pageNumber}`}
+                  type="button"
+                  className={`role-btn-ghost user-orders-page-btn-page ${pageNumber === orderPage ? 'is-active' : ''}`}
+                  onClick={() => setOrderPage(pageNumber)}
+                >
+                  {pageNumber + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="role-btn-ghost user-orders-page-btn-page"
+                onClick={() => setOrderPage((prev) => Math.min(totalOrderPages - 1, prev + 1))}
+                disabled={orderPage >= totalOrderPages - 1}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </article>
     </section>
   )

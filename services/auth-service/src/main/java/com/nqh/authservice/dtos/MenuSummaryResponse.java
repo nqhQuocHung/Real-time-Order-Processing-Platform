@@ -22,4 +22,5 @@ public class MenuSummaryResponse {
     private UUID parentMenuId;
     private String parentMenuKey;
     private Boolean isContainer;
+    private Boolean showOnMenu;
 }

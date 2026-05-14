@@ -2,15 +2,12 @@ package com.nqh.inventoryservice.dtos;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.UUID;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
 public class CreateProductCategoryRequest {
-
-    private UUID shopId;
 
     @NotBlank
     @Size(max = 255)

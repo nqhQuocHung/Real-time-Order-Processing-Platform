@@ -9,6 +9,7 @@ import UserSupportPage from '../pages/userservice/user-support-page/UserSupportP
 import AdminDashboardPage from '../pages/adminservice/admin-dashboard-page/AdminDashboardPage'
 import AdminAdministrationPage from '../pages/adminservice/admin-administration-page/AdminAdministrationPage'
 import AdminProductManagementPage from '../pages/adminservice/admin-product-management-page/AdminProductManagementPage'
+import AdminCategoryManagementPage from '../pages/adminservice/admin-category-management-page/AdminCategoryManagementPage'
 import AdminOrderManagementPage from '../pages/adminservice/admin-order-management-page/AdminOrderManagementPage'
 import AdminReportsPage from '../pages/adminservice/admin-reports-page/AdminReportsPage'
 import AdminSystemSettingsPage from '../pages/adminservice/admin-system-settings-page/AdminSystemSettingsPage'
@@ -84,6 +85,13 @@ export const roleRouteConfig: AppRouteItem[] = [
     title: 'Product Management',
     permission: PermissionKey.MANAGE_PRODUCTS,
     component: AdminProductManagementPage,
+  },
+  {
+    path: '/admin/categories',
+    role: AppRole.ADMIN,
+    title: 'Category Management',
+    permission: PermissionKey.MANAGE_PRODUCTS,
+    component: AdminCategoryManagementPage,
   },
   {
     path: '/admin/orders',

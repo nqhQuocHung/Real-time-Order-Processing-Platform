@@ -96,6 +96,7 @@ type BackendMenuItem = {
   parentMenuId?: string | null
   parentMenuKey?: string | null
   isContainer?: boolean
+  showOnMenu?: boolean
 }
 
 type AuthSession = {
@@ -187,7 +188,6 @@ const endpoints = {
     createCategory: '/api/v1/inventories/categories',
     updateCategory: (categoryId: string) => `/api/v1/inventories/categories/${categoryId}`,
     deleteCategory: (categoryId: string) => `/api/v1/inventories/categories/${categoryId}`,
-    uploadProductImage: '/api/v1/inventories/products/upload-image',
     stock: (productId: string) => `/api/v1/inventories/${productId}`,
     summary: '/api/v1/inventories/summary',
     check: '/api/v1/inventories/check',
@@ -453,9 +453,6 @@ let refreshPromise: Promise<string | null> | null = null
 function createApiInstance(accessToken?: string) {
   const instance = axios.create({
     baseURL: BASE_URL,
-    headers: {
-      'Content-Type': 'application/json',
-    },
   })
 
   instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {

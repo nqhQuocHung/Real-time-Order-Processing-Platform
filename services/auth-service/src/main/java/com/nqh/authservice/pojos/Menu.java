@@ -48,6 +48,9 @@ public class Menu extends BasePojo {
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder;
 
+    @Column(name = "show_on_menu", nullable = false)
+    private Boolean showOnMenu;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "permission_id")
     private Permission permission;

@@ -3,7 +3,8 @@ import { Navigate } from 'react-router-dom'
 import Loading from '../loading/Loading'
 import { hydrateAuthSession } from '../../auth/authSession'
 import { AppRole } from '../../constants/roles'
-import { getDefaultPathByRole } from '../../config/roleConfig'
+import { getAuthSession } from '../../config/apis'
+import { resolveDefaultPathByRole } from '../../config/roleConfig'
 
 type RedirectState = {
   loading: boolean
@@ -48,7 +49,12 @@ function SessionRedirect() {
     return <Navigate to="/login" replace />
   }
 
-  return <Navigate to={getDefaultPathByRole(state.role)} replace />
+  return (
+    <Navigate
+      to={resolveDefaultPathByRole(state.role, getAuthSession()?.backendMenus || [])}
+      replace
+    />
+  )
 }
 
 export default SessionRedirect

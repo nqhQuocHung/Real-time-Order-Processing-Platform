@@ -24,4 +24,6 @@ public class UpdateMenuRequest {
     private String permissionCode;
 
     private UUID parentMenuId;
+
+    private Boolean showOnMenu;
 }

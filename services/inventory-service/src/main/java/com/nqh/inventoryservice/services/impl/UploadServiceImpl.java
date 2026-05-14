@@ -3,7 +3,7 @@ package com.nqh.inventoryservice.services.impl;
 import com.cloudinary.Cloudinary;
 import com.nqh.inventoryservice.common.exception.AppException;
 import com.nqh.inventoryservice.common.messages.MessageCode;
-import com.nqh.inventoryservice.services.ProductImageUploadService;
+import com.nqh.inventoryservice.services.UploadService;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
-public class ProductImageUploadServiceImpl implements ProductImageUploadService {
+public class UploadServiceImpl implements UploadService {
 
     private final Cloudinary cloudinary;
 
@@ -35,14 +35,14 @@ public class ProductImageUploadServiceImpl implements ProductImageUploadService 
     private String cloudinaryApiSecret;
 
     @Override
-    public String uploadProductImageOrDefault(MultipartFile image) {
-        if (image == null || image.isEmpty()) {
-            return resolveDefaultProductImageUrl();
-        }
-
+    public String uploadProductImage(MultipartFile image) {
         validateImage(image);
+
         if (!isCloudinaryConfigured()) {
-            return resolveDefaultProductImageUrl();
+            throw new AppException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    MessageCode.INVENTORY_PRODUCT_IMAGE_STORAGE_NOT_CONFIGURED
+            );
         }
 
         try {
@@ -53,7 +53,7 @@ public class ProductImageUploadServiceImpl implements ProductImageUploadService 
             Map<?, ?> result = cloudinary.uploader().upload(image.getBytes(), options);
             String uploadedImageUrl = (String) result.get("secure_url");
             if (!StringUtils.hasText(uploadedImageUrl)) {
-                return resolveDefaultProductImageUrl();
+                throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, MessageCode.INVENTORY_PRODUCT_IMAGE_UPLOAD_FAILED);
             }
             return uploadedImageUrl;
         } catch (AppException ex) {
@@ -69,6 +69,10 @@ public class ProductImageUploadServiceImpl implements ProductImageUploadService 
     }
 
     private void validateImage(MultipartFile image) {
+        if (image == null || image.isEmpty()) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_PRODUCT_IMAGE_REQUIRED);
+        }
+
         String contentType = image.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.INVENTORY_PRODUCT_IMAGE_INVALID_TYPE);

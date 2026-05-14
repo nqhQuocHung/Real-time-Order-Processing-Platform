@@ -11,12 +11,10 @@ import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
-import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.web.multipart.MultipartFile;
 
 public interface InventoryService {
 
@@ -28,25 +26,16 @@ public interface InventoryService {
 
     InventoryStockResponse createPartnerProduct(UUID requesterUserId, boolean isAdmin, CreatePartnerProductRequest request);
 
-    List<ProductCategoryResponse> getProductCategories(UUID requesterUserId, boolean isAdmin, UUID requestedShopId);
+    List<ProductCategoryResponse> getProductCategories();
 
-    ProductCategoryResponse createProductCategory(UUID requesterUserId, boolean isAdmin, CreateProductCategoryRequest request);
+    ProductCategoryResponse createProductCategory(CreateProductCategoryRequest request);
 
     ProductCategoryResponse updateProductCategory(
-            UUID requesterUserId,
-            boolean isAdmin,
             UUID categoryId,
             UpdateProductCategoryRequest request
     );
 
-    ProductCategoryResponse deleteProductCategory(
-            UUID requesterUserId,
-            boolean isAdmin,
-            UUID requestedShopId,
-            UUID categoryId
-    );
-
-    ProductImageUploadResponse uploadProductImage(MultipartFile image);
+    ProductCategoryResponse deleteProductCategory(UUID categoryId);
 
     InventoryStockResponse updatePartnerProduct(
             UUID requesterUserId,

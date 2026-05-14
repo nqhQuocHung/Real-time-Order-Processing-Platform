@@ -23,4 +23,6 @@ public class CreateMenuRequest {
     private String permissionCode;
 
     private UUID parentMenuId;
+
+    private Boolean showOnMenu;
 }

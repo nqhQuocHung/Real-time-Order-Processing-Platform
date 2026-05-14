@@ -12,7 +12,7 @@ import {
 import { AppRole, getRoleLabel } from '../constants/roles'
 import { menuConfig } from '../config/menuConfig'
 import { hasPermission, type PermissionKey } from '../config/permissionConfig'
-import { getDefaultPathByRole } from '../config/roleConfig'
+import { resolveDefaultPathByRole } from '../config/roleConfig'
 import defaultAvatar from '../assets/default-avatar.svg'
 import NotificationBell, {
   type NotificationItem,
@@ -42,6 +42,7 @@ type NavigationMenuItem = {
   parentMenuId?: string | null
   parentMenuKey?: string | null
   isContainer?: boolean
+  showOnMenu?: boolean
 }
 
 type NotificationPayload = Record<string, unknown>
@@ -315,6 +316,10 @@ function isCurrentPathActive(path?: string, pathname?: string) {
 }
 
 function isMenuVisibleForRole(item: NavigationMenuItem, currentRole: AppRole) {
+  if (item.showOnMenu === false) {
+    return false
+  }
+
   const key = item.key.toLowerCase()
   if (key.includes('profile')) {
     return false
@@ -362,7 +367,7 @@ function RoleLayout() {
   const [changePasswordSuccess, setChangePasswordSuccess] = useState('')
 
   const currentRole = session?.role || AppRole.USER
-  const dashboardPath = getDefaultPathByRole(currentRole)
+  const dashboardPath = resolveDefaultPathByRole(currentRole, session?.backendMenus || [])
 
   const dynamicMenu: NavigationMenuItem[] = (session?.backendMenus || [])
     .filter((item) => item.key && item.label)
@@ -377,6 +382,7 @@ function RoleLayout() {
       parentMenuId: item.parentMenuId || null,
       parentMenuKey: item.parentMenuKey || null,
       isContainer: item.isContainer,
+      showOnMenu: item.showOnMenu !== false,
     }))
 
   const roleMenuSource: NavigationMenuItem[] = useMemo(() => {
@@ -441,7 +447,7 @@ function RoleLayout() {
   }, [currentRole])
 
   const currentPageLabel = useMemo(() => {
-    const matchedMenu = currentMenu.find((item) => item.path === location.pathname)
+    const matchedMenu = roleMenuSource.find((item) => item.path === location.pathname)
     if (matchedMenu) {
       return matchedMenu.label
     }
@@ -455,7 +461,7 @@ function RoleLayout() {
     }
 
     return 'Dashboard'
-  }, [currentMenu, location.pathname])
+  }, [roleMenuSource, location.pathname])
 
   const nonStaticActiveMenuKeyChain = activeMenuKeyChain.filter(
     (menuKey) => menuKey !== 'admin-group' && menuKey !== 'partner-group',

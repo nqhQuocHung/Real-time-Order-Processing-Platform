@@ -21,6 +21,7 @@ export type ProductCardData = {
   currency?: string | null
   availableQuantity?: number | null
   reservedQuantity?: number | null
+  soldQuantity?: number | null
   totalQuantity?: number | null
   createdAt?: string | null
   updatedAt?: string | null
@@ -125,9 +126,13 @@ function ProductCard({
             <small>Available</small>
             <strong>{normalizeQuantity(product.availableQuantity)}</strong>
           </div>
-          <div>
+          {/* <div>
             <small>Reserved</small>
             <strong>{normalizeQuantity(product.reservedQuantity)}</strong>
+          </div> */}
+          <div>
+            <small>Paid</small>
+            <strong>{normalizeQuantity(product.soldQuantity)}</strong>
           </div>
           <div>
             <small>Total</small>
