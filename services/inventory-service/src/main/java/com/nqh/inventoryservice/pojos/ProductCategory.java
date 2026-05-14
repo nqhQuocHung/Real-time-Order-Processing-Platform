@@ -20,8 +20,8 @@ import lombok.Setter;
         name = "product_categories",
         schema = "inventory",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_product_categories_shop_code",
-                columnNames = {"shop_id", "category_code"}
+                name = "uk_product_categories_category_code",
+                columnNames = {"category_code"}
         )
 )
 @Getter
@@ -37,7 +37,7 @@ public class ProductCategory extends BasePojo {
     @EqualsAndHashCode.Include
     private UUID id;
 
-    @Column(name = "shop_id", nullable = false)
+    @Column(name = "shop_id")
     private UUID shopId;
 
     @Column(name = "category_code", nullable = false, length = 120)

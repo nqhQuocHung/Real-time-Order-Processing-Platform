@@ -6,6 +6,7 @@ import AuthForgotPasswordPage from '../pages/authservice/forgot-password-page/Au
 import SessionRedirect from '../components/auth/SessionRedirect'
 import PublicOnlyRoute from '../components/auth/PublicOnlyRoute'
 import ProtectedRoute from '../components/auth/ProtectedRoute'
+import RoutePermissionGuard from '../components/auth/RoutePermissionGuard'
 import RoleLayout from '../layouts/RoleLayout'
 import { AppRole } from '../constants/roles'
 import { roleRouteConfig } from '../config/routeConfig'
@@ -13,6 +14,7 @@ import { getAllowedRolesForRouteOwner } from '../config/roleConfig'
 import ForbiddenPage from '../pages/commonservice/forbidden-page/ForbiddenPage'
 import NotFoundPage from '../pages/commonservice/not-found-page/NotFoundPage'
 import { isAuthenticated } from '../config/apis'
+import { PermissionKey } from '../config/permissionConfig'
 import UserOrdersPage from '../pages/userservice/user-orders-page/UserOrdersPage'
 
 function AppRoutes() {
@@ -48,10 +50,31 @@ function AppRoutes() {
         }
       >
         <Route element={<RoleLayout />}>
-          <Route path="/payment-return" element={<UserOrdersPage />} />
+          <Route
+            path="/payment-return"
+            element={
+              <RoutePermissionGuard
+                routePath="/payment-return"
+                permission={PermissionKey.MANAGE_SELF_ORDERS}
+                allowPermissionFallback
+              >
+                <UserOrdersPage />
+              </RoutePermissionGuard>
+            }
+          />
           {userRoutes.map((route) => {
             const Component = route.component
-            return <Route key={route.path} path={route.path} element={<Component />} />
+            return (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={
+                  <RoutePermissionGuard routePath={route.path} permission={route.permission}>
+                    <Component />
+                  </RoutePermissionGuard>
+                }
+              />
+            )
           })}
         </Route>
       </Route>
@@ -74,7 +97,17 @@ function AppRoutes() {
           />
           {adminRoutes.map((route) => {
             const Component = route.component
-            return <Route key={route.path} path={route.path} element={<Component />} />
+            return (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={
+                  <RoutePermissionGuard routePath={route.path} permission={route.permission}>
+                    <Component />
+                  </RoutePermissionGuard>
+                }
+              />
+            )
           })}
         </Route>
       </Route>
@@ -89,7 +122,17 @@ function AppRoutes() {
         <Route element={<RoleLayout />}>
           {partnerRoutes.map((route) => {
             const Component = route.component
-            return <Route key={route.path} path={route.path} element={<Component />} />
+            return (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={
+                  <RoutePermissionGuard routePath={route.path} permission={route.permission}>
+                    <Component />
+                  </RoutePermissionGuard>
+                }
+              />
+            )
           })}
         </Route>
       </Route>

@@ -74,6 +74,9 @@ public class InventoryStock extends BasePojo {
     @Column(name = "reserved_quantity", nullable = false)
     private Integer reservedQuantity;
 
+    @Column(name = "sold_quantity", nullable = false)
+    private Integer soldQuantity;
+
     @Column(name = "price", precision = 15, scale = 2)
     private BigDecimal price;
 

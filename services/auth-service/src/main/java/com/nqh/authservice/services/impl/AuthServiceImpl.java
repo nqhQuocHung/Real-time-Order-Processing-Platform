@@ -856,12 +856,14 @@ public class AuthServiceImpl implements AuthService {
 
         int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
         Menu parentMenu = resolveParentMenuOrNull(request.getParentMenuId(), null);
+        boolean showOnMenu = resolveShowOnMenu(request.getShowOnMenu());
 
         Menu menu = Menu.builder()
                 .menuKey(normalizedMenuKey)
                 .label(request.getLabel().trim())
                 .path(normalizedPath)
                 .displayOrder(displayOrder)
+                .showOnMenu(showOnMenu)
                 .permission(permission)
                 .parentMenu(parentMenu)
                 .build();
@@ -897,11 +899,15 @@ public class AuthServiceImpl implements AuthService {
         Permission permission = resolvePermissionOrNull(request.getPermissionCode());
         int displayOrder = request.getDisplayOrder() == null ? 100 : request.getDisplayOrder();
         Menu parentMenu = resolveParentMenuOrNull(request.getParentMenuId(), menu.getId());
+        boolean showOnMenu = request.getShowOnMenu() == null
+                ? resolveShowOnMenu(menu.getShowOnMenu())
+                : request.getShowOnMenu();
 
         menu.setMenuKey(normalizedMenuKey);
         menu.setLabel(request.getLabel().trim());
         menu.setPath(normalizedPath);
         menu.setDisplayOrder(displayOrder);
+        menu.setShowOnMenu(showOnMenu);
         menu.setPermission(permission);
         menu.setParentMenu(parentMenu);
 
@@ -1505,6 +1511,7 @@ public class AuthServiceImpl implements AuthService {
                 .parentMenuId(parentMenu != null ? parentMenu.getId() : null)
                 .parentMenuKey(parentMenu != null ? parentMenu.getMenuKey() : null)
                 .isContainer(!StringUtils.hasText(menu.getPath()))
+                .showOnMenu(resolveShowOnMenu(menu.getShowOnMenu()))
                 .build();
     }
 
@@ -1520,7 +1527,12 @@ public class AuthServiceImpl implements AuthService {
                 .parentMenuId(parentMenu != null ? parentMenu.getId() : null)
                 .parentMenuKey(parentMenu != null ? parentMenu.getMenuKey() : null)
                 .isContainer(!StringUtils.hasText(menu.getPath()))
+                .showOnMenu(resolveShowOnMenu(menu.getShowOnMenu()))
                 .build();
+    }
+
+    private boolean resolveShowOnMenu(Boolean showOnMenu) {
+        return showOnMenu == null || showOnMenu;
     }
 
     private PermissionSummaryResponse mapToPermissionSummary(Permission permission) {

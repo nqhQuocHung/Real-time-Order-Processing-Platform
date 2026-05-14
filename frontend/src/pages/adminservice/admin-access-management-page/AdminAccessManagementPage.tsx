@@ -24,6 +24,7 @@ type MenuSummary = {
   parentMenuId?: string | null
   parentMenuKey?: string | null
   isContainer?: boolean
+  showOnMenu?: boolean
 }
 
 type PermissionSummary = {
@@ -47,6 +48,7 @@ type EditMenuForm = {
   displayOrder: string
   permissionCode: string
   parentMenuId: string
+  showOnMenu: boolean
 }
 
 function normalizeMenuPath(path?: string) {
@@ -162,6 +164,7 @@ function AdminAccessManagementPage() {
   const [newTabKey, setNewTabKey] = useState('')
   const [newTabLabel, setNewTabLabel] = useState('')
   const [newTabDisplayOrder, setNewTabDisplayOrder] = useState('100')
+  const [newTabShowOnMenu, setNewTabShowOnMenu] = useState(true)
 
   const [newPageParentMenuId, setNewPageParentMenuId] = useState('')
   const [newPageKey, setNewPageKey] = useState('')
@@ -169,6 +172,7 @@ function AdminAccessManagementPage() {
   const [newPagePath, setNewPagePath] = useState('')
   const [newPageDisplayOrder, setNewPageDisplayOrder] = useState('100')
   const [newPagePermissionCode, setNewPagePermissionCode] = useState('')
+  const [newPageShowOnMenu, setNewPageShowOnMenu] = useState(true)
 
   const [selectedRoleCode, setSelectedRoleCode] = useState('')
   const [selectedMenuKeys, setSelectedMenuKeys] = useState<string[]>([])
@@ -413,11 +417,13 @@ function AdminAccessManagementPage() {
         label,
         path: '',
         displayOrder: displayOrderNumber,
+        showOnMenu: newTabShowOnMenu,
       })
 
       setNewTabKey('')
       setNewTabLabel('')
       setNewTabDisplayOrder('100')
+      setNewTabShowOnMenu(true)
       await loadAccessData()
       setSuccess(`Main tab ${label} created successfully.`)
     } catch (err) {
@@ -461,6 +467,7 @@ function AdminAccessManagementPage() {
         displayOrder: displayOrderNumber,
         permissionCode: path ? newPagePermissionCode || undefined : undefined,
         parentMenuId: parentMenuId || undefined,
+        showOnMenu: newPageShowOnMenu,
       })
 
       setNewPageKey('')
@@ -468,6 +475,7 @@ function AdminAccessManagementPage() {
       setNewPagePath('')
       setNewPageDisplayOrder('100')
       setNewPagePermissionCode('')
+      setNewPageShowOnMenu(true)
       await loadAccessData()
       setSuccess(path ? 'Child page created successfully.' : 'Tab created successfully.')
     } catch (err) {
@@ -519,6 +527,7 @@ function AdminAccessManagementPage() {
       displayOrder: String(typeof menu.displayOrder === 'number' ? menu.displayOrder : 100),
       permissionCode: menu.permission || '',
       parentMenuId: menu.parentMenuId || '',
+      showOnMenu: menu.showOnMenu !== false,
     })
   }
 
@@ -567,6 +576,7 @@ function AdminAccessManagementPage() {
         displayOrder,
         permissionCode: path ? editMenuForm.permissionCode || undefined : undefined,
         parentMenuId: parentMenuId || undefined,
+        showOnMenu: editMenuForm.showOnMenu,
       })
 
       await loadAccessData()
@@ -737,6 +747,15 @@ function AdminAccessManagementPage() {
               disabled={submitting}
             />
           </label>
+          <label className="admin-access-management-checkbox-label">
+            <input
+              type="checkbox"
+              checked={newTabShowOnMenu}
+              onChange={(event) => setNewTabShowOnMenu(event.target.checked)}
+              disabled={submitting}
+            />
+            Show on menu
+          </label>
         </div>
         <div className="role-inline-actions">
           <button
@@ -818,6 +837,15 @@ function AdminAccessManagementPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="admin-access-management-checkbox-label">
+            <input
+              type="checkbox"
+              checked={newPageShowOnMenu}
+              onChange={(event) => setNewPageShowOnMenu(event.target.checked)}
+              disabled={submitting}
+            />
+            Show on menu
           </label>
         </div>
         <div className="role-inline-actions">
@@ -1017,13 +1045,14 @@ function AdminAccessManagementPage() {
                 <th>Path</th>
                 <th>Parent Tab</th>
                 <th>Permission</th>
+                <th>Show On Menu</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {!menus.length && (
                 <tr>
-                  <td colSpan={7} className="role-empty-cell">
+                  <td colSpan={8} className="role-empty-cell">
                     No tab/page data available.
                   </td>
                 </tr>
@@ -1048,6 +1077,7 @@ function AdminAccessManagementPage() {
                   <td>{normalizeMenuPath(menu.path) || '-'}</td>
                   <td>{menu.parentMenuKey || '-'}</td>
                   <td>{menu.permission || '-'}</td>
+                  <td>{menu.showOnMenu === false ? 'No' : 'Yes'}</td>
                   <td className="admin-access-management-row-actions">
                     <button
                       type="button"
@@ -1268,6 +1298,24 @@ function AdminAccessManagementPage() {
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="admin-access-management-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={editMenuForm.showOnMenu}
+                  onChange={(event) =>
+                    setEditMenuForm((prev) =>
+                      prev
+                        ? {
+                          ...prev,
+                          showOnMenu: event.target.checked,
+                        }
+                        : prev,
+                    )
+                  }
+                  disabled={editingMenuSubmitting}
+                />
+                Show on menu
               </label>
             </div>
             <div className="role-modal-actions">

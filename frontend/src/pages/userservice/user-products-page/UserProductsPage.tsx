@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../../config/apis'
 import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
 import {
-  clearUserCartStorage,
   readUserCartFromStorage,
   type UserCartItem,
   type UserCartMap,
@@ -11,7 +10,8 @@ import {
 } from '../../../features/cart/userCartStorage'
 import './UserProductsPage.css'
 
-const PRODUCT_PAGE_SIZE = 8
+const DEFAULT_PRODUCT_PAGE_SIZE = 8
+const PRODUCT_PAGE_SIZE_OPTIONS = [8, 12, 16, 24]
 
 function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Math.max(0, Math.floor(Number(value))) : 0
@@ -151,6 +151,7 @@ function UserProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [shopKeyword, setShopKeyword] = useState('')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PRODUCT_PAGE_SIZE)
   const [cart, setCart] = useState<UserCartMap>(() => readUserCartFromStorage())
   const [selectedProduct, setSelectedProduct] = useState<ProductCardData | null>(null)
 
@@ -237,14 +238,14 @@ function UserProductsPage() {
 
   useEffect(() => {
     setPage(0)
-  }, [keyword, categoryFilter, shopKeyword])
+  }, [keyword, categoryFilter, pageSize, shopKeyword])
 
   const totalPages = useMemo(() => {
     if (!filteredProducts.length) {
       return 0
     }
-    return Math.ceil(filteredProducts.length / PRODUCT_PAGE_SIZE)
-  }, [filteredProducts.length])
+    return Math.ceil(filteredProducts.length / pageSize)
+  }, [filteredProducts.length, pageSize])
 
   useEffect(() => {
     if (totalPages > 0 && page >= totalPages) {
@@ -262,9 +263,9 @@ function UserProductsPage() {
     if (!filteredProducts.length) {
       return []
     }
-    const start = page * PRODUCT_PAGE_SIZE
-    return filteredProducts.slice(start, start + PRODUCT_PAGE_SIZE)
-  }, [filteredProducts, page])
+    const start = page * pageSize
+    return filteredProducts.slice(start, start + pageSize)
+  }, [filteredProducts, page, pageSize])
 
   const cartItems = useMemo(() => {
     return Object.values(cart).sort((firstItem, secondItem) =>
@@ -334,42 +335,44 @@ function UserProductsPage() {
 
   return (
     <section className="user-products-page role-page-stack">
-      <article className="role-card">
-        <h2>Product Catalog</h2>
-        <p className="role-muted">
-          Browse all products currently sold by partners. Quantities are refreshed periodically.
-        </p>
-
-        <div className="role-inline-actions">
-          <button type="button" className="role-btn-primary" onClick={() => void loadCatalog()}>
-            {loading ? 'Loading...' : 'Refresh Catalog'}
-          </button>
-          <button
-            type="button"
-            className="role-btn-ghost"
-            onClick={() => navigate('/user/orders')}
-            disabled={cartProductCount === 0}
-          >
-            Go To Orders ({cartProductCount})
-          </button>
-          <button
-            type="button"
-            className="role-btn-ghost"
-            onClick={() => {
-              setCart({})
-              clearUserCartStorage()
-            }}
-            disabled={cartProductCount === 0}
-          >
-            Clear Cart
-          </button>
+      <article className="role-card user-products-page-catalog-card">
+        <div className="user-products-page-catalog-header">
+          <div>
+            <h2>Product Catalog</h2>
+            <p className="role-muted">
+              Browse all products currently sold by partners. Quantities are refreshed periodically.
+            </p>
+          </div>
+          <div className="user-products-page-catalog-metrics" aria-label="Catalog summary">
+            <span>{filteredProducts.length} products</span>
+            <span>{categoryOptions.length} categories</span>
+          </div>
         </div>
 
         {error && <p className="role-error">{error}</p>}
 
+        <div className="role-inline-actions user-products-page-catalog-actions">
+          <button type="button" className="role-btn-primary" onClick={() => void loadCatalog()}>
+            {loading ? 'Loading...' : 'Refresh Catalog'}
+          </button>
+          <label className="user-products-page-page-size">
+            <span>Items / page</span>
+            <select
+              value={pageSize}
+              onChange={(event) => setPageSize(Number(event.target.value))}
+            >
+              {PRODUCT_PAGE_SIZE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <p className="role-muted user-products-page-cart-summary">
           Cart selected: {cartProductCount} product(s), total quantity {cartQuantity}. Continue the
-          checkout flow in the Orders tab.
+          checkout flow from the floating cart button.
         </p>
 
         <div className="role-inline-form user-products-page-filter">
@@ -475,8 +478,8 @@ function UserProductsPage() {
         {totalPages > 0 && (
           <div className="user-products-page-pagination">
             <p className="user-products-page-pagination-summary">
-              Showing {Math.min(page * PRODUCT_PAGE_SIZE + 1, filteredProducts.length)}-
-              {Math.min((page + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length)} of{' '}
+              Showing {Math.min(page * pageSize + 1, filteredProducts.length)}-
+              {Math.min((page + 1) * pageSize, filteredProducts.length)} of{' '}
               {filteredProducts.length}
             </p>
             <div className="user-products-page-pagination-controls">
@@ -510,6 +513,21 @@ function UserProductsPage() {
           </div>
         )}
       </article>
+
+      <button
+        type="button"
+        className="user-products-page-floating-cart"
+        onClick={() => navigate('/user/orders')}
+        aria-label={`Open Orders with ${cartQuantity} item(s) in cart`}
+      >
+        <span className="user-products-page-floating-cart-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img">
+            <path d="M7 4h-2.4a1 1 0 1 0 0 2h1.66l1.58 8.34a2 2 0 0 0 1.96 1.66h7.6a2 2 0 0 0 1.94-1.51l1.22-4.86a1 1 0 0 0-.97-1.25H8.54L8.16 6H7zm3.1 13a1.9 1.9 0 1 0 .01 3.8 1.9 1.9 0 0 0-.01-3.8zm7.2 0a1.9 1.9 0 1 0 .01 3.8 1.9 1.9 0 0 0-.01-3.8z" />
+          </svg>
+        </span>
+        <span className="user-products-page-floating-cart-label">Order Cart</span>
+        <span className="user-products-page-floating-cart-badge">{cartQuantity}</span>
+      </button>
 
       {selectedProduct && (
         <div className="user-products-page-modal-backdrop" onClick={closeProductDetail}>
@@ -561,8 +579,8 @@ function UserProductsPage() {
                   <dd>{normalizeQuantity(selectedProduct.availableQuantity)}</dd>
                 </div>
                 <div>
-                  <dt>Reserved</dt>
-                  <dd>{normalizeQuantity(selectedProduct.reservedQuantity)}</dd>
+                  <dt>Paid</dt>
+                  <dd>{normalizeQuantity(selectedProduct.soldQuantity)}</dd>
                 </div>
                 <div>
                   <dt>Total</dt>

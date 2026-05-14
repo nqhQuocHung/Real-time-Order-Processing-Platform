@@ -91,6 +91,12 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
       permission: PermissionKey.MANAGE_PRODUCTS,
     },
     {
+      key: 'admin-categories',
+      label: 'Category Management',
+      path: '/admin/categories',
+      permission: PermissionKey.MANAGE_PRODUCTS,
+    },
+    {
       key: 'admin-orders',
       label: 'Order Management',
       path: '/admin/orders',

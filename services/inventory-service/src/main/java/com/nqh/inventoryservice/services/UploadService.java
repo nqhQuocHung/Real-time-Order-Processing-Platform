@@ -2,9 +2,9 @@ package com.nqh.inventoryservice.services;
 
 import org.springframework.web.multipart.MultipartFile;
 
-public interface ProductImageUploadService {
+public interface UploadService {
 
-    String uploadProductImageOrDefault(MultipartFile image);
+    String uploadProductImage(MultipartFile image);
 
     String resolveDefaultProductImageUrl();
 }

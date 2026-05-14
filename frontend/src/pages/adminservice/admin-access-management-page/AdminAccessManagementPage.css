@@ -10,6 +10,18 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.admin-access-management-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.admin-access-management-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
 .admin-access-management-menu-list {
   margin-top: 12px;
   display: grid;

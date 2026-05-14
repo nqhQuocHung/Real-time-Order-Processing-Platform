@@ -190,6 +190,10 @@
 }
 
 .product-card-quantities > div:nth-child(2) strong {
+  color: #ffd479;
+}
+
+.product-card-quantities > div:nth-child(3) strong {
   color: #ffc247;
 }
 

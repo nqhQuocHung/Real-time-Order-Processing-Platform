@@ -16,7 +16,6 @@ import lombok.Setter;
 public class ProductCategoryResponse {
     private UUID categoryUid;
     private UUID categoryUuid;
-    private UUID shopId;
     private UUID categoryId;
     private String categoryName;
     private String description;
