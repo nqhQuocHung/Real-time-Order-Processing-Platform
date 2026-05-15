@@ -19,6 +19,8 @@ import { QRCodeCanvas } from 'qrcode.react'
 const orderStatuses = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
 const paymentReturnRoutePath = '/payment-return'
 const paymentReturnFlashStorageKey = 'user-orders-payment-return-flash-v1'
+const paymentReturnHandledStorageKey = 'user-orders-payment-return-handled-v1'
+const PAYMENT_RETURN_HANDLED_TTL_MS = 30 * 60 * 1000
 const DEFAULT_ORDER_PAGE_SIZE = 8
 const ORDER_PAGE_SIZE_OPTIONS = [8, 12, 20, 30]
 
@@ -198,6 +200,70 @@ function writePaymentFlash(type: PaymentFlashType, message: string) {
     return
   }
   window.localStorage.setItem(paymentReturnFlashStorageKey, JSON.stringify({ type, message }))
+}
+
+function readHandledPaymentReturns(): Record<string, number> {
+  if (typeof window === 'undefined') {
+    return {}
+  }
+
+  const raw = window.sessionStorage.getItem(paymentReturnHandledStorageKey)
+  if (!raw) {
+    return {}
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, number>
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeHandledPaymentReturns(value: Record<string, number>) {
+  if (typeof window === 'undefined') {
+    return
+  }
+  window.sessionStorage.setItem(paymentReturnHandledStorageKey, JSON.stringify(value))
+}
+
+function hasHandledPaymentReturn(signature: string): boolean {
+  if (!signature) {
+    return false
+  }
+
+  const now = Date.now()
+  const handledMap = readHandledPaymentReturns()
+  let changed = false
+
+  for (const [key, handledAt] of Object.entries(handledMap)) {
+    if (!Number.isFinite(handledAt) || now - handledAt > PAYMENT_RETURN_HANDLED_TTL_MS) {
+      delete handledMap[key]
+      changed = true
+    }
+  }
+
+  if (changed) {
+    writeHandledPaymentReturns(handledMap)
+  }
+
+  return Number.isFinite(handledMap[signature])
+}
+
+function markPaymentReturnHandled(signature: string) {
+  if (!signature) {
+    return
+  }
+
+  const now = Date.now()
+  const handledMap = readHandledPaymentReturns()
+  handledMap[signature] = now
+  writeHandledPaymentReturns(handledMap)
+}
+
+function buildPaymentReturnIdempotencyKey(signature: string): string {
+  const safeSignature = signature.replace(/[^A-Za-z0-9_.:-]/g, '-')
+  return `payment-return-${safeSignature}`
 }
 
 function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, ProductCatalogItem>): UserCartMap {
@@ -418,14 +484,30 @@ function UserOrdersPage() {
       searchParams.get('vnp_OrderInfo'),
       searchParams.get('vnp_TxnRef'),
     )
+    const txnRef = searchParams.get('vnp_TxnRef')?.trim() || ''
     const providerTransactionId =
-      searchParams.get('vnp_TransactionNo')?.trim() || searchParams.get('vnp_TxnRef')?.trim() || undefined
+      searchParams.get('vnp_TransactionNo')?.trim() || txnRef || undefined
     const orderCodeLabel = orderCode ? ` for ${orderCode}` : ''
     const isSuccess = responseCode === '00' && transactionStatus === '00'
+    const paymentReturnSignature = [
+      orderCode || 'unknown-order',
+      providerTransactionId || txnRef || 'unknown-txn',
+      responseCode || 'unknown-response',
+      transactionStatus || 'unknown-status',
+    ].join('|')
     const defaultMessage = isSuccess
       ? `Payment successful${orderCodeLabel}. You can continue from your cart now.`
       : `Payment failed${orderCodeLabel}. Please check order status and try again.`
     const targetPath = '/user/orders'
+
+    if (hasHandledPaymentReturn(paymentReturnSignature)) {
+      if (location.pathname !== targetPath || location.search) {
+        navigate(targetPath, { replace: true })
+      }
+      return
+    }
+
+    markPaymentReturnHandled(paymentReturnSignature)
 
     async function reconcilePaymentReturn() {
       let flashType: PaymentFlashType = isSuccess ? 'success' : 'error'
@@ -436,7 +518,7 @@ function UserOrdersPage() {
           orderCode,
           providerTransactionId,
           actor: 'USER_PAYMENT_RETURN',
-          idempotencyKey: buildIdempotencyKey(),
+          idempotencyKey: buildPaymentReturnIdempotencyKey(paymentReturnSignature),
           note: isSuccess
             ? 'Payment confirmed from VNPay return.'
             : 'Payment failed or cancelled from VNPay return.',

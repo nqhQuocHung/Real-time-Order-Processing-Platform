@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import Cropper, { type Area } from 'react-easy-crop'
 import {
   apis,
   endpoints,
@@ -29,6 +30,11 @@ type ProductCategory = {
   description?: string | null
 }
 
+type ProductImageUploadResponse = {
+  imageUrl: string
+  defaultImageUsed?: boolean
+}
+
 type PartnerRequestOverview = {
   shopName?: string | null
 }
@@ -38,8 +44,10 @@ const DEFAULT_PRODUCT_IMAGE_URL =
 
 const CATEGORY_PAGE_SIZE = 5
 const PRODUCT_PAGE_SIZE = 8
-const IMAGE_CROP_ASPECT_RATIO = 4 / 3
-const CROPPED_IMAGE_MIME_TYPE = 'image/jpeg'
+const PRODUCT_IMAGE_CROP_ASPECT_RATIO = 4 / 3
+const PRODUCT_IMAGE_CROP_MIN_ZOOM = 1
+const PRODUCT_IMAGE_CROP_MAX_ZOOM = 3
+const CROPPED_IMAGE_TYPE = 'image/jpeg'
 const CROPPED_IMAGE_QUALITY = 0.92
 
 function normalizeQuantity(value: number | null | undefined): number {
@@ -48,17 +56,6 @@ function normalizeQuantity(value: number | null | undefined): number {
 
 function normalizeText(value?: string | null): string {
   return value?.trim().toLowerCase() || ''
-}
-
-function formatProductPrice(value?: number | null, currency?: string | null): string {
-  if (Number.isFinite(value as number) && Number(value) > 0) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: (currency || 'VND').trim() || 'VND',
-      maximumFractionDigits: 2,
-    }).format(Number(value))
-  }
-  return 'N/A'
 }
 
 function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
@@ -83,104 +80,96 @@ function buildPaginationPages(currentPage: number, totalPages: number, maxButton
 }
 
 function stripFileExtension(fileName: string): string {
-  const trimmed = fileName.trim()
-  const lastDotIndex = trimmed.lastIndexOf('.')
-  if (lastDotIndex <= 0) {
-    return trimmed || 'image'
+  const normalized = fileName.trim()
+  const lastDot = normalized.lastIndexOf('.')
+  if (lastDot <= 0) {
+    return normalized || 'image'
   }
-  return trimmed.slice(0, lastDotIndex)
+  return normalized.slice(0, lastDot)
 }
 
-function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+function createImage(imageSrc: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file)
     const image = new Image()
-    image.onload = () => {
-      URL.revokeObjectURL(objectUrl)
-      resolve(image)
-    }
-    image.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      reject(new Error('Cannot load selected image.'))
-    }
-    image.src = objectUrl
+    image.addEventListener('load', () => resolve(image))
+    image.addEventListener('error', () =>
+      reject(new Error('Cannot load selected image for cropping.')),
+    )
+    image.setAttribute('crossOrigin', 'anonymous')
+    image.src = imageSrc
   })
 }
 
-function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error('Cannot create cropped image data.'))
+        reject(new Error('Cannot build cropped image.'))
         return
       }
       resolve(blob)
-    }, CROPPED_IMAGE_MIME_TYPE, CROPPED_IMAGE_QUALITY)
+    }, CROPPED_IMAGE_TYPE, CROPPED_IMAGE_QUALITY)
   })
 }
 
-async function centerCropImageFile(file: File, aspectRatio = IMAGE_CROP_ASPECT_RATIO): Promise<File> {
-  const image = await loadImageFromFile(file)
-  const sourceWidth = image.naturalWidth
-  const sourceHeight = image.naturalHeight
-  const sourceAspectRatio = sourceWidth / sourceHeight
-
-  let cropX = 0
-  let cropY = 0
-  let cropWidth = sourceWidth
-  let cropHeight = sourceHeight
-
-  if (sourceAspectRatio > aspectRatio) {
-    cropWidth = Math.round(sourceHeight * aspectRatio)
-    cropX = Math.round((sourceWidth - cropWidth) / 2)
-  } else {
-    cropHeight = Math.round(sourceWidth / aspectRatio)
-    cropY = Math.round((sourceHeight - cropHeight) / 2)
-  }
-
+async function getCroppedImageFile(
+  imageSrc: string,
+  pixelCrop: Area,
+  originalFileName: string,
+): Promise<File> {
+  const image = await createImage(imageSrc)
   const canvas = document.createElement('canvas')
-  canvas.width = cropWidth
-  canvas.height = cropHeight
-
   const context = canvas.getContext('2d')
+
   if (!context) {
-    throw new Error('Cannot initialize image crop canvas.')
+    throw new Error('Cannot initialize canvas context for image crop.')
   }
+
+  const targetWidth = Math.max(1, Math.floor(pixelCrop.width))
+  const targetHeight = Math.max(1, Math.floor(pixelCrop.height))
+  canvas.width = targetWidth
+  canvas.height = targetHeight
 
   context.drawImage(
     image,
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
     0,
     0,
-    cropWidth,
-    cropHeight,
+    targetWidth,
+    targetHeight,
   )
 
-  const croppedBlob = await canvasToBlob(canvas)
-  const croppedFileName = `${stripFileExtension(file.name)}-cropped.jpg`
-  return new File([croppedBlob], croppedFileName, { type: CROPPED_IMAGE_MIME_TYPE })
+  const blob = await toBlob(canvas)
+  return new File([blob], `${stripFileExtension(originalFileName)}-cropped.jpg`, {
+    type: CROPPED_IMAGE_TYPE,
+  })
 }
 
 function PartnerProductsPage() {
+  const modalImageInputRef = useRef<HTMLInputElement | null>(null)
   const [products, setProducts] = useState<ProductCardData[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [updating, setUpdating] = useState(false)
-  const [processingCreateImage, setProcessingCreateImage] = useState(false)
-  const [processingEditImage, setProcessingEditImage] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [applyingImageCrop, setApplyingImageCrop] = useState(false)
   const [deletingProductId, setDeletingProductId] = useState('')
-  const [editingProduct, setEditingProduct] = useState<ProductCardData | null>(null)
+  const [editingProductId, setEditingProductId] = useState('')
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isCropDialogOpen, setIsCropDialogOpen] = useState(false)
+  const [editingProductImageUrl, setEditingProductImageUrl] = useState('')
+  const [cropImageSrc, setCropImageSrc] = useState('')
+  const [cropArea, setCropArea] = useState({ x: 0, y: 0 })
+  const [cropZoom, setCropZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [error, setError] = useState('')
   const [categoryError, setCategoryError] = useState('')
   const [createError, setCreateError] = useState('')
   const [createSuccess, setCreateSuccess] = useState('')
-  const [updateError, setUpdateError] = useState('')
-  const [updateSuccess, setUpdateSuccess] = useState('')
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -192,17 +181,6 @@ function PartnerProductsPage() {
   const [availableQuantity, setAvailableQuantity] = useState('0')
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
   const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState('')
-  const [editName, setEditName] = useState('')
-  const [editDescription, setEditDescription] = useState('')
-  const [editCategoryId, setEditCategoryId] = useState('')
-  const [editBrand, setEditBrand] = useState('')
-  const [editStatus, setEditStatus] = useState('ACTIVE')
-  const [editSku, setEditSku] = useState('')
-  const [editPrice, setEditPrice] = useState('')
-  const [editAvailableQuantity, setEditAvailableQuantity] = useState('0')
-  const [editImageUrl, setEditImageUrl] = useState('')
-  const [editSelectedImageFile, setEditSelectedImageFile] = useState<File | null>(null)
-  const [editSelectedImagePreviewUrl, setEditSelectedImagePreviewUrl] = useState('')
 
   const [categoryKeyword, setCategoryKeyword] = useState('')
   const [categoryPage, setCategoryPage] = useState(0)
@@ -268,17 +246,6 @@ function PartnerProductsPage() {
     setSelectedImagePreviewUrl(objectUrl)
     return () => URL.revokeObjectURL(objectUrl)
   }, [selectedImageFile])
-
-  useEffect(() => {
-    if (!editSelectedImageFile) {
-      setEditSelectedImagePreviewUrl('')
-      return undefined
-    }
-
-    const objectUrl = URL.createObjectURL(editSelectedImageFile)
-    setEditSelectedImagePreviewUrl(objectUrl)
-    return () => URL.revokeObjectURL(objectUrl)
-  }, [editSelectedImageFile])
 
   const activeProducts = useMemo(
     () => products.filter((item) => normalizeQuantity(item.totalQuantity) >= 0),
@@ -415,6 +382,87 @@ function PartnerProductsPage() {
     })
   }, [activeProducts, categoryNameById])
 
+  function resetCropEditor() {
+    setIsCropDialogOpen(false)
+    setApplyingImageCrop(false)
+    setCropImageSrc('')
+    setCropArea({ x: 0, y: 0 })
+    setCropZoom(1)
+    setCroppedAreaPixels(null)
+  }
+
+  function openCropEditor(imageSrc: string) {
+    setCreateError('')
+    setCropImageSrc(imageSrc)
+    setCropArea({ x: 0, y: 0 })
+    setCropZoom(1)
+    setCroppedAreaPixels(null)
+    setIsCropDialogOpen(true)
+  }
+
+  function closeCropEditor() {
+    if (applyingImageCrop) {
+      return
+    }
+    resetCropEditor()
+  }
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedPixels: Area) => {
+    setCroppedAreaPixels(croppedPixels)
+  }, [])
+
+  function handleImageFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      setCreateError('Only image files are allowed.')
+      event.target.value = ''
+      return
+    }
+
+    setCreateError('')
+    setSelectedImageFile(file)
+    event.target.value = ''
+  }
+
+  function handleOpenCropFromPreview() {
+    if (!selectedImagePreviewUrl || !selectedImageFile) {
+      return
+    }
+    openCropEditor(selectedImagePreviewUrl)
+  }
+
+  function handleChooseNewImageFromModal() {
+    modalImageInputRef.current?.click()
+  }
+
+  async function handleApplyImageCrop() {
+    if (!selectedImageFile || !cropImageSrc || !croppedAreaPixels) {
+      setCreateError('Cannot determine crop area for this image.')
+      return
+    }
+
+    setApplyingImageCrop(true)
+    setCreateError('')
+
+    try {
+      const croppedFile = await getCroppedImageFile(
+        cropImageSrc,
+        croppedAreaPixels,
+        selectedImageFile.name,
+      )
+      setSelectedImageFile(croppedFile)
+      resetCropEditor()
+    } catch {
+      setCreateError('Cannot crop product image. Please try again.')
+    } finally {
+      setApplyingImageCrop(false)
+    }
+  }
+
   function resetProductForm() {
     setName('')
     setDescription('')
@@ -426,15 +474,33 @@ function PartnerProductsPage() {
     setAvailableQuantity('0')
     setSelectedImageFile(null)
     setSelectedImagePreviewUrl('')
-    setProcessingCreateImage(false)
+    setEditingProductId('')
+    setEditingProductImageUrl('')
+    setIsEditDialogOpen(false)
+    resetCropEditor()
   }
 
-  function buildProductUpsertFormData(
+  async function uploadProductImage(image: File): Promise<string> {
+    setUploadingImage(true)
+    try {
+      const response = await apis().postForm(endpoints.inventories.uploadProductImage, {
+        image,
+      })
+
+      const data = extractApiData<ProductImageUploadResponse>(response)
+      return data?.imageUrl?.trim() || DEFAULT_PRODUCT_IMAGE_URL
+    } catch (err) {
+      throw new Error(extractApiErrorMessage(err, 'Cannot upload product image.'))
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  function buildUpsertProductFormData(
     payload: UpsertPartnerProductRequest,
-    imageFile: File | null,
+    image?: File | null,
   ): FormData {
     const formData = new FormData()
-
     formData.append('name', payload.name)
     formData.append('price', String(payload.price))
     formData.append('availableQuantity', String(payload.availableQuantity))
@@ -460,76 +526,36 @@ function PartnerProductsPage() {
     if (payload.sku) {
       formData.append('sku', payload.sku)
     }
-
-    if (imageFile) {
-      formData.append('image', imageFile)
+    if (image) {
+      formData.append('image', image)
     }
+
     return formData
   }
 
-  async function handleCreateImageSelection(file: File | null) {
-    setCreateError('')
-
-    if (!file) {
-      setSelectedImageFile(null)
-      return
-    }
-
-    setProcessingCreateImage(true)
-    try {
-      const croppedImageFile = await centerCropImageFile(file)
-      setSelectedImageFile(croppedImageFile)
-    } catch (err) {
-      setSelectedImageFile(file)
-      setCreateError(
-        err instanceof Error
-          ? `${err.message} Original image will be used.`
-          : 'Cannot crop image. Original image will be used.',
-      )
-    } finally {
-      setProcessingCreateImage(false)
-    }
-  }
-
-  async function handleEditImageSelection(file: File | null) {
-    setUpdateError('')
-
-    if (!file) {
-      setEditSelectedImageFile(null)
-      return
-    }
-
-    setProcessingEditImage(true)
-    try {
-      const croppedImageFile = await centerCropImageFile(file)
-      setEditSelectedImageFile(croppedImageFile)
-    } catch (err) {
-      setEditSelectedImageFile(file)
-      setUpdateError(
-        err instanceof Error
-          ? `${err.message} Original image will be used.`
-          : 'Cannot crop image. Original image will be used.',
-      )
-    } finally {
-      setProcessingEditImage(false)
-    }
-  }
-
   function handleEditProduct(product: ProductCardData) {
-    setEditingProduct(product)
-    setUpdateError('')
-    setUpdateSuccess('')
-    setEditName(product.name?.trim() || product.productName?.trim() || '')
-    setEditDescription(product.description?.trim() || '')
-    setEditCategoryId(product.categoryId?.trim() || '')
-    setEditBrand(product.brand?.trim() || '')
-    setEditStatus(product.status?.trim() || 'ACTIVE')
-    setEditSku(product.sku?.trim() || '')
-    setEditPrice(product.price == null ? '' : String(product.price))
-    setEditAvailableQuantity(String(normalizeQuantity(product.availableQuantity)))
-    setEditImageUrl(product.imageUrl?.trim() || DEFAULT_PRODUCT_IMAGE_URL)
-    setEditSelectedImageFile(null)
-    setEditSelectedImagePreviewUrl('')
+    setCreateError('')
+    setCreateSuccess('')
+    setEditingProductId(product.productId)
+    setEditingProductImageUrl(product.imageUrl?.trim() || '')
+    setName(product.name?.trim() || product.productName?.trim() || '')
+    setDescription(product.description?.trim() || '')
+    setCategoryId(product.categoryId?.trim() || '')
+    setBrand(product.brand?.trim() || '')
+    setStatus(product.status?.trim() || 'ACTIVE')
+    setSku(product.sku?.trim() || '')
+    setPrice(product.price == null ? '' : String(product.price))
+    setAvailableQuantity(String(normalizeQuantity(product.availableQuantity)))
+    setSelectedImageFile(null)
+    setSelectedImagePreviewUrl('')
+    resetCropEditor()
+    setIsEditDialogOpen(true)
+  }
+
+  function closeEditDialog() {
+    setCreateError('')
+    setCreateSuccess('')
+    resetProductForm()
   }
 
   async function handleDeleteProduct(product: ProductCardData) {
@@ -545,8 +571,8 @@ function PartnerProductsPage() {
     try {
       await apis().delete(endpoints.inventories.deleteProduct(product.productId))
       setCreateSuccess('Product deleted successfully.')
-      if (editingProduct?.productId === product.productId) {
-        setEditingProduct(null)
+      if (editingProductId === product.productId) {
+        resetProductForm()
       }
       await loadProducts()
     } catch (err) {
@@ -582,6 +608,24 @@ function PartnerProductsPage() {
       return
     }
 
+    const isEditing = Boolean(editingProductId)
+    let resolvedImageUrl: string | undefined
+
+    if (isEditing) {
+      resolvedImageUrl = editingProductImageUrl || DEFAULT_PRODUCT_IMAGE_URL
+    } else if (selectedImageFile) {
+      try {
+        resolvedImageUrl = await uploadProductImage(selectedImageFile)
+      } catch (uploadError) {
+        setCreateError(
+          uploadError instanceof Error ? uploadError.message : 'Cannot upload product image.',
+        )
+        return
+      }
+    } else {
+      resolvedImageUrl = DEFAULT_PRODUCT_IMAGE_URL
+    }
+
     const payload: UpsertPartnerProductRequest = {
       name: name.trim(),
       description: description.trim() || undefined,
@@ -589,7 +633,7 @@ function PartnerProductsPage() {
       shopName: partnerShopName.trim() || undefined,
       brand: brand.trim() || undefined,
       status: status.trim() || undefined,
-      imageUrl: undefined,
+      imageUrl: resolvedImageUrl,
       sku: sku.trim() || undefined,
       price: parsedPrice,
       availableQuantity: parsedAvailableQuantity,
@@ -597,103 +641,37 @@ function PartnerProductsPage() {
 
     setSubmitting(true)
     try {
-      const requestBody = buildProductUpsertFormData(payload, selectedImageFile)
-      await apis().post(endpoints.inventories.createProduct, requestBody)
-      setCreateSuccess('Product created successfully.')
+      if (editingProductId) {
+        if (selectedImageFile) {
+          const multipartPayload = buildUpsertProductFormData(payload, selectedImageFile)
+          await apis().put(endpoints.inventories.updateProduct(editingProductId), multipartPayload)
+        } else {
+          await apis().put(endpoints.inventories.updateProduct(editingProductId), payload)
+        }
+      } else {
+        await apis().post(endpoints.inventories.createProduct, payload)
+      }
+
+      setCreateSuccess(
+        editingProductId ? 'Product updated successfully.' : 'Product created successfully.',
+      )
       resetProductForm()
       await loadProducts()
     } catch (err) {
       setCreateError(
-        extractApiErrorMessage(err, 'Cannot create partner product.'),
+        extractApiErrorMessage(
+          err,
+          editingProductId ? 'Cannot update partner product.' : 'Cannot create partner product.',
+        ),
       )
     } finally {
       setSubmitting(false)
     }
   }
 
-  function closeEditDialog() {
-    setEditingProduct(null)
-    setUpdateError('')
-    setUpdateSuccess('')
-    setEditSelectedImageFile(null)
-    setEditSelectedImagePreviewUrl('')
-    setProcessingEditImage(false)
-  }
-
-  async function handleUpdateProductInDialog() {
-    if (!editingProduct) {
-      return
-    }
-
-    setUpdateError('')
-    setUpdateSuccess('')
-
-    if (!editName.trim()) {
-      setUpdateError('Please enter product name.')
-      return
-    }
-
-    if (!editCategoryId.trim()) {
-      setUpdateError('Please select an existing category.')
-      return
-    }
-
-    const parsedAvailableQuantity = Number(editAvailableQuantity)
-    if (!Number.isFinite(parsedAvailableQuantity) || parsedAvailableQuantity < 0) {
-      setUpdateError('Available quantity must be 0 or greater.')
-      return
-    }
-
-    const parsedPrice = Number(editPrice)
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      setUpdateError('Price must be greater than 0.')
-      return
-    }
-
-    const keepCurrentImageUrl = editSelectedImageFile ? undefined : editImageUrl || DEFAULT_PRODUCT_IMAGE_URL
-
-    const payload: UpsertPartnerProductRequest = {
-      name: editName.trim(),
-      description: editDescription.trim() || undefined,
-      categoryId: editCategoryId.trim() || undefined,
-      shopName: partnerShopName.trim() || undefined,
-      brand: editBrand.trim() || undefined,
-      status: editStatus.trim() || undefined,
-      imageUrl: keepCurrentImageUrl,
-      sku: editSku.trim() || undefined,
-      price: parsedPrice,
-      availableQuantity: parsedAvailableQuantity,
-    }
-
-    setUpdating(true)
-    try {
-      const requestBody = buildProductUpsertFormData(payload, editSelectedImageFile)
-      await apis().put(endpoints.inventories.updateProduct(editingProduct.productId), requestBody)
-      setUpdateSuccess('Product updated successfully.')
-      await loadProducts()
-      closeEditDialog()
-      setCreateSuccess('Product updated successfully.')
-    } catch (err) {
-      setUpdateError(extractApiErrorMessage(err, 'Cannot update partner product.'))
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  const detailProductName =
-    editingProduct?.name?.trim() || editingProduct?.productName?.trim() || 'Unnamed Product'
-  const detailShopName = editingProduct?.shopName?.trim() || editingProduct?.shopId || partnerShopName || '-'
-  const editPreviewImageUrl = editSelectedImagePreviewUrl || editImageUrl
-  const editCategoryDisplayName =
-    categories.find((category) => category.categoryId === editCategoryId)?.categoryName ||
-    editCategoryId ||
-    '-'
-  const editSoldQuantity = normalizeQuantity(editingProduct?.soldQuantity)
-  const editTotalQuantity = normalizeQuantity(editingProduct?.totalQuantity)
-  const editStockPreview = `${editAvailableQuantity || 0} available / ${editSoldQuantity} paid / ${editTotalQuantity} total`
-  const editImageSourceLabel = editSelectedImageFile
-    ? `New file: ${editSelectedImageFile.name}`
-    : 'Current image is kept'
+  const editImagePreviewUrl = selectedImagePreviewUrl || editingProductImageUrl
+  const canCropSelectedImage = Boolean(selectedImageFile && selectedImagePreviewUrl)
+  const editDialogTitle = name.trim() || 'Edit Product'
 
   return (
     <section className="partner-products-page role-page-stack">
@@ -785,123 +763,24 @@ function PartnerProductsPage() {
           )}
         </div>
 
-        <h3>Create Product</h3>
-        <div className="partner-products-page-form role-inline-form">
-          <label>
-            Product Name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Product name"
-            />
-          </label>
-          <label>
-            Category
-            <select
-              value={categoryId}
-              onChange={(event) => setCategoryId(event.target.value)}
-            >
-              <option value="">Select category</option>
-              {categories.map((category) => (
-                <option key={category.categoryUid || category.categoryId} value={category.categoryId}>
-                  {category.categoryName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Shop Name
-            <input
-              value={partnerShopName || 'No shop name from partner request yet'}
-              readOnly
-            />
-          </label>
-          <label>
-            Brand
-            <input
-              value={brand}
-              onChange={(event) => setBrand(event.target.value)}
-              placeholder="Brand"
-            />
-          </label>
-          <label>
-            SKU
-            <input value={sku} onChange={(event) => setSku(event.target.value)} placeholder="SKU" />
-          </label>
-          <label>
-            Price (VND)
-            <input
-              type="number"
-              min={0}
-              step="1000"
-              value={price}
-              onChange={(event) => setPrice(event.target.value)}
-              placeholder="Ex: 1500000"
-            />
-          </label>
-          <label>
-            Product Status
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="INACTIVE">INACTIVE</option>
-              <option value="DRAFT">DRAFT</option>
-            </select>
-          </label>
-          <label>
-            Initial Available Quantity
-            <input
-              type="number"
-              min={0}
-              value={availableQuantity}
-              onChange={(event) => setAvailableQuantity(event.target.value)}
-              placeholder="0"
-            />
-          </label>
-          <label className="partner-products-page-full-width">
-            Product Image
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(event) => {
-                const file = event.target.files?.[0] || null
-                void handleCreateImageSelection(file)
-              }}
-            />
-            <small className="partner-products-page-help">
-              Selected image is auto center-cropped to 4:3 for a cleaner product card.
-            </small>
-            {selectedImagePreviewUrl && (
-              <div className="partner-products-page-image-preview">
-                <img
-                  src={selectedImagePreviewUrl}
-                  alt="Product preview"
-                />
-              </div>
-            )}
-          </label>
-          <label className="partner-products-page-full-width">
-            Description
-            <textarea
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Product description"
-              rows={3}
-            />
-          </label>
-        </div>
+        <h3>{editingProductId ? 'Edit Product' : 'Create Product'}</h3>
+       
 
         <div className="role-inline-actions">
-          <button
-            type="button"
-            className="role-btn-primary"
-            onClick={() => void handleSaveProduct()}
-            disabled={submitting || processingCreateImage}
-          >
-            {processingCreateImage ? 'Cropping image...' : submitting ? 'Creating...' : 'Create Product'}
+          <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
+            {submitting || uploadingImage
+              ? editingProductId
+                ? 'Updating...'
+                : 'Creating...'
+              : editingProductId
+                ? 'Update Product'
+                : 'Create Product'}
           </button>
-          <button type="button" className="role-btn-ghost" onClick={resetProductForm}>
-            Reset Form
-          </button>
+          {editingProductId && (
+            <button type="button" className="role-btn-ghost" onClick={resetProductForm}>
+              Cancel Edit
+            </button>
+          )}
           <button type="button" className="role-btn-ghost" onClick={() => void loadProducts()}>
             {loading ? 'Loading...' : 'Refresh My Products'}
           </button>
@@ -994,43 +873,64 @@ function PartnerProductsPage() {
         )}
       </article>
 
-      {editingProduct && (
+      {editingProductId && isEditDialogOpen && (
         <div className="partner-products-page-modal-backdrop" onClick={closeEditDialog}>
           <div className="partner-products-page-modal" onClick={(event) => event.stopPropagation()}>
             <header>
-              <h3>{detailProductName}</h3>
+              <h3>{editDialogTitle}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeEditDialog}>
                 Close
               </button>
             </header>
 
             <div className="partner-products-page-modal-content">
-              <div className="partner-products-page-modal-visual-column">
+              <div className="partner-products-page-modal-image-panel">
                 <div className="partner-products-page-modal-image-wrap">
-                  {editPreviewImageUrl ? (
-                    <img src={editPreviewImageUrl} alt={detailProductName} />
+                  {editImagePreviewUrl ? (
+                    <>
+                      <img src={editImagePreviewUrl} alt={name || 'Product preview'} />
+                      <div className="partner-products-page-modal-image-overlay">
+                        <button
+                          type="button"
+                          className="role-btn-ghost partner-products-page-modal-image-overlay-btn"
+                          onClick={handleOpenCropFromPreview}
+                          disabled={!canCropSelectedImage}
+                        >
+                          Crop
+                        </button>
+                        <button
+                          type="button"
+                          className="role-btn-ghost partner-products-page-modal-image-overlay-btn"
+                          onClick={handleChooseNewImageFromModal}
+                        >
+                          Choose New
+                        </button>
+                      </div>
+                    </>
                   ) : (
                     <span>No image</span>
                   )}
                 </div>
-                <dl className="partner-products-page-modal-visual-meta">
-                  <div>
-                    <dt>Live Price</dt>
-                    <dd>{formatProductPrice(Number(editPrice), editingProduct.currency || 'VND')}</dd>
-                  </div>
-                  <div>
-                    <dt>Category</dt>
-                    <dd>{editCategoryDisplayName}</dd>
-                  </div>
-                  <div>
-                    <dt>Stock Snapshot</dt>
-                    <dd>{editStockPreview}</dd>
-                  </div>
-                  <div>
-                    <dt>Image Source</dt>
-                    <dd>{editImageSourceLabel}</dd>
-                  </div>
-                </dl>
+
+                <input
+                  ref={modalImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="partner-products-page-modal-image-input"
+                  onChange={handleImageFileChange}
+                />
+
+                <div className="partner-products-page-modal-image-description">
+                  <label>
+                    Description
+                    <textarea
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      placeholder="Product description"
+                      rows={5}
+                    />
+                  </label>
+                </div>
               </div>
 
               <dl className="partner-products-page-modal-fields">
@@ -1038,8 +938,8 @@ function PartnerProductsPage() {
                   <dt>Product Name</dt>
                   <dd>
                     <input
-                      value={editName}
-                      onChange={(event) => setEditName(event.target.value)}
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
                       placeholder="Product name"
                     />
                   </dd>
@@ -1047,10 +947,7 @@ function PartnerProductsPage() {
                 <div>
                   <dt>Category</dt>
                   <dd>
-                    <select
-                      value={editCategoryId}
-                      onChange={(event) => setEditCategoryId(event.target.value)}
-                    >
+                    <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
                       <option value="">Select category</option>
                       {categories.map((category) => (
                         <option key={category.categoryUid || category.categoryId} value={category.categoryId}>
@@ -1063,15 +960,15 @@ function PartnerProductsPage() {
                 <div>
                   <dt>Shop Name</dt>
                   <dd>
-                    <input value={detailShopName} readOnly />
+                    <input value={partnerShopName || '-'} readOnly />
                   </dd>
                 </div>
                 <div>
                   <dt>Brand</dt>
                   <dd>
                     <input
-                      value={editBrand}
-                      onChange={(event) => setEditBrand(event.target.value)}
+                      value={brand}
+                      onChange={(event) => setBrand(event.target.value)}
                       placeholder="Brand"
                     />
                   </dd>
@@ -1080,8 +977,8 @@ function PartnerProductsPage() {
                   <dt>SKU</dt>
                   <dd>
                     <input
-                      value={editSku}
-                      onChange={(event) => setEditSku(event.target.value)}
+                      value={sku}
+                      onChange={(event) => setSku(event.target.value)}
                       placeholder="SKU"
                     />
                   </dd>
@@ -1093,16 +990,16 @@ function PartnerProductsPage() {
                       type="number"
                       min={0}
                       step="1000"
-                      value={editPrice}
-                      onChange={(event) => setEditPrice(event.target.value)}
+                      value={price}
+                      onChange={(event) => setPrice(event.target.value)}
                       placeholder="Ex: 1500000"
                     />
                   </dd>
                 </div>
                 <div>
-                  <dt>Status</dt>
+                  <dt>Product Status</dt>
                   <dd>
-                    <select value={editStatus} onChange={(event) => setEditStatus(event.target.value)}>
+                    <select value={status} onChange={(event) => setStatus(event.target.value)}>
                       <option value="ACTIVE">ACTIVE</option>
                       <option value="INACTIVE">INACTIVE</option>
                       <option value="DRAFT">DRAFT</option>
@@ -1115,52 +1012,73 @@ function PartnerProductsPage() {
                     <input
                       type="number"
                       min={0}
-                      value={editAvailableQuantity}
-                      onChange={(event) => setEditAvailableQuantity(event.target.value)}
+                      value={availableQuantity}
+                      onChange={(event) => setAvailableQuantity(event.target.value)}
                       placeholder="0"
-                    />
-                  </dd>
-                </div>
-                <div className="partner-products-page-modal-field-full">
-                  <dt>Product Image</dt>
-                  <dd>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0] || null
-                        void handleEditImageSelection(file)
-                      }}
-                    />
-                  </dd>
-                </div>
-                <div className="partner-products-page-modal-field-full">
-                  <dt>Description</dt>
-                  <dd>
-                    <textarea
-                      value={editDescription}
-                      onChange={(event) => setEditDescription(event.target.value)}
-                      placeholder="Product description"
-                      rows={4}
                     />
                   </dd>
                 </div>
               </dl>
             </div>
 
-            {updateError && <p className="role-error">{updateError}</p>}
-            {updateSuccess && <p className="role-muted">{updateSuccess}</p>}
-
             <div className="role-inline-actions partner-products-page-modal-actions">
+              <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
+                {submitting || uploadingImage ? 'Updating...' : 'Update Product'}
+              </button>
+              <button type="button" className="role-btn-ghost" onClick={closeEditDialog}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCropDialogOpen && (
+        <div className="partner-products-page-crop-backdrop" onClick={closeCropEditor}>
+          <div className="partner-products-page-crop-modal" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <h3>Crop Product Image</h3>
+            </header>
+            <div className="partner-products-page-crop-container">
+              <Cropper
+                image={cropImageSrc}
+                crop={cropArea}
+                zoom={cropZoom}
+                aspect={PRODUCT_IMAGE_CROP_ASPECT_RATIO}
+                showGrid
+                cropShape="rect"
+                onCropChange={setCropArea}
+                onZoomChange={setCropZoom}
+                onCropComplete={onCropComplete}
+              />
+            </div>
+            <div className="partner-products-page-crop-zoom">
+              <label htmlFor="partnerProductCropZoom">Zoom</label>
+              <input
+                id="partnerProductCropZoom"
+                type="range"
+                min={PRODUCT_IMAGE_CROP_MIN_ZOOM}
+                max={PRODUCT_IMAGE_CROP_MAX_ZOOM}
+                step={0.1}
+                value={cropZoom}
+                onChange={(event) => setCropZoom(Number(event.target.value))}
+              />
+            </div>
+            <div className="role-inline-actions partner-products-page-crop-actions">
               <button
                 type="button"
                 className="role-btn-primary"
-                onClick={() => void handleUpdateProductInDialog()}
-                disabled={updating || processingEditImage}
+                onClick={() => void handleApplyImageCrop()}
+                disabled={applyingImageCrop}
               >
-                {processingEditImage ? 'Cropping image...' : updating ? 'Saving...' : 'Save Changes'}
+                {applyingImageCrop ? 'Applying...' : 'Apply Crop'}
               </button>
-              <button type="button" className="role-btn-ghost" onClick={closeEditDialog}>
+              <button
+                type="button"
+                className="role-btn-ghost"
+                onClick={closeCropEditor}
+                disabled={applyingImageCrop}
+              >
                 Cancel
               </button>
             </div>

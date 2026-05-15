@@ -638,6 +638,10 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     private InventoryStockResponse mapToStockResponse(InventoryStock stock, String categoryName) {
+        int availableQuantity = normalizeNonNegativeQuantity(stock.getAvailableQuantity());
+        int reservedQuantity = normalizeNonNegativeQuantity(stock.getReservedQuantity());
+        int soldQuantity = normalizeNonNegativeQuantity(stock.getSoldQuantity());
+
         return InventoryStockResponse.builder()
                 .stockId(stock.getId())
                 .stockUuid(stock.getUuid())
@@ -655,13 +659,11 @@ public class InventoryServiceImpl implements InventoryService {
                 .sku(stock.getSku())
                 .productName(stock.getProductName() != null ? stock.getProductName() : stock.getName())
                 .price(stock.getPrice())
-                .availableQuantity(normalizeNonNegativeQuantity(stock.getAvailableQuantity()))
-                .reservedQuantity(normalizeNonNegativeQuantity(stock.getReservedQuantity()))
-                .soldQuantity(normalizeNonNegativeQuantity(stock.getSoldQuantity()))
-                .totalQuantity(
-                        normalizeNonNegativeQuantity(stock.getAvailableQuantity())
-                                + normalizeNonNegativeQuantity(stock.getReservedQuantity())
-                )
+                .availableQuantity(availableQuantity)
+                .reservedQuantity(reservedQuantity)
+                .paidQuantity(soldQuantity)
+                .soldQuantity(soldQuantity)
+                .totalQuantity(availableQuantity + reservedQuantity)
                 .createdAt(stock.getCreatedAt())
                 .updatedAt(stock.getUpdatedAt())
                 .deletedAt(stock.getDeletedAt())

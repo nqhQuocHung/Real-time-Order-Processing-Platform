@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   apis,
   endpoints,
@@ -8,16 +8,37 @@ import {
 } from '../../../config/apis'
 import './PartnerDashboardPage.css'
 
-type OrderSummary = {
-  orderCode: string
-  status: string
-  totalAmount: number
-  currency: string
+type NotificationStreamEventDetail = {
+  eventName?: string
 }
 
-type OrderListResponse = {
-  content: OrderSummary[]
-  totalElements: number
+type PartnerProductStock = {
+  productId: string
+  shopId?: string | null
+  shopName?: string | null
+  name?: string | null
+  productName?: string | null
+  status?: string | null
+  categoryName?: string | null
+  price?: number | null
+  availableQuantity?: number | null
+  reservedQuantity?: number | null
+  paidQuantity?: number | null
+  soldQuantity?: number | null
+}
+
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+const DASHBOARD_REFRESH_DEBOUNCE_MS = 700
+
+function shouldRefreshPartnerDashboard(eventName: string): boolean {
+  if (!eventName || eventName === 'connected') {
+    return false
+  }
+
+  return (
+    eventName.startsWith('order.lifecycle.') ||
+    eventName.startsWith('payment.transaction.')
+  )
 }
 
 function formatMoney(value: number, currency = 'VND') {
@@ -27,54 +48,147 @@ function formatMoney(value: number, currency = 'VND') {
   }).format(value || 0)
 }
 
+function normalizeQuantity(value: number | null | undefined): number {
+  return Number.isFinite(value as number) ? Number(value) : 0
+}
+
+function normalizePaidQuantity(item: PartnerProductStock): number {
+  return normalizeQuantity(item.paidQuantity ?? item.soldQuantity)
+}
+
+function normalizePrice(value: number | null | undefined): number {
+  return Number.isFinite(value as number) ? Math.max(0, Number(value)) : 0
+}
+
 function PartnerDashboardPage() {
   const session = getAuthSession()
-  const [orders, setOrders] = useState<OrderSummary[]>([])
-  const [totalOrders, setTotalOrders] = useState(0)
+  const [products, setProducts] = useState<PartnerProductStock[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function loadPartnerData() {
-      if (!session?.userId) {
-        setError('Cannot find partner ID from session.')
-        setLoading(false)
-        return
-      }
+  const loadPartnerData = useCallback(async (showLoading = true) => {
+    if (!session?.userId) {
+      setError('Cannot find partner ID from session.')
+      setLoading(false)
+      return
+    }
 
+    if (showLoading) {
       setLoading(true)
-      setError('')
-
-      try {
-        const response = await apis().get(endpoints.orders.list, {
-          params: {
-            customerId: session.userId,
-            page: 0,
-            size: 20,
-          },
-        })
-        const data = extractApiData<OrderListResponse>(response)
-        setOrders(data.content || [])
-        setTotalOrders(data.totalElements || 0)
-      } catch (err) {
-        setError(extractApiErrorMessage(err, 'Cannot load Partner Dashboard.'))
-      } finally {
+    }
+    setError('')
+    try {
+      const response = await apis().get(endpoints.inventories.myProducts)
+      const data = extractApiData<PartnerProductStock[]>(response)
+      setProducts(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Cannot load Partner Dashboard.'))
+      setProducts([])
+    } finally {
+      if (showLoading) {
         setLoading(false)
       }
     }
-
-    void loadPartnerData()
   }, [session?.userId])
 
-  const totalRevenue = useMemo(
-    () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),
-    [orders],
+  useEffect(() => {
+    void loadPartnerData(true)
+  }, [loadPartnerData])
+
+  useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+    function handleRealtimeEvent(event: Event) {
+      const customEvent = event as CustomEvent<NotificationStreamEventDetail>
+      const eventName = customEvent.detail?.eventName?.trim() || ''
+      if (!shouldRefreshPartnerDashboard(eventName)) {
+        return
+      }
+
+      if (debounceTimer) {
+        window.clearTimeout(debounceTimer)
+      }
+      debounceTimer = window.setTimeout(() => {
+        void loadPartnerData(false)
+      }, DASHBOARD_REFRESH_DEBOUNCE_MS)
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleRealtimeEvent as EventListener)
+    return () => {
+      if (debounceTimer) {
+        window.clearTimeout(debounceTimer)
+      }
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleRealtimeEvent as EventListener)
+    }
+  }, [loadPartnerData])
+
+  const totalProducts = useMemo(() => products.length, [products])
+
+  const activeProducts = useMemo(
+    () => products.filter((item) => (item.status || '').trim().toUpperCase() === 'ACTIVE').length,
+    [products],
   )
 
-  const newOrders = useMemo(
-    () => orders.filter((item) => item.status === 'CREATED').length,
-    [orders],
+  const totalAvailableStock = useMemo(
+    () => products.reduce((sum, item) => sum + normalizeQuantity(item.availableQuantity), 0),
+    [products],
   )
+
+  const totalReservedStock = useMemo(
+    () => products.reduce((sum, item) => sum + normalizeQuantity(item.reservedQuantity), 0),
+    [products],
+  )
+
+  const totalPaidUnits = useMemo(
+    () => products.reduce((sum, item) => sum + normalizePaidQuantity(item), 0),
+    [products],
+  )
+
+  const estimatedRevenue = useMemo(
+    () =>
+      products.reduce(
+        (sum, item) => sum + normalizePaidQuantity(item) * normalizePrice(item.price),
+        0,
+      ),
+    [products],
+  )
+
+  const stockChartItems = useMemo(
+    () => [
+      { label: 'Available', value: totalAvailableStock },
+      { label: 'Reserved', value: totalReservedStock },
+      { label: 'Paid Units', value: totalPaidUnits },
+    ],
+    [totalAvailableStock, totalReservedStock, totalPaidUnits],
+  )
+
+  const maxStockChartValue = useMemo(
+    () => Math.max(1, ...stockChartItems.map((item) => item.value)),
+    [stockChartItems],
+  )
+
+  const topSellingProducts = useMemo(() => {
+    return [...products]
+      .sort((first, second) => normalizePaidQuantity(second) - normalizePaidQuantity(first))
+      .slice(0, 6)
+      .map((item) => ({
+        label: item.name?.trim() || item.productName?.trim() || item.productId,
+        value: normalizePaidQuantity(item),
+      }))
+  }, [products])
+
+  const maxTopSellingValue = useMemo(
+    () => Math.max(1, ...topSellingProducts.map((item) => item.value)),
+    [topSellingProducts],
+  )
+
+  const scopedShopName = useMemo(() => {
+    const byShopName = products.find((item) => item.shopName?.trim())?.shopName?.trim()
+    if (byShopName) {
+      return byShopName
+    }
+    return products.find((item) => item.shopId?.trim())?.shopId?.trim() || session?.userId || '-'
+  }, [products, session?.userId])
 
   if (loading) {
     return <p className="role-muted">Loading Partner Dashboard...</p>
@@ -87,27 +201,83 @@ function PartnerDashboardPage() {
       <article className="role-card">
         <h2>Partner Dashboard</h2>
         <p className="role-muted">
-          Data is displayed within the current partner scope (based on logged-in userId).
+          Data is scoped by shop from <code>/api/v1/inventories/my-products</code> to avoid
+          cross-shop overlap.
         </p>
+        <p className="partner-dashboard-scope">
+          Current shop scope: <strong>{scopedShopName}</strong>
+        </p>
+
+        <div className="role-inline-actions">
+          <button type="button" className="role-btn-ghost" onClick={() => void loadPartnerData()}>
+            Refresh Dashboard
+          </button>
+        </div>
+
         <div className="role-metric-grid">
           <div className="role-metric-card">
-            <span>Total Shopee Orders</span>
-            <strong>{totalOrders}</strong>
+            <span>Total Products</span>
+            <strong>{totalProducts}</strong>
           </div>
           <div className="role-metric-card">
-            <span>New Orders</span>
-            <strong>{newOrders}</strong>
+            <span>Active Products</span>
+            <strong>{activeProducts}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Doanh thu</span>
-            <strong>{formatMoney(totalRevenue, orders[0]?.currency || 'VND')}</strong>
+            <span>Paid Units</span>
+            <strong>{totalPaidUnits}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Inventory</span>
-            <strong>N/A</strong>
-            <small>Use the Inventory page to look up by productId.</small>
+            <span>Estimated Revenue</span>
+            <strong>{formatMoney(estimatedRevenue, 'VND')}</strong>
+            <small>Computed as paid units x price.</small>
           </div>
         </div>
+      </article>
+
+      <article className="role-card">
+        <h3>Stock Overview</h3>
+        <div className="partner-dashboard-chart">
+          {stockChartItems.map((item) => {
+            const widthPercent = Math.round((item.value / maxStockChartValue) * 100)
+            return (
+              <div className="partner-dashboard-chart-row" key={item.label}>
+                <span>{item.label}</span>
+                <div className="partner-dashboard-chart-track">
+                  <div
+                    className="partner-dashboard-chart-bar"
+                    style={{ width: `${widthPercent}%` }}
+                  />
+                </div>
+                <strong>{item.value}</strong>
+              </div>
+            )
+          })}
+        </div>
+      </article>
+
+      <article className="role-card">
+        <h3>Top Selling Products</h3>
+        {!topSellingProducts.length && <p className="role-muted">No sales data yet.</p>}
+        {!!topSellingProducts.length && (
+          <div className="partner-dashboard-chart">
+            {topSellingProducts.map((item) => {
+              const widthPercent = Math.round((item.value / maxTopSellingValue) * 100)
+              return (
+                <div className="partner-dashboard-chart-row" key={item.label}>
+                  <span>{item.label}</span>
+                  <div className="partner-dashboard-chart-track">
+                    <div
+                      className="partner-dashboard-chart-bar is-alt"
+                      style={{ width: `${widthPercent}%` }}
+                    />
+                  </div>
+                  <strong>{item.value}</strong>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </article>
     </section>
   )
