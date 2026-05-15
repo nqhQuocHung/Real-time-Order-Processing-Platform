@@ -57,7 +57,8 @@ public class SecurityConfig {
                                 "/actuator/**",
                                 "/swagger/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/internal/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders")
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")

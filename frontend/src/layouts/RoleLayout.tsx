@@ -90,6 +90,7 @@ function buildNotificationLink(eventName: string, requestId: string) {
   if (
     eventName === 'payment.transaction.succeeded' ||
     eventName === 'payment.transaction.failed' ||
+    eventName === 'order.lifecycle.paid' ||
     eventName === 'order.lifecycle.completed' ||
     eventName === 'order.lifecycle.failed'
   ) {
@@ -136,6 +137,12 @@ function buildStreamEventDedupKey(eventName: string, payload: unknown): string {
 
 function buildNotificationMessage(eventName: string, payload: unknown): NotificationItem | null {
   if (eventName === 'connected') {
+    return null
+  }
+
+  // `order.lifecycle.paid` is kept for realtime refresh, but UI notification
+  // is suppressed to avoid duplicate message with `payment.transaction.succeeded`.
+  if (eventName === 'order.lifecycle.paid') {
     return null
   }
 
@@ -528,6 +535,15 @@ function RoleLayout() {
         seenMap.set(dedupKey, now)
       }
 
+      window.dispatchEvent(
+        new CustomEvent<NotificationStreamEventDetail>(APP_NOTIFICATION_EVENT, {
+          detail: {
+            eventName,
+            payload,
+          },
+        }),
+      )
+
       const notification = buildNotificationMessage(eventName, payload)
       if (!notification) {
         return
@@ -538,14 +554,6 @@ function RoleLayout() {
         setUnreadNotificationCount((prev) => prev + 1)
       }
 
-      window.dispatchEvent(
-        new CustomEvent<NotificationStreamEventDetail>(APP_NOTIFICATION_EVENT, {
-          detail: {
-            eventName,
-            payload,
-          },
-        }),
-      )
     },
     onError: (streamError) => {
       console.error('Notification stream error:', streamError)
