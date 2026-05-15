@@ -2,82 +2,69 @@
 
 ## 1. Muc tieu
 
-Tai lieu nay dinh nghia convention ve topic, event contract va consumer strategy de:
+Tai lieu nay mo ta cac Kafka topics dang duoc su dung trong he thong, producer/consumer va contract event co ban.
 
-- Giam coupling giua cac service.
-- Tang kha nang retry/phuc hoi.
-- Truy vet duoc event end-to-end.
+## 2. Naming convention
 
-## 2. Naming Convention
-
-Format de xuat:
+Format:
 
 `<domain>.<entity>.<event>.v1`
 
 Vi du:
 
 - `order.lifecycle.created.v1`
-- `inventory.reservation.succeeded.v1`
-- `payment.transaction.failed.v1`
+- `payment.transaction.succeeded.v1`
+- `partner.request.decided.v1`
 
-## 3. Initial Topics (Week 1 Baseline)
+## 3. Topics dang su dung thuc te
 
 | Topic | Producer | Consumer | Muc dich |
 | --- | --- | --- | --- |
-| `order.lifecycle.created.v1` | `order-service` | `inventory-service` | Bat dau xu ly don |
-| `inventory.reservation.succeeded.v1` | `inventory-service` | `order-service` | Xac nhan da giu hang |
-| `inventory.reservation.failed.v1` | `inventory-service` | `order-service` | Bao het hang/loi reserve |
-| `payment.transaction.succeeded.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan thanh cong |
-| `payment.transaction.failed.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan that bai |
+| `order.lifecycle.created.v1` | `order-service` | (monitoring/future consumers) | Don moi duoc tao |
+| `order.lifecycle.paid.v1` | `order-service` | `notification-service` | Don da thanh toan |
 | `order.lifecycle.completed.v1` | `order-service` | `notification-service` | Don hoan tat |
 | `order.lifecycle.failed.v1` | `order-service` | `notification-service` | Don that bai |
+| `payment.transaction.succeeded.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan thanh cong |
+| `payment.transaction.failed.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan that bai |
+| `partner.request.created.v1` | `auth-service` | `notification-service` | Co yeu cau nang cap partner moi |
+| `partner.request.decided.v1` | `auth-service` | `notification-service` | Ket qua phe duyet tu admin |
 
-## 4. Partition/Replication (local)
+## 4. Message key strategy
 
-- `partitions`: `3` cho cac topic business chinh.
-- `replication.factor`: `1` (local dev).
-- `min.insync.replicas`: `1` (local).
+- Order/payment topics dung key theo `orderCode` de giu thu tu theo tung don.
+- Partner request:
+  - created event key theo `requestId`
+  - decided event key theo `userId`
 
-Trong production, tang replication va min ISR theo SLA.
+## 5. Event envelope (order/payment domains)
 
-## 5. Message Key Strategy
-
-- Event lien quan 1 don hang dung key la `orderId`.
-- Muc dich: dam bao ordering theo tung don trong cung partition.
-- Event khong can ordering chat che co the dung key ngau nhien.
-
-## 6. Event Envelope (JSON)
+Order va payment su dung envelope JSON co cau truc:
 
 ```json
 {
-  "eventId": "0e2c37f2-c18d-4f16-8bd8-2cf18edcab93",
-  "eventType": "OrderCreated",
+  "eventId": "uuid",
+  "eventType": "OrderPaid | PaymentTransactionSucceeded | ...",
   "eventVersion": "v1",
-  "occurredAt": "2026-05-06T04:30:00Z",
-  "source": "order-service",
-  "correlationId": "req-2e5de8d7b6d74893",
-  "payload": {
-    "orderId": "ORD-20260506-0001",
-    "userId": "U-1001",
-    "totalAmount": 249000,
-    "currency": "VND"
-  }
+  "occurredAt": "2026-05-15T10:30:00",
+  "source": "order-service | payment-service",
+  "correlationId": "orderCode",
+  "payload": {}
 }
 ```
 
-## 7. Error Handling
+Partner request event hien publish dang DTO event truc tiep (co `eventId`, `eventType`, `occurredAt`, `requestId`, `userId`, ...).
 
-- Retry topic (optional): `*.retry.v1`.
-- Dead-letter topic: `*.dlq.v1`.
-- Consumer phai idempotent theo `eventId` hoac business key.
-- Loi tam thoi: retry co backoff.
-- Loi business khong retry: route thang ve DLQ hoac publish event failed.
+## 6. Consumer groups
 
-## 8. Consumer Group Rules
+- `order-service`: `${ORDER_CONSUMER_GROUP:order-consumer}`
+- `notification-service`: `${NOTIFICATION_CONSUMER_GROUP:notification-consumer}`
 
-- Moi service chuc nang la 1 consumer group rieng.
-- Vi du:
-  - `inventory-reservation-consumer`
-  - `order-lifecycle-consumer`
-  - `notification-consumer`
-- Khong dung chung group giua service khac domain neu business khac nhau.
+Moi service co group rieng de doc doc lap cung mot topic.
+
+## 7. Reliability notes
+
+- Payment action co idempotency lock truoc khi publish event.
+- Order/payment consumer co xu ly skip voi mot so state conflict/not-found.
+- Khuyen nghi cho sprint tiep:
+  - bo sung retry strategy co backoff
+  - bo sung DLQ processor cho cac event loi khong phuc hoi.

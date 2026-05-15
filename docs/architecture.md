@@ -2,88 +2,160 @@
 
 ## 1. Muc tieu
 
-He thong nay duoc dung de luyen tap thiet ke va trien khai backend theo microservice voi:
+Tai lieu nay mo ta kien truc hien tai cua he thong theo code va cau hinh thuc te:
 
-- Spring Boot
-- API Gateway
-- gRPC (RPC tren HTTP/2)
-- Kafka (event-driven)
-- Redis (cache + idempotency + rate limit)
-- PostgreSQL
+- Xu ly dat hang theo mo hinh microservices.
+- Tach ro ranh gioi domain va ownership du lieu.
+- Ket hop giao tiep dong bo (REST/internal RPC) va bat dong bo (Kafka).
+- Ho tro realtime cho frontend qua SSE notification stream.
 
-Scope Week 1: dung skeleton + auth flow + convention de cac sprint sau trien khai nhanh.
+## 2. Boi canh he thong
 
-## 2. Service Boundaries
+He thong gom 6 backend services:
 
-| Service | Trach nhiem chinh | Du lieu so huu | Cach giao tiep |
-| --- | --- | --- | --- |
-| `api-gateway` | Entry point, route request, authn/authz middleware, rate limit | Khong so huu business data | HTTP/REST (external), HTTP/gRPC (internal) |
-| `auth-service` | Dang ky, dang nhap, phat hanh JWT, xac thuc user | User, credentials, role | REST qua gateway |
-| `order-service` | Tao don, quan ly state machine don hang | Order, order items, order state | REST (gateway), gRPC (inventory/payment), Kafka |
-| `inventory-service` | Kiem tra ton kho, reserve/release stock | Stock ledger, reservation | gRPC, Kafka |
-| `payment-service` | Xu ly thanh toan, cap nhat ket qua thanh toan | Payment transaction | gRPC, Kafka |
-| `notification-service` | Gui thong bao (email/SMS/push) theo event | Notification log | Kafka consumer |
+- `api-gateway`
+- `auth-service`
+- `order-service`
+- `inventory-service`
+- `payment-service`
+- `notification-service`
 
-## 3. Communication Pattern
+Ha tang dung chung:
 
-### 3.1 Sync
+- PostgreSQL (moi service 1 schema rieng)
+- Redis (cache + idempotency lock)
+- Kafka (event bus)
 
-- Client -> `api-gateway`: REST/HTTP.
-- `api-gateway` -> service: REST (giai doan dau).
-- `order-service` -> `inventory-service`, `payment-service`: gRPC (Week 3).
-
-### 3.2 Async
-
-- Event bus trung tam: Kafka.
-- Muc tieu: giam coupling, tang resilience cho flow dat hang.
-- Cac event chinh: `OrderCreated`, `StockReserved`, `PaymentSucceeded`, `OrderCompleted`, `OrderFailed`.
-
-## 4. Data Ownership
-
-- Moi service so huu DB schema rieng.
-- Khong query truc tiep bang cua service khac.
-- Dong bo du lieu cross-service bang API/event, khong join cross-schema trong business flow.
-
-## 5. High-level Flow (Target)
+## 3. Kien truc tong the
 
 ```mermaid
-sequenceDiagram
-  participant C as Client
-  participant G as API Gateway
-  participant A as Auth Service
-  participant O as Order Service
-  participant I as Inventory Service
-  participant P as Payment Service
-  participant K as Kafka
-  participant N as Notification Service
+flowchart LR
+    C[Client / Frontend] --> G[api-gateway :8080]
 
-  C->>G: POST /auth/login
-  G->>A: Forward login request
-  A-->>G: JWT
-  G-->>C: JWT
+    G --> A[auth-service :8081]
+    G --> O[order-service :8082]
+    G --> I[inventory-service :8083]
+    G --> P[payment-service :8084]
+    G --> N[notification-service :8085]
 
-  C->>G: POST /orders (Bearer JWT)
-  G->>O: Create order
-  O->>K: Publish OrderCreated
-  O->>I: gRPC ReserveStock
-  I-->>O: Reserve result
-  O->>P: gRPC ChargePayment
-  P-->>O: Payment result
-  O->>K: Publish OrderCompleted/OrderFailed
-  K->>N: Consume order event
-  N-->>K: Ack
+    O -->|internal RPC + X-Internal-Token| I
+    O -->|internal RPC + X-Internal-Token| P
+    N -->|internal RPC + X-Internal-Token| O
+    N -->|internal RPC + X-Internal-Token| I
+
+    O --> K[(Kafka)]
+    P --> K
+    A --> K
+    K --> O
+    K --> N
+
+    N -->|SSE /api/v1/notifications/stream| C
+
+    A --> DBA[(PostgreSQL: auth schema)]
+    O --> DBO[(PostgreSQL: orders schema)]
+    I --> DBI[(PostgreSQL: inventory schema)]
+    P --> DBP[(PostgreSQL: payment schema)]
+    N --> DBN[(PostgreSQL: notification schema)]
+
+    I --> R[(Redis)]
+    P --> R
 ```
 
-## 6. Reliability Rules (ap dung dan theo sprint)
+## 4. Service boundaries
 
-- Timeout + retry voi dependency sync.
-- Idempotency key cho API tao order.
-- DLQ cho event xu ly that bai.
-- Correlation ID xuyen suot request/event de trace.
-- Outbox pattern (sprint reliability) de tranh mat event.
+| Service | Trach nhiem chinh | API public | API internal |
+| --- | --- | --- | --- |
+| `api-gateway` | Entry point, route theo domain, expose health route cho downstream | `/api/v1/*` route proxy | Khong co |
+| `auth-service` | Identity, JWT, RBAC (role/permission/menu), user profile, partner-upgrade request | `/api/v1/auth/**` | Khong co |
+| `order-service` | Tao don, state machine don hang, timeline, workflow reserve/payment timeout | `/api/v1/orders/**` | `/internal/v1/orders/{orderCode}/products` |
+| `inventory-service` | Catalog san pham, danh muc, ton kho, reserve/release/confirm deduct | `/api/v1/inventories/**` | `/internal/v1/inventories/reserve|release|confirm-deduct|product-owners` |
+| `payment-service` | Payment intent, xac nhan thanh toan, fail thanh toan, idempotency lock | `/api/v1/payments/**` | `/internal/v1/payments/intents|confirm|fail` |
+| `notification-service` | Notification log, consume Kafka events, fanout SSE realtime | `/api/v1/notifications/**` + `/stream` | Khong expose endpoint rieng, goi RPC sang order/inventory de resolve recipient |
 
-## 7. Day 1 Deliverables
+## 5. Kieu giao tiep
 
-- Co du 6 service Spring Boot boot thanh cong.
-- Co tai lieu conventions: port, topic, API contract.
-- Co `architecture.md` lam nguon su that cho team.
+### 5.1 External sync
+
+- Client luon di qua `api-gateway`.
+- Public API theo prefix `/api/v1`.
+- Auth duoc bao ve bang JWT.
+
+### 5.2 Internal sync (service-to-service)
+
+- Dang dung internal HTTP API, client cau hinh HTTP/2 capable.
+- Header bat buoc cho internal endpoint: `X-Internal-Token`.
+- Cac luong chinh:
+  - `order-service` -> `inventory-service`: reserve/release/confirm-deduct.
+  - `order-service` -> `payment-service`: create payment intent.
+  - `notification-service` -> `order-service` + `inventory-service`: resolve partner recipients theo `orderCode`.
+
+### 5.3 Async event-driven
+
+Producer/consumer chinh:
+
+- `order-service` publish:
+  - `order.lifecycle.created.v1`
+  - `order.lifecycle.paid.v1`
+  - `order.lifecycle.completed.v1`
+  - `order.lifecycle.failed.v1`
+- `payment-service` publish:
+  - `payment.transaction.succeeded.v1`
+  - `payment.transaction.failed.v1`
+- `auth-service` publish:
+  - `partner.request.created.v1`
+  - `partner.request.decided.v1`
+- `order-service` consume payment topics de cap nhat state don.
+- `notification-service` consume order/payment/partner topics de ghi log + day SSE.
+
+## 6. Du lieu va ownership
+
+Nguyen tac:
+
+- Moi service so huu schema rieng, khong query truc tiep schema service khac.
+- Dong bo state cross-service thong qua API/event.
+
+Schema dang dung:
+
+- `auth`
+- `orders`
+- `inventory`
+- `payment`
+- `notification`
+
+Redis:
+
+- `inventory-service`: cache du lieu ton kho (TTL cau hinh).
+- `payment-service`: idempotency lock cho action `confirm`/`fail`.
+
+## 7. Bao mat va phan quyen
+
+- JWT duoc dung cho resource server o cac backend service.
+- API partner/admin duoc rao quyen theo role/permission.
+- Internal endpoint duoc tach rieng va bao ve boi `X-Internal-Token`.
+- Gateway route health cua tung service qua `/actuator/*/health`.
+
+## 8. Reliability va compensation
+
+Nhung co che dang ap dung:
+
+- Idempotency:
+  - `Idempotency-Key` cho `POST /api/v1/orders`.
+  - Redis idempotency lock cho payment confirm/fail.
+- Payment timeout:
+  - Order o state `RESERVED` qua han se auto release inventory va chuyen `FAILED`.
+- Event envelope co `eventId`, `eventType`, `eventVersion`, `correlationId`.
+- Notification consumer va order payment consumer co xu ly skip cho state conflict/not-found.
+
+## 9. Trang thai kien truc hien tai
+
+He thong dang theo huong orchestration + event:
+
+- Orchestration chinh o `order-service` cho create order -> reserve -> payment intent.
+- State payment cuoi cung duoc dong bo qua payment events.
+- Notification la diem fanout realtime cho user/admin/partner.
+
+Gioi han hien tai:
+
+- Chua co outbox pattern.
+- Chua co retry/DLQ processor day du trong application layer.
+- Chua co integration test automation bao phu toan bo flow.
