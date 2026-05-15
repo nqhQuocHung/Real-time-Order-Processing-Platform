@@ -77,6 +77,17 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
+    public UUID getProductOwnerShopId(UUID productId) {
+        if (productId == null) {
+            return null;
+        }
+        return inventoryStockRepository.findByProductId(productId)
+                .map(InventoryStock::getShopId)
+                .orElse(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<InventoryStockResponse> getCatalog() {
         List<InventoryStock> stocks = inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc();
         Map<UUID, String> categoryNameById = buildCategoryNameMap(stocks);

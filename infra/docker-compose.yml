@@ -193,10 +193,13 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       TOPIC_PAYMENT_SUCCEEDED: payment.transaction.succeeded.v1
       TOPIC_PAYMENT_FAILED: payment.transaction.failed.v1
+      TOPIC_ORDER_PAID: order.lifecycle.paid.v1
       TOPIC_ORDER_COMPLETED: order.lifecycle.completed.v1
       TOPIC_ORDER_FAILED: order.lifecycle.failed.v1
       TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
       TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
+      ORDER_SERVICE_INTERNAL_URL: http://order-service:8082
+      INVENTORY_SERVICE_INTERNAL_URL: http://inventory-service:8083
     networks:
       - platform-net
 

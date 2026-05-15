@@ -97,6 +97,7 @@ public class OrderServiceImpl implements OrderService {
     private final String defaultPaymentMethod;
     private final long paymentTimeoutMinutes;
     private final String topicOrderCreated;
+    private final String topicOrderPaid;
     private final String topicOrderCompleted;
     private final String topicOrderFailed;
 
@@ -113,6 +114,7 @@ public class OrderServiceImpl implements OrderService {
             @Value("${app.order.rpc.default-payment-method:VNPAY}") String defaultPaymentMethod,
             @Value("${app.order.payment-timeout-minutes:15}") long paymentTimeoutMinutes,
             @Value("${app.order.topic.created:order.lifecycle.created.v1}") String topicOrderCreated,
+            @Value("${app.order.topic.paid:order.lifecycle.paid.v1}") String topicOrderPaid,
             @Value("${app.order.topic.completed:order.lifecycle.completed.v1}") String topicOrderCompleted,
             @Value("${app.order.topic.failed:order.lifecycle.failed.v1}") String topicOrderFailed
     ) {
@@ -126,6 +128,7 @@ public class OrderServiceImpl implements OrderService {
         this.defaultPaymentMethod = defaultPaymentMethod;
         this.paymentTimeoutMinutes = paymentTimeoutMinutes;
         this.topicOrderCreated = topicOrderCreated;
+        this.topicOrderPaid = topicOrderPaid;
         this.topicOrderCompleted = topicOrderCompleted;
         this.topicOrderFailed = topicOrderFailed;
         this.inventoryRpcClient = buildHttp2RestClient(inventoryBaseUrl);
@@ -540,6 +543,15 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void publishLifecycleEventIfNecessary(CustomerOrder order) {
+        if (order.getStatus() == OrderStatusEnum.PAID) {
+            publishEvent(
+                    topicOrderPaid,
+                    order.getOrderCode(),
+                    "OrderPaid",
+                    buildOrderPayload(order)
+            );
+            return;
+        }
         if (order.getStatus() == OrderStatusEnum.COMPLETED) {
             publishEvent(
                     topicOrderCompleted,

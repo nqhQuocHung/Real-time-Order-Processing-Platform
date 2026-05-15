@@ -19,6 +19,7 @@ import java.util.UUID;
 public interface InventoryService {
 
     InventoryStockResponse getStock(UUID productId);
+    UUID getProductOwnerShopId(UUID productId);
 
     List<InventoryStockResponse> getCatalog();
 

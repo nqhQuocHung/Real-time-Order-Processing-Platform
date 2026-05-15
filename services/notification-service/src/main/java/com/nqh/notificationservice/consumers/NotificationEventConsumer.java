@@ -2,10 +2,13 @@ package com.nqh.notificationservice.consumers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nqh.notificationservice.services.impl.PartnerRealtimeTargetResolver;
 import com.nqh.notificationservice.services.AdminSseService;
 import com.nqh.notificationservice.services.NotificationService;
+import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +26,7 @@ public class NotificationEventConsumer {
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
     private final AdminSseService adminSseService;
+    private final PartnerRealtimeTargetResolver partnerRealtimeTargetResolver;
 
     @KafkaListener(
             topics = "${app.notification.topic.payment-succeeded}",
@@ -46,6 +50,18 @@ public class NotificationEventConsumer {
     ) {
         consumeEvent(topic, "PAYMENT_FAILED", message);
         pushToUserIfPossible(message, "payment.transaction.failed");
+    }
+
+    @KafkaListener(
+            topics = "${app.notification.topic.order-paid}",
+            groupId = "${spring.kafka.consumer.group-id}"
+    )
+    public void consumeOrderPaid(
+            String message,
+            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic
+    ) {
+        consumeEvent(topic, "ORDER_PAID", message);
+        pushToUserIfPossible(message, "order.lifecycle.paid");
     }
 
     @KafkaListener(
@@ -89,10 +105,6 @@ public class NotificationEventConsumer {
                     payloadNode.path("userId").asText(null)
             );
 
-            if (customerId == null) {
-                return;
-            }
-
             Map<String, Object> outboundPayload = new LinkedHashMap<>();
             outboundPayload.put("eventId", rootNode.path("eventId").asText(null));
             outboundPayload.put("eventType", rootNode.path("eventType").asText(null));
@@ -105,7 +117,17 @@ public class NotificationEventConsumer {
             outboundPayload.put("method", payloadNode.path("method").asText(null));
             outboundPayload.put("note", payloadNode.path("note").asText(null));
 
-            adminSseService.sendToUser(customerId, eventName, outboundPayload);
+            Set<String> recipients = new LinkedHashSet<>();
+            if (customerId != null) {
+                recipients.add(customerId);
+            }
+            recipients.addAll(partnerRealtimeTargetResolver.resolvePartnerUserIds(message));
+
+            for (String recipientUserId : recipients) {
+                if (recipientUserId != null && !recipientUserId.isBlank()) {
+                    adminSseService.sendToUser(recipientUserId, eventName, outboundPayload);
+                }
+            }
         } catch (Exception ex) {
             LOGGER.warn("Failed to push realtime notification event. eventName={}", eventName, ex);
         }
