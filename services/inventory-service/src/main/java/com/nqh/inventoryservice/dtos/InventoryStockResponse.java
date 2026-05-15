@@ -33,6 +33,7 @@ public class InventoryStockResponse {
     private BigDecimal price;
     private Integer availableQuantity;
     private Integer reservedQuantity;
+    private Integer paidQuantity;
     private Integer soldQuantity;
     private Integer totalQuantity;
     private LocalDateTime createdAt;

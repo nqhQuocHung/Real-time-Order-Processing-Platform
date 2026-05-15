@@ -195,6 +195,7 @@ const endpoints = {
     release: '/api/v1/inventories/release',
     confirmDeduct: '/api/v1/inventories/confirm-deduct',
     adjust: '/api/v1/inventories/adjust',
+    uploadProductImage: '/api/v1/inventories/products/upload-image',
   },
   payments: {
     createIntent: '/api/v1/payments/intents',

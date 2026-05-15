@@ -53,6 +53,7 @@ type NotificationStreamEventDetail = {
 }
 
 const APP_NOTIFICATION_EVENT = 'app-notification-event'
+const STREAM_EVENT_DEDUP_WINDOW_MS = 15000
 
 function toNotificationPayload(payload: unknown): NotificationPayload {
   if (!payload || typeof payload !== 'object') {
@@ -96,6 +97,41 @@ function buildNotificationLink(eventName: string, requestId: string) {
   }
 
   return ''
+}
+
+function buildStreamEventDedupKey(eventName: string, payload: unknown): string {
+  if (eventName === 'connected') {
+    return ''
+  }
+
+  const data = toNotificationPayload(payload)
+  const eventId = normalizeText(data.eventId)
+  const requestId = normalizeText(data.requestId)
+  const orderCode = normalizeText(data.orderCode)
+  const providerTransactionId = normalizeText(data.providerTransactionId)
+  const status = normalizeText(data.status)
+
+  if (eventId) {
+    return `${eventName}|eventId:${eventId}`
+  }
+
+  if (requestId) {
+    return `${eventName}|requestId:${requestId}`
+  }
+
+  if (orderCode && providerTransactionId) {
+    return `${eventName}|order:${orderCode}|txn:${providerTransactionId}|status:${status}`
+  }
+
+  if (orderCode) {
+    return `${eventName}|order:${orderCode}|status:${status}`
+  }
+
+  const payloadSignature = truncateText(
+    typeof payload === 'string' ? payload : JSON.stringify(data),
+    280,
+  )
+  return `${eventName}|payload:${payloadSignature}`
 }
 
 function buildNotificationMessage(eventName: string, payload: unknown): NotificationItem | null {
@@ -343,6 +379,7 @@ function RoleLayout() {
   const session = getAuthSession()
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const notificationMenuRef = useRef<HTMLDivElement | null>(null)
+  const streamEventSeenRef = useRef<Map<string, number>>(new Map())
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -472,6 +509,25 @@ function RoleLayout() {
   useNotificationStream({
     enabled: Boolean(session?.accessToken),
     onEvent: (eventName, payload) => {
+      const dedupKey = buildStreamEventDedupKey(eventName, payload)
+      if (dedupKey) {
+        const now = Date.now()
+        const seenMap = streamEventSeenRef.current
+
+        seenMap.forEach((seenAt, key) => {
+          if (now - seenAt > STREAM_EVENT_DEDUP_WINDOW_MS) {
+            seenMap.delete(key)
+          }
+        })
+
+        const lastSeenAt = seenMap.get(dedupKey)
+        if (typeof lastSeenAt === 'number' && now - lastSeenAt <= STREAM_EVENT_DEDUP_WINDOW_MS) {
+          return
+        }
+
+        seenMap.set(dedupKey, now)
+      }
+
       const notification = buildNotificationMessage(eventName, payload)
       if (!notification) {
         return

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   apis,
   endpoints,
@@ -6,6 +6,10 @@ import {
   extractApiErrorMessage,
 } from '../../../config/apis'
 import './AdminDashboardPage.css'
+
+type NotificationStreamEventDetail = {
+  eventName?: string
+}
 
 type OrderSummary = {
   totalAmount: number
@@ -27,6 +31,21 @@ type NotificationListResponse = {
   totalElements: number
 }
 
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+const DASHBOARD_REFRESH_DEBOUNCE_MS = 700
+
+function shouldRefreshAdminDashboard(eventName: string): boolean {
+  if (!eventName || eventName === 'connected') {
+    return false
+  }
+
+  return (
+    eventName.startsWith('order.lifecycle.') ||
+    eventName.startsWith('payment.transaction.') ||
+    eventName.startsWith('partner.request.')
+  )
+}
+
 function formatMoney(value: number, currency: string) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -41,35 +60,67 @@ function AdminDashboardPage() {
   const [totalOrders, setTotalOrders] = useState(0)
   const [totalNotifications, setTotalNotifications] = useState(0)
 
-  useEffect(() => {
-    async function loadDashboard() {
+  const loadDashboard = useCallback(async (showLoading = true) => {
+    if (showLoading) {
       setLoading(true)
-      setError('')
+    }
+    setError('')
 
-      try {
-        const [ordersResponse, notificationsResponse] = await Promise.all([
-          apis().get(endpoints.orders.list, { params: { page: 0, size: 50 } }),
-          apis().get(endpoints.notifications.list, {
-            params: { page: 0, size: 50 },
-          }),
-        ])
+    try {
+      const [ordersResponse, notificationsResponse] = await Promise.all([
+        apis().get(endpoints.orders.list, { params: { page: 0, size: 50 } }),
+        apis().get(endpoints.notifications.list, {
+          params: { page: 0, size: 50 },
+        }),
+      ])
 
-        const orderData = extractApiData<OrderListResponse>(ordersResponse)
-        const notificationData =
-          extractApiData<NotificationListResponse>(notificationsResponse)
+      const orderData = extractApiData<OrderListResponse>(ordersResponse)
+      const notificationData =
+        extractApiData<NotificationListResponse>(notificationsResponse)
 
-        setOrders(orderData.content || [])
-        setTotalOrders(orderData.totalElements || 0)
-        setTotalNotifications(notificationData.totalElements || 0)
-      } catch (err) {
-        setError(extractApiErrorMessage(err, 'Không tải được Admin Dashboard.'))
-      } finally {
+      setOrders(orderData.content || [])
+      setTotalOrders(orderData.totalElements || 0)
+      setTotalNotifications(notificationData.totalElements || 0)
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Không tải được Admin Dashboard.'))
+    } finally {
+      if (showLoading) {
         setLoading(false)
       }
     }
-
-    void loadDashboard()
   }, [])
+
+  useEffect(() => {
+    void loadDashboard(true)
+  }, [loadDashboard])
+
+  useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+    function handleRealtimeEvent(event: Event) {
+      const customEvent = event as CustomEvent<NotificationStreamEventDetail>
+      const eventName = customEvent.detail?.eventName?.trim() || ''
+      if (!shouldRefreshAdminDashboard(eventName)) {
+        return
+      }
+
+      if (debounceTimer) {
+        window.clearTimeout(debounceTimer)
+      }
+
+      debounceTimer = window.setTimeout(() => {
+        void loadDashboard(false)
+      }, DASHBOARD_REFRESH_DEBOUNCE_MS)
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleRealtimeEvent as EventListener)
+    return () => {
+      if (debounceTimer) {
+        window.clearTimeout(debounceTimer)
+      }
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleRealtimeEvent as EventListener)
+    }
+  }, [loadDashboard])
 
   const totalRevenue = useMemo(
     () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),

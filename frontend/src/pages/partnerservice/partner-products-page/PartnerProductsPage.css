@@ -179,59 +179,60 @@
   z-index: 1200;
   background: rgba(2, 10, 19, 0.72);
   backdrop-filter: blur(3px);
-  padding: 16px;
+  padding: 20px;
   display: grid;
   place-items: center;
 }
 
 .partner-products-page-modal {
-  width: min(860px, 96vw);
+  width: min(900px, 100%);
   max-height: min(92vh, 760px);
   overflow: hidden;
-  border-radius: 14px;
-  border: 1px solid rgba(70, 144, 220, 0.38);
+  border-radius: 16px;
+  border: 1px solid rgba(70, 144, 220, 0.42);
   background:
-    radial-gradient(120% 120% at 0% 0%, rgba(27, 93, 177, 0.2), rgba(6, 18, 33, 0.96) 45%),
-    radial-gradient(130% 130% at 100% 0%, rgba(7, 174, 236, 0.14), rgba(4, 15, 28, 0.96) 62%);
-  box-shadow: 0 20px 44px rgba(2, 9, 16, 0.44);
-  padding: 14px;
+    radial-gradient(120% 120% at 0% 0%, rgba(27, 93, 177, 0.22), rgba(6, 18, 33, 0.96) 45%),
+    radial-gradient(130% 130% at 100% 0%, rgba(7, 174, 236, 0.16), rgba(4, 15, 28, 0.96) 62%);
+  box-shadow: 0 24px 54px rgba(2, 9, 16, 0.46);
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 12px;
 }
 
 .partner-products-page-modal > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
 .partner-products-page-modal > header h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
 }
 
 .partner-products-page-modal-content {
-  margin-top: 10px;
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: 12px;
+  gap: 14px;
+  min-height: 0;
   align-items: stretch;
 }
 
-.partner-products-page-modal-visual-column {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+.partner-products-page-modal-image-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
+  min-height: 0;
 }
 
 .partner-products-page-modal-image-wrap {
-  border-radius: 10px;
-  border: 1px solid rgba(89, 142, 198, 0.32);
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid rgba(89, 142, 198, 0.35);
   overflow: hidden;
-  min-height: 210px;
-  flex: 0 0 210px;
+  height: clamp(210px, 34vh, 320px);
   background: rgba(7, 22, 38, 0.78);
   display: grid;
   place-items: center;
@@ -241,73 +242,101 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .partner-products-page-modal-image-wrap span {
   color: var(--role-text-sub);
-  font-size: 0.8rem;
+  font-size: 0.84rem;
 }
 
-.partner-products-page-modal-visual-meta {
-  margin: 0;
-  border: 1px solid rgba(79, 128, 179, 0.28);
+.partner-products-page-modal-image-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(to top, rgba(2, 12, 22, 0.82), rgba(2, 12, 22, 0.08));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.partner-products-page-modal-image-wrap:hover .partner-products-page-modal-image-overlay,
+.partner-products-page-modal-image-wrap:focus-within .partner-products-page-modal-image-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.partner-products-page-modal-image-overlay-btn {
+  min-width: 120px;
+  justify-content: center;
+}
+
+.partner-products-page-modal-image-input {
+  display: none;
+}
+
+.partner-products-page-modal-image-description {
+  border: 1px solid rgba(79, 128, 179, 0.26);
   border-radius: 10px;
-  overflow: hidden;
-  flex: 1 1 auto;
+  padding: 10px;
+  background: rgba(6, 22, 40, 0.72);
   display: grid;
-}
-
-.partner-products-page-modal-visual-meta > div {
-  display: grid;
-  grid-template-columns: minmax(95px, 0.9fr) minmax(0, 1.1fr);
   gap: 8px;
-  padding: 8px 10px;
-  background: rgba(5, 18, 32, 0.6);
+  min-height: 0;
 }
 
-.partner-products-page-modal-visual-meta > div + div {
-  border-top: 1px solid rgba(79, 128, 179, 0.22);
+.partner-products-page-modal-image-description label {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 6px;
+  color: rgba(157, 196, 230, 0.88);
+  font-size: 0.76rem;
+  height: 100%;
+  min-height: 0;
 }
 
-.partner-products-page-modal-visual-meta dt {
-  margin: 0;
-  color: rgba(157, 196, 230, 0.86);
-  font-size: 0.74rem;
-  line-height: 1.3;
-}
-
-.partner-products-page-modal-visual-meta dd {
-  margin: 0;
-  color: rgba(224, 241, 255, 0.94);
-  font-size: 0.8rem;
-  line-height: 1.35;
-  word-break: break-word;
+.partner-products-page-modal-image-description textarea {
+  width: 100%;
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  border-radius: 8px;
+  padding: 9px 10px;
+  resize: none;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
 }
 
 .partner-products-page-modal-fields {
   margin: 0;
-  border: 1px solid rgba(79, 128, 179, 0.3);
-  border-radius: 10px;
+  border: 1px solid rgba(79, 128, 179, 0.32);
+  border-radius: 12px;
   overflow: hidden;
+  align-content: start;
+  min-height: 0;
 }
 
 .partner-products-page-modal-fields > div {
   display: grid;
-  grid-template-columns: minmax(110px, 0.85fr) minmax(0, 1.4fr);
-  gap: 6px;
-  padding: 6px 9px;
+  grid-template-columns: minmax(130px, 0.9fr) minmax(0, 1.3fr);
+  gap: 8px;
+  padding: 8px 10px;
   background: rgba(5, 18, 32, 0.62);
 }
 
 .partner-products-page-modal-fields > div + div {
-  border-top: 1px solid rgba(79, 128, 179, 0.24);
+  border-top: 1px solid rgba(79, 128, 179, 0.28);
 }
 
 .partner-products-page-modal-fields dt {
   margin: 0;
   color: rgba(157, 196, 230, 0.9);
-  font-size: 0.74rem;
-  line-height: 1.3;
+  font-size: 0.8rem;
 }
 
 .partner-products-page-modal-fields dd {
@@ -318,50 +347,104 @@
 .partner-products-page-modal-fields dd select,
 .partner-products-page-modal-fields dd textarea {
   width: 100%;
-  border: 1px solid rgba(133, 169, 214, 0.3);
+  border: 1px solid rgba(133, 169, 214, 0.32);
   background: rgba(8, 24, 40, 0.9);
   color: var(--role-text);
-  border-radius: 7px;
-  padding: 6px 9px;
-  font-size: 0.82rem;
+  border-radius: 8px;
+  padding: 9px 10px;
 }
 
 .partner-products-page-modal-fields dd textarea {
   resize: none;
-  min-height: 58px;
-  max-height: 72px;
+  min-height: 74px;
+  max-height: 104px;
 }
 
 .partner-products-page-modal-field-full {
   grid-template-columns: 1fr !important;
-  gap: 5px !important;
+  gap: 6px !important;
+}
+
+.partner-products-page-modal-price-preview {
+  margin: 12px 0 0;
+  color: rgba(208, 226, 243, 0.9);
+  font-size: 0.84rem;
 }
 
 .partner-products-page-modal-actions {
-  margin-top: 6px;
-  display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  margin-top: 0;
 }
 
-@media (max-width: 900px) {
-  .partner-products-page-modal {
-    width: min(620px, 96vw);
-    max-height: min(90vh, 760px);
-    overflow: auto;
-    display: block;
-  }
+.partner-products-page-crop-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  background: rgba(2, 10, 19, 0.75);
+  backdrop-filter: blur(3px);
+  padding: 16px;
+  display: grid;
+  place-items: center;
+}
 
+.partner-products-page-crop-modal {
+  width: min(540px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(70, 144, 220, 0.42);
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(27, 93, 177, 0.22), rgba(6, 18, 33, 0.96) 45%),
+    radial-gradient(130% 130% at 100% 0%, rgba(7, 174, 236, 0.16), rgba(4, 15, 28, 0.96) 62%);
+  box-shadow: 0 24px 54px rgba(2, 9, 16, 0.46);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.partner-products-page-crop-modal > header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.partner-products-page-crop-container {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(7, 22, 38, 0.86);
+  border: 1px solid rgba(89, 142, 198, 0.35);
+}
+
+.partner-products-page-crop-zoom {
+  display: grid;
+  gap: 6px;
+  color: rgba(157, 196, 230, 0.92);
+  font-size: 0.78rem;
+}
+
+.partner-products-page-crop-zoom input {
+  width: 100%;
+}
+
+.partner-products-page-crop-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 960px) {
   .partner-products-page-modal-content {
     grid-template-columns: 1fr;
   }
 
-  .partner-products-page-modal-image-wrap {
-    height: 180px;
-    min-height: 180px;
+  .partner-products-page-modal {
+    max-height: calc(100vh - 24px);
+    overflow: auto;
   }
 
-  .partner-products-page-modal-visual-meta {
-    flex: initial;
+  .partner-products-page-modal-image-wrap {
+    height: min(52vw, 280px);
+  }
+
+  .partner-products-page-crop-container {
+    height: 260px;
   }
 }
