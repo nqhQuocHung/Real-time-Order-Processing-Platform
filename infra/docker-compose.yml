@@ -1,22 +1,22 @@
 x-common-env: &common-env
-  JWT_SECRET: "REDACTED_JWT_SECRET"
-  INTERNAL_RPC_TOKEN: "change-me"
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  INTERNAL_RPC_TOKEN: ${INTERNAL_RPC_TOKEN:?INTERNAL_RPC_TOKEN is required}
 
 services:
   postgres:
     image: postgres:16-alpine
     container_name: ropp-postgres
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: REDACTED_DB_PASSWORD
-      POSTGRES_DB: platform
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
     ports:
       - "5432:5432"
     volumes:
       - D:/docker-data/ropp/postgres:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d platform"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-platform}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -113,7 +113,13 @@ services:
       AUTH_DB_HOST: postgres
       AUTH_DB_PORT: 5432
       AUTH_DB_USERNAME: auth_service
-      AUTH_DB_PASSWORD: REDACTED_DB_PASSWORD
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_SECURE: ${CLOUDINARY_SECURE:-true}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
       TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
@@ -138,7 +144,11 @@ services:
       INVENTORY_DB_HOST: postgres
       INVENTORY_DB_PORT: 5432
       INVENTORY_DB_USERNAME: inventory_service
-      INVENTORY_DB_PASSWORD: REDACTED_DB_PASSWORD
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_SECURE: ${CLOUDINARY_SECURE:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
     networks:
@@ -164,7 +174,9 @@ services:
       PAYMENT_DB_HOST: postgres
       PAYMENT_DB_PORT: 5432
       PAYMENT_DB_USERNAME: payment_service
-      PAYMENT_DB_PASSWORD: REDACTED_DB_PASSWORD
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
@@ -189,7 +201,7 @@ services:
       NOTIFICATION_DB_HOST: postgres
       NOTIFICATION_DB_PORT: 5432
       NOTIFICATION_DB_USERNAME: notification_service
-      NOTIFICATION_DB_PASSWORD: REDACTED_DB_PASSWORD
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       TOPIC_PAYMENT_SUCCEEDED: payment.transaction.succeeded.v1
       TOPIC_PAYMENT_FAILED: payment.transaction.failed.v1
@@ -225,7 +237,7 @@ services:
       ORDER_DB_HOST: postgres
       ORDER_DB_PORT: 5432
       ORDER_DB_USERNAME: order_service
-      ORDER_DB_PASSWORD: REDACTED_DB_PASSWORD
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       INVENTORY_SERVICE_INTERNAL_URL: http://inventory-service:8083
       PAYMENT_SERVICE_INTERNAL_URL: http://payment-service:8084

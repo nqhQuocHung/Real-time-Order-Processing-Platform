@@ -1,13 +1,29 @@
--- Bootstrap databases and schemas for local development
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}"
+: "${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}"
+: "${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}"
+: "${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}"
+: "${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}"
+
+psql -v ON_ERROR_STOP=1 \
+  --username "$POSTGRES_USER" \
+  --dbname "$POSTGRES_DB" \
+  -v auth_db_password="$AUTH_DB_PASSWORD" \
+  -v order_db_password="$ORDER_DB_PASSWORD" \
+  -v inventory_db_password="$INVENTORY_DB_PASSWORD" \
+  -v payment_db_password="$PAYMENT_DB_PASSWORD" \
+  -v notification_db_password="$NOTIFICATION_DB_PASSWORD" <<-'EOSQL'
+-- Bootstrap databases and schemas for local development.
 -- Executed automatically by postgres image on first startup.
--- NOTE: docker-compose now uses init.sh for env-driven passwords.
 
 -- Service users
-CREATE ROLE auth_service WITH LOGIN PASSWORD '<AUTH_DB_PASSWORD>';
-CREATE ROLE order_service WITH LOGIN PASSWORD '<ORDER_DB_PASSWORD>';
-CREATE ROLE inventory_service WITH LOGIN PASSWORD '<INVENTORY_DB_PASSWORD>';
-CREATE ROLE payment_service WITH LOGIN PASSWORD '<PAYMENT_DB_PASSWORD>';
-CREATE ROLE notification_service WITH LOGIN PASSWORD '<NOTIFICATION_DB_PASSWORD>';
+CREATE ROLE auth_service WITH LOGIN PASSWORD :'auth_db_password';
+CREATE ROLE order_service WITH LOGIN PASSWORD :'order_db_password';
+CREATE ROLE inventory_service WITH LOGIN PASSWORD :'inventory_db_password';
+CREATE ROLE payment_service WITH LOGIN PASSWORD :'payment_db_password';
+CREATE ROLE notification_service WITH LOGIN PASSWORD :'notification_db_password';
 
 -- Service databases (owned by corresponding service users)
 CREATE DATABASE auth_db OWNER auth_service;
@@ -52,3 +68,4 @@ ALTER ROLE payment_service SET search_path TO payment, public;
 CREATE SCHEMA IF NOT EXISTS notification AUTHORIZATION notification_service;
 GRANT USAGE, CREATE ON SCHEMA notification TO notification_service;
 ALTER ROLE notification_service SET search_path TO notification, public;
+EOSQL
