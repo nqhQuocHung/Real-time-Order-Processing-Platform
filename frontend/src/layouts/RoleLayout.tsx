@@ -507,12 +507,6 @@ function RoleLayout() {
     return 'Dashboard'
   }, [roleMenuSource, location.pathname])
 
-  const nonStaticActiveMenuKeyChain = activeMenuKeyChain.filter(
-    (menuKey) => menuKey !== 'admin-group' && menuKey !== 'partner-group',
-  )
-  const isChildMenuPage = nonStaticActiveMenuKeyChain.length > 1
-  const shouldShowMobileMenuToggle = !isChildMenuPage
-
   useNotificationStream({
     enabled: Boolean(session?.accessToken),
     onEvent: (eventName, payload) => {
@@ -992,22 +986,20 @@ function RoleLayout() {
           {isMobileViewport && renderUserMenu(true)}
         </div>
 
-        {shouldShowMobileMenuToggle && (
-          <button
-            type="button"
-            className="role-mobile-menu-toggle"
-            onClick={() => setIsMobileMenuOpen((state) => !state)}
-            aria-expanded={isMobileMenuOpen}
-            aria-controls="role-sidebar-menu"
-            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-          >
-            <span aria-hidden="true" className="role-mobile-menu-icon">
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
-        )}
+        <button
+          type="button"
+          className="role-mobile-menu-toggle"
+          onClick={() => setIsMobileMenuOpen((state) => !state)}
+          aria-expanded={isMobileMenuOpen}
+          aria-controls="role-sidebar-menu"
+          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          <span aria-hidden="true" className="role-mobile-menu-icon">
+            <span />
+            <span />
+            <span />
+          </span>
+        </button>
 
         <nav
           id="role-sidebar-menu"
