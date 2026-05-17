@@ -14,6 +14,7 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
@@ -110,6 +111,19 @@ public class InventoryController {
         UUID requesterUserId = UUID.fromString(jwt.getSubject());
         InventoryStockResponse response = inventoryService.createPartnerProduct(requesterUserId, isAdmin, request);
         return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_PRODUCT_CREATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping(value = "/products/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<BaseResponse<ProductImageUploadResponse>> uploadProductImage(
+            @RequestParam("image") MultipartFile image,
+            HttpServletRequest httpServletRequest
+    ) {
+        String imageUrl = uploadService.uploadProductImage(image);
+        ProductImageUploadResponse response = ProductImageUploadResponse.builder()
+                .imageUrl(imageUrl)
+                .defaultImageUsed(Boolean.FALSE)
+                .build();
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_PRODUCT_IMAGE_UPLOAD_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/categories")

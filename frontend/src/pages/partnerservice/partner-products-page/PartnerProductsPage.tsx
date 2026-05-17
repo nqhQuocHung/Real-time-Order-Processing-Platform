@@ -496,43 +496,6 @@ function PartnerProductsPage() {
     }
   }
 
-  function buildUpsertProductFormData(
-    payload: UpsertPartnerProductRequest,
-    image?: File | null,
-  ): FormData {
-    const formData = new FormData()
-    formData.append('name', payload.name)
-    formData.append('price', String(payload.price))
-    formData.append('availableQuantity', String(payload.availableQuantity))
-
-    if (payload.description) {
-      formData.append('description', payload.description)
-    }
-    if (payload.categoryId) {
-      formData.append('categoryId', payload.categoryId)
-    }
-    if (payload.shopName) {
-      formData.append('shopName', payload.shopName)
-    }
-    if (payload.brand) {
-      formData.append('brand', payload.brand)
-    }
-    if (payload.status) {
-      formData.append('status', payload.status)
-    }
-    if (payload.imageUrl) {
-      formData.append('imageUrl', payload.imageUrl)
-    }
-    if (payload.sku) {
-      formData.append('sku', payload.sku)
-    }
-    if (image) {
-      formData.append('image', image)
-    }
-
-    return formData
-  }
-
   function handleEditProduct(product: ProductCardData) {
     setCreateError('')
     setCreateSuccess('')
@@ -613,6 +576,18 @@ function PartnerProductsPage() {
 
     if (isEditing) {
       resolvedImageUrl = editingProductImageUrl || DEFAULT_PRODUCT_IMAGE_URL
+      if (selectedImageFile) {
+        try {
+          resolvedImageUrl = await uploadProductImage(selectedImageFile)
+        } catch (uploadError) {
+          setCreateError(
+            uploadError instanceof Error
+              ? uploadError.message
+              : 'Cannot upload product image.',
+          )
+          return
+        }
+      }
     } else if (selectedImageFile) {
       try {
         resolvedImageUrl = await uploadProductImage(selectedImageFile)
@@ -642,12 +617,7 @@ function PartnerProductsPage() {
     setSubmitting(true)
     try {
       if (editingProductId) {
-        if (selectedImageFile) {
-          const multipartPayload = buildUpsertProductFormData(payload, selectedImageFile)
-          await apis().put(endpoints.inventories.updateProduct(editingProductId), multipartPayload)
-        } else {
-          await apis().put(endpoints.inventories.updateProduct(editingProductId), payload)
-        }
+        await apis().put(endpoints.inventories.updateProduct(editingProductId), payload)
       } else {
         await apis().post(endpoints.inventories.createProduct, payload)
       }
