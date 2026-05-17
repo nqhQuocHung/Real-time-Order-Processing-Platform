@@ -1,0 +1,178 @@
+.admin-access-management-two-cols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-access-management-main-tab-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-access-management-create-page-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-access-management-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.admin-access-management-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-access-management-menu-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.admin-access-management-menu-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+  border: 1px solid rgba(133, 169, 214, 0.25);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(8, 24, 40, 0.35);
+}
+
+.admin-access-management-menu-item input[type='checkbox'] {
+  margin-top: 2px;
+}
+
+.admin-access-management-menu-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-access-management-menu-item span {
+  color: var(--role-text-sub);
+  font-size: 0.85rem;
+}
+
+.admin-access-management-menu-type {
+  color: #8fd6ff;
+  font-size: 0.68rem;
+  border: 1px solid rgba(133, 169, 214, 0.3);
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin-left: 6px;
+  letter-spacing: 0.03em;
+}
+
+.admin-access-management-record {
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.admin-access-management-record:hover {
+  background: rgba(22, 72, 118, 0.26);
+}
+
+.admin-access-management-record:focus-visible {
+  outline: 2px solid rgba(80, 173, 255, 0.9);
+  outline-offset: -2px;
+}
+
+.admin-access-management-edit-modal {
+  width: min(900px, 100%);
+}
+
+.admin-access-management-row-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.admin-access-management-delete-btn {
+  border: 1px solid rgba(255, 113, 140, 0.45);
+  background: rgba(255, 113, 140, 0.12);
+  color: #ffd4dd;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-access-management-delete-btn:hover:enabled {
+  background: rgba(255, 113, 140, 0.2);
+  border-color: rgba(255, 113, 140, 0.62);
+}
+
+.admin-access-management-delete-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-access-management-delete-modal {
+  width: min(500px, 100%);
+}
+
+.admin-access-management-delete-note {
+  color: #ffd4dd;
+}
+
+.admin-access-management-danger-btn {
+  color: #ffd4dd;
+  border-color: rgba(255, 113, 140, 0.45);
+  background: rgba(255, 113, 140, 0.22);
+}
+
+.admin-access-management-danger-btn:hover:enabled {
+  border-color: rgba(255, 113, 140, 0.62);
+  background: rgba(255, 113, 140, 0.3);
+}
+
+.admin-access-management-pagination {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-access-management-pagination-summary {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.84rem;
+}
+
+.admin-access-management-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-access-management-page-btn {
+  min-width: 38px;
+  padding: 8px 10px;
+}
+
+.admin-access-management-page-btn.is-active {
+  color: #04243a;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--role-brand), var(--role-brand-2));
+}
+
+@media (max-width: 1200px) {
+  .admin-access-management-main-tab-grid,
+  .admin-access-management-create-page-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-access-management-two-cols,
+  .admin-access-management-main-tab-grid,
+  .admin-access-management-create-page-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,162 @@
+.role-notification-menu {
+  position: relative;
+}
+
+.role-notification-trigger {
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(7, 23, 38, 0.78);
+  color: var(--role-text);
+  border-radius: 11px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.role-notification-trigger:hover,
+.role-notification-trigger.open {
+  border-color: rgba(39, 194, 255, 0.5);
+}
+
+.role-notification-menu-compact .role-notification-trigger {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.role-notification-bell {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.role-notification-bell svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.role-notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(5, 16, 27, 0.92);
+  background: #ff6f8e;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.role-notification-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(360px, 86vw);
+  max-height: 440px;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(133, 169, 214, 0.33);
+  background: rgba(6, 20, 33, 0.98);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  z-index: 9999;
+}
+
+.role-notification-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(133, 169, 214, 0.2);
+}
+
+.role-notification-dropdown-header strong {
+  font-size: 0.85rem;
+}
+
+.role-notification-dropdown-header span {
+  color: var(--role-text-sub);
+  font-size: 0.76rem;
+}
+
+.role-notification-empty {
+  margin: 0;
+  padding: 10px 8px;
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+}
+
+.role-notification-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.role-notification-item {
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 9px;
+  background: rgba(8, 24, 40, 0.88);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.role-notification-item.is-clickable {
+  cursor: pointer;
+}
+
+.role-notification-item.is-clickable:hover {
+  border-color: rgba(39, 194, 255, 0.45);
+  background: rgba(12, 33, 54, 0.92);
+}
+
+.role-notification-item.is-clickable:focus-visible {
+  outline: 2px solid rgba(80, 173, 255, 0.9);
+  outline-offset: 1px;
+}
+
+.role-notification-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.role-notification-message {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.role-notification-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--role-text-sub);
+  font-size: 0.7rem;
+}
+
+.role-notification-meta span {
+  overflow-wrap: anywhere;
+}
+
+.role-notification-link-hint {
+  font-size: 0.72rem;
+  color: #8dd6ff;
+}

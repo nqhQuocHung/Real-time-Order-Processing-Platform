@@ -1,0 +1,85 @@
+.user-profile-page .profile-edit-avatar-row,
+.partner-profile-page .profile-edit-avatar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.user-profile-page .profile-edit-avatar-trigger,
+.partner-profile-page .profile-edit-avatar-trigger {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.user-profile-page .profile-edit-avatar-preview,
+.partner-profile-page .profile-edit-avatar-preview {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(8, 24, 40, 0.9);
+}
+
+.user-profile-page .profile-actions,
+.partner-profile-page .profile-actions {
+  justify-content: center;
+}
+
+.user-profile-page .profile-avatar-modal-backdrop,
+.partner-profile-page .profile-avatar-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(2, 10, 18, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.user-profile-page .profile-avatar-modal,
+.partner-profile-page .profile-avatar-modal {
+  width: min(420px, 100%);
+  border: 1px solid rgba(133, 169, 214, 0.3);
+  border-radius: 12px;
+  background: rgba(6, 21, 35, 0.98);
+  padding: 14px;
+}
+
+.user-profile-page .profile-avatar-modal h3,
+.partner-profile-page .profile-avatar-modal h3 {
+  margin: 0 0 12px;
+}
+
+.user-profile-page .profile-avatar-modal-preview-wrap,
+.partner-profile-page .profile-avatar-modal-preview-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.user-profile-page .profile-avatar-modal-preview,
+.partner-profile-page .profile-avatar-modal-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(133, 169, 214, 0.36);
+}
+
+.user-profile-page .profile-avatar-file-input,
+.partner-profile-page .profile-avatar-file-input {
+  display: none;
+}
+
+.user-profile-page .profile-avatar-modal-actions,
+.partner-profile-page .profile-avatar-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}

@@ -1,0 +1,278 @@
+x-common-env: &common-env
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+  INTERNAL_RPC_TOKEN: ${INTERNAL_RPC_TOKEN:?INTERNAL_RPC_TOKEN is required}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ropp-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-platform}
+    ports:
+      - "5432:5432"
+    volumes:
+      - D:/docker-data/ropp/postgres:/var/lib/postgresql/data
+      - ./postgres/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-platform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - platform-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: ropp-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - D:/docker-data/ropp/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - platform-net
+
+  kafka:
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+    container_name: ropp-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093,EXTERNAL://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - D:/docker-data/ropp/kafka:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 20s
+      retries: 18
+      start_period: 60s
+    networks:
+      - platform-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: ropp-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      DYNAMIC_CONFIG_ENABLED: "true"
+    networks:
+      - platform-net
+
+  kafka-init:
+    image: bitnamilegacy/kafka:4.0.0-debian-12-r10
+    container_name: ropp-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka/create-topics.sh:/scripts/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    restart: "no"
+    networks:
+      - platform-net
+
+  auth-service:
+    build:
+      context: ../services/auth-service
+      dockerfile: Dockerfile
+    container_name: ropp-auth-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      <<: *common-env
+      AUTH_DB_HOST: postgres
+      AUTH_DB_PORT: 5432
+      AUTH_DB_USERNAME: auth_service
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:?AUTH_DB_PASSWORD is required}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_SECURE: ${CLOUDINARY_SECURE:-true}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
+      TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
+    networks:
+      - platform-net
+
+  inventory-service:
+    build:
+      context: ../services/inventory-service
+      dockerfile: Dockerfile
+    container_name: ropp-inventory-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      <<: *common-env
+      INVENTORY_DB_HOST: postgres
+      INVENTORY_DB_PORT: 5432
+      INVENTORY_DB_USERNAME: inventory_service
+      INVENTORY_DB_PASSWORD: ${INVENTORY_DB_PASSWORD:?INVENTORY_DB_PASSWORD is required}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_SECURE: ${CLOUDINARY_SECURE:-true}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    networks:
+      - platform-net
+
+  payment-service:
+    build:
+      context: ../services/payment-service
+      dockerfile: Dockerfile
+    container_name: ropp-payment-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      <<: *common-env
+      PAYMENT_DB_HOST: postgres
+      PAYMENT_DB_PORT: 5432
+      PAYMENT_DB_USERNAME: payment_service
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?PAYMENT_DB_PASSWORD is required}
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    networks:
+      - platform-net
+
+  notification-service:
+    build:
+      context: ../services/notification-service
+      dockerfile: Dockerfile
+    container_name: ropp-notification-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      <<: *common-env
+      NOTIFICATION_DB_HOST: postgres
+      NOTIFICATION_DB_PORT: 5432
+      NOTIFICATION_DB_USERNAME: notification_service
+      NOTIFICATION_DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TOPIC_PAYMENT_SUCCEEDED: payment.transaction.succeeded.v1
+      TOPIC_PAYMENT_FAILED: payment.transaction.failed.v1
+      TOPIC_ORDER_PAID: order.lifecycle.paid.v1
+      TOPIC_ORDER_COMPLETED: order.lifecycle.completed.v1
+      TOPIC_ORDER_FAILED: order.lifecycle.failed.v1
+      TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
+      TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
+      ORDER_SERVICE_INTERNAL_URL: http://order-service:8082
+      INVENTORY_SERVICE_INTERNAL_URL: http://inventory-service:8083
+    networks:
+      - platform-net
+
+  order-service:
+    build:
+      context: ../services/order-service
+      dockerfile: Dockerfile
+    container_name: ropp-order-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    environment:
+      <<: *common-env
+      ORDER_DB_HOST: postgres
+      ORDER_DB_PORT: 5432
+      ORDER_DB_USERNAME: order_service
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      INVENTORY_SERVICE_INTERNAL_URL: http://inventory-service:8083
+      PAYMENT_SERVICE_INTERNAL_URL: http://payment-service:8084
+    networks:
+      - platform-net
+
+  api-gateway:
+    build:
+      context: ../services/api-gateway
+      dockerfile: Dockerfile
+    container_name: ropp-api-gateway
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *common-env
+      AUTH_SERVICE_URI: http://auth-service:8081
+      ORDER_SERVICE_URI: http://order-service:8082
+      INVENTORY_SERVICE_URI: http://inventory-service:8083
+      PAYMENT_SERVICE_URI: http://payment-service:8084
+      NOTIFICATION_SERVICE_URI: http://notification-service:8085
+    networks:
+      - platform-net
+
+networks:
+  platform-net:
+    driver: bridge

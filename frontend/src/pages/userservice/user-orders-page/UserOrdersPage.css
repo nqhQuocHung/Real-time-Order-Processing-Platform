@@ -1,0 +1,215 @@
+.user-orders-page {
+}
+
+.user-orders-page-orders-card {
+  border-color: rgba(67, 196, 255, 0.35);
+  background:
+    radial-gradient(140% 120% at 0% 0%, rgba(39, 194, 255, 0.12), rgba(7, 22, 38, 0.96) 50%),
+    rgba(7, 20, 35, 0.95);
+}
+
+.user-orders-page-orders-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.user-orders-page-orders-header h2 {
+  margin: 0;
+}
+
+.user-orders-page-orders-header .role-muted {
+  margin-top: 6px;
+}
+
+.user-orders-page-orders-metrics {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.user-orders-page-orders-metrics span {
+  border: 1px solid rgba(98, 210, 255, 0.36);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  color: rgba(222, 243, 255, 0.95);
+  background: rgba(8, 37, 60, 0.72);
+}
+
+.user-orders-cart-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.user-orders-row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.user-orders-pay-button {
+  padding-inline: 12px;
+}
+
+.user-orders-payment-hint {
+  margin-top: 12px;
+  border: 1px solid rgba(39, 194, 255, 0.32);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background:
+    linear-gradient(120deg, rgba(8, 29, 47, 0.88), rgba(8, 24, 40, 0.82)),
+    radial-gradient(circle at right top, rgba(39, 194, 255, 0.12), transparent 45%);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-orders-payment-hint span {
+  color: var(--role-text-sub);
+  font-size: 0.9rem;
+}
+
+.user-orders-payment-hint strong {
+  color: var(--role-text);
+}
+
+.payment-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 11, 20, 0.76);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.payment-dialog {
+  width: min(540px, 100%);
+  border: 1px solid rgba(133, 169, 214, 0.34);
+  border-radius: 14px;
+  padding: 16px;
+  background:
+    radial-gradient(circle at right top, rgba(39, 194, 255, 0.1), transparent 48%),
+    rgba(6, 21, 35, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+}
+
+.payment-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.payment-dialog-header h3 {
+  margin: 0;
+  font-size: 1.08rem;
+  color: var(--role-text);
+}
+
+.payment-dialog-close {
+  padding: 8px 10px;
+}
+
+.payment-dialog-message {
+  margin: 10px 0 0;
+  color: var(--role-text-sub);
+  line-height: 1.5;
+}
+
+.payment-dialog-message strong {
+  color: var(--role-text);
+}
+
+.payment-qrcode {
+  margin: 14px 0 0;
+  border: 1px solid rgba(133, 169, 214, 0.26);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(8, 24, 40, 0.76);
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+.payment-qrcode canvas {
+  border-radius: 8px;
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  background: #ffffff;
+}
+
+.payment-qrcode p {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+}
+
+.payment-dialog-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.user-orders-page-pagination {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-orders-page-pagination-summary {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.user-orders-page-pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.user-orders-page-btn-page {
+  min-width: 40px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+}
+
+.user-orders-page-btn-page.is-active {
+  border-color: rgba(39, 194, 255, 0.6);
+  background: rgba(39, 194, 255, 0.2);
+}
+
+@media (max-width: 760px) {
+  .user-orders-page-orders-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .payment-dialog {
+    padding: 14px;
+  }
+
+  .payment-dialog-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .payment-dialog-actions .role-btn-primary,
+  .payment-dialog-actions .role-btn-ghost {
+    width: 100%;
+  }
+}
