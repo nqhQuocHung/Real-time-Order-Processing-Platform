@@ -1104,7 +1104,7 @@ function AdminAccessManagementPage() {
             />
           </label>
         </div>
-        <div className="role-inline-actions">
+        <div className="role-inline-actions admin-access-management-search-actions">
           <button
             type="button"
             className="role-btn-ghost"

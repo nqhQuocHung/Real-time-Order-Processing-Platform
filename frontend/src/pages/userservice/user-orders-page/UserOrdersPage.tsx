@@ -1025,7 +1025,7 @@ function UserOrdersPage() {
           </div>
         </div>
 
-        <div className="role-inline-form">
+        <div className="role-inline-form user-orders-filter-bar">
           <label>
             Status
             <select

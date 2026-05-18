@@ -40,6 +40,10 @@
   background: rgba(8, 37, 60, 0.72);
 }
 
+.user-orders-filter-bar {
+  margin-bottom: 12px;
+}
+
 .user-orders-cart-actions {
   display: inline-flex;
   gap: 6px;
