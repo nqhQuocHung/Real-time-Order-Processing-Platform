@@ -63,9 +63,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/notifications")
                         .hasAnyAuthority("PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/notifications", "/api/v1/notifications/*")
-                        .hasAnyAuthority("PERM_VIEW_REPORTS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/notifications/*/status")
                         .hasAnyAuthority("PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .requestMatchers("/api/v1/messages/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt

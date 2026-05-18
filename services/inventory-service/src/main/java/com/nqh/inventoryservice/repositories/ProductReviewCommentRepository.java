@@ -9,4 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ProductReviewCommentRepository extends JpaRepository<ProductReviewComment, UUID> {
 
     List<ProductReviewComment> findByIsActiveTrueAndReview_IdInOrderByCreatedAtAsc(Collection<UUID> reviewIds);
+
+    List<ProductReviewComment> findByIsActiveTrueAndReview_IdOrderByCreatedAtAsc(UUID reviewId);
 }

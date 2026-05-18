@@ -20,6 +20,7 @@ public class ProductReviewCommentResponse {
     private UUID reviewId;
     private UUID productId;
     private UUID userId;
+    private String userName;
     private String content;
     private LocalDateTime editedAt;
     private LocalDateTime createdAt;

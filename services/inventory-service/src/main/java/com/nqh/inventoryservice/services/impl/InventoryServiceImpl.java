@@ -400,7 +400,12 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
-    public ProductReviewResponse createProductReview(UUID productId, UUID userId, CreateProductReviewRequest request) {
+    public ProductReviewResponse createProductReview(
+            UUID productId,
+            UUID userId,
+            String userName,
+            CreateProductReviewRequest request
+    ) {
         ensureProductExists(productId);
         if (userId == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
@@ -414,6 +419,7 @@ public class InventoryServiceImpl implements InventoryService {
         ProductReview review = ProductReview.builder()
                 .productId(productId)
                 .userId(userId)
+                .userName(trimToNull(userName))
                 .rating(request.getRating())
                 .title(trimToNull(request.getTitle()))
                 .content(trimToNull(request.getContent()))
@@ -424,13 +430,33 @@ public class InventoryServiceImpl implements InventoryService {
         ProductReview savedReview = productReviewRepository.save(review);
         ProductReviewResponse response = mapToProductReviewResponse(savedReview, List.of());
         ProductReviewStatsResponse stats = buildProductReviewStats(productId);
-        productReviewKafkaProducer.publishReviewCreated(response, stats);
+        UUID shopOwnerUserId = inventoryStockRepository.findByProductId(productId)
+                .map(InventoryStock::getShopId)
+                .orElse(null);
+        List<Map<String, Object>> recipients = buildReviewNotificationRecipients(
+                userId,
+                shopOwnerUserId,
+                productId,
+                response.getReviewId()
+        );
+        productReviewKafkaProducer.publishReviewCreated(
+                response,
+                stats,
+                userId,
+                trimToNull(userName),
+                recipients
+        );
         return response;
     }
 
     @Override
     @Transactional
-    public ProductReviewResponse updateProductReview(UUID reviewId, UUID userId, UpdateProductReviewRequest request) {
+    public ProductReviewResponse updateProductReview(
+            UUID reviewId,
+            UUID userId,
+            String userName,
+            UpdateProductReviewRequest request
+    ) {
         if (reviewId == null || userId == null) {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
         }
@@ -445,6 +471,9 @@ public class InventoryServiceImpl implements InventoryService {
         review.setRating(request.getRating());
         review.setTitle(trimToNull(request.getTitle()));
         review.setContent(trimToNull(request.getContent()));
+        if (trimToNull(review.getUserName()) == null && trimToNull(userName) != null) {
+            review.setUserName(trimToNull(userName));
+        }
         review.setEditedAt(LocalDateTime.now());
         ProductReview updatedReview = productReviewRepository.save(review);
 
@@ -452,7 +481,22 @@ public class InventoryServiceImpl implements InventoryService {
                 .getOrDefault(reviewId, List.of());
         ProductReviewResponse response = mapToProductReviewResponse(updatedReview, comments);
         ProductReviewStatsResponse stats = buildProductReviewStats(review.getProductId());
-        productReviewKafkaProducer.publishReviewUpdated(response, stats);
+        UUID shopOwnerUserId = inventoryStockRepository.findByProductId(review.getProductId())
+                .map(InventoryStock::getShopId)
+                .orElse(null);
+        List<Map<String, Object>> recipients = buildReviewNotificationRecipients(
+                userId,
+                shopOwnerUserId,
+                review.getProductId(),
+                reviewId
+        );
+        productReviewKafkaProducer.publishReviewUpdated(
+                response,
+                stats,
+                userId,
+                trimToNull(userName),
+                recipients
+        );
         return response;
     }
 
@@ -461,6 +505,7 @@ public class InventoryServiceImpl implements InventoryService {
     public ProductReviewCommentResponse createProductReviewComment(
             UUID reviewId,
             UUID userId,
+            String userName,
             CreateProductReviewCommentRequest request
     ) {
         if (reviewId == null || userId == null) {
@@ -474,12 +519,39 @@ public class InventoryServiceImpl implements InventoryService {
                 .review(review)
                 .productId(review.getProductId())
                 .userId(userId)
+                .userName(trimToNull(userName))
                 .content(trimToNull(request.getContent()))
                 .build();
 
         ProductReviewComment savedComment = productReviewCommentRepository.save(comment);
         ProductReviewCommentResponse response = mapToProductReviewCommentResponse(savedComment);
-        productReviewKafkaProducer.publishCommentCreated(review.getProductId(), response, null);
+        UUID shopOwnerUserId = inventoryStockRepository.findByProductId(review.getProductId())
+                .map(InventoryStock::getShopId)
+                .orElse(null);
+        List<UUID> reviewParticipantUserIds = productReviewCommentRepository
+                .findByIsActiveTrueAndReview_IdOrderByCreatedAtAsc(reviewId)
+                .stream()
+                .map(ProductReviewComment::getUserId)
+                .filter(participantUserId -> participantUserId != null)
+                .distinct()
+                .toList();
+        List<Map<String, Object>> recipients = buildCommentNotificationRecipients(
+                userId,
+                shopOwnerUserId,
+                review.getUserId(),
+                review.getProductId(),
+                review.getId(),
+                response.getCommentId(),
+                reviewParticipantUserIds
+        );
+        productReviewKafkaProducer.publishCommentCreated(
+                review.getProductId(),
+                response,
+                null,
+                userId,
+                trimToNull(userName),
+                recipients
+        );
         return response;
     }
 
@@ -867,6 +939,7 @@ public class InventoryServiceImpl implements InventoryService {
                 .reviewUuid(review.getUuid())
                 .productId(review.getProductId())
                 .userId(review.getUserId())
+                .userName(review.getUserName())
                 .rating(review.getRating())
                 .title(review.getTitle())
                 .content(review.getContent())
@@ -886,11 +959,116 @@ public class InventoryServiceImpl implements InventoryService {
                 .reviewId(comment.getReview() != null ? comment.getReview().getId() : null)
                 .productId(comment.getProductId())
                 .userId(comment.getUserId())
+                .userName(comment.getUserName())
                 .content(comment.getContent())
                 .editedAt(comment.getEditedAt())
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .build();
+    }
+
+    private List<Map<String, Object>> buildReviewNotificationRecipients(
+            UUID actorUserId,
+            UUID shopOwnerUserId,
+            UUID productId,
+            UUID reviewId
+    ) {
+        Map<UUID, Map<String, Object>> recipientsByUserId = new LinkedHashMap<>();
+        appendNotificationRecipient(
+                recipientsByUserId,
+                shopOwnerUserId,
+                actorUserId,
+                "PARTNER",
+                buildProductReviewNavigatePath("/partner/products", productId, reviewId, null)
+        );
+        return new ArrayList<>(recipientsByUserId.values());
+    }
+
+    private List<Map<String, Object>> buildCommentNotificationRecipients(
+            UUID actorUserId,
+            UUID shopOwnerUserId,
+            UUID reviewOwnerUserId,
+            UUID productId,
+            UUID reviewId,
+            UUID commentId,
+            Collection<UUID> participantUserIds
+    ) {
+        Map<UUID, Map<String, Object>> recipientsByUserId = new LinkedHashMap<>();
+
+        appendNotificationRecipient(
+                recipientsByUserId,
+                shopOwnerUserId,
+                actorUserId,
+                "PARTNER",
+                buildProductReviewNavigatePath("/partner/products", productId, reviewId, commentId)
+        );
+        appendNotificationRecipient(
+                recipientsByUserId,
+                reviewOwnerUserId,
+                actorUserId,
+                "USER",
+                buildProductReviewNavigatePath("/user/products", productId, reviewId, commentId)
+        );
+        if (participantUserIds != null && !participantUserIds.isEmpty()) {
+            for (UUID participantUserId : participantUserIds) {
+                if (participantUserId == null) {
+                    continue;
+                }
+                boolean isPartnerRecipient = shopOwnerUserId != null && shopOwnerUserId.equals(participantUserId);
+                String recipientRole = isPartnerRecipient ? "PARTNER" : "USER";
+                String recipientBasePath = isPartnerRecipient ? "/partner/products" : "/user/products";
+                appendNotificationRecipient(
+                        recipientsByUserId,
+                        participantUserId,
+                        actorUserId,
+                        recipientRole,
+                        buildProductReviewNavigatePath(recipientBasePath, productId, reviewId, commentId)
+                );
+            }
+        }
+
+        return new ArrayList<>(recipientsByUserId.values());
+    }
+
+    private void appendNotificationRecipient(
+            Map<UUID, Map<String, Object>> recipientsByUserId,
+            UUID recipientUserId,
+            UUID actorUserId,
+            String recipientRole,
+            String navigatePath
+    ) {
+        if (recipientUserId == null || recipientUserId.equals(actorUserId)) {
+            return;
+        }
+
+        recipientsByUserId.computeIfAbsent(recipientUserId, ignored -> {
+            Map<String, Object> recipient = new LinkedHashMap<>();
+            recipient.put("userId", recipientUserId);
+            recipient.put("role", recipientRole);
+            recipient.put("navigatePath", navigatePath);
+            return recipient;
+        });
+    }
+
+    private String buildProductReviewNavigatePath(
+            String basePath,
+            UUID productId,
+            UUID reviewId,
+            UUID commentId
+    ) {
+        if (!StringUtils.hasText(basePath) || productId == null) {
+            return "";
+        }
+
+        StringBuilder builder = new StringBuilder(basePath);
+        builder.append("?focusProductId=").append(productId);
+        if (reviewId != null) {
+            builder.append("&focusReviewId=").append(reviewId);
+        }
+        if (commentId != null) {
+            builder.append("&focusCommentId=").append(commentId);
+        }
+        return builder.toString();
     }
 
     private String trimToNull(String value) {

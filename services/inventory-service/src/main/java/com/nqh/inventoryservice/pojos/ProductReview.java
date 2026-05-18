@@ -42,6 +42,9 @@ public class ProductReview extends BasePojo {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "user_name", length = 120)
+    private String userName;
+
     @Column(name = "rating", nullable = false)
     private Integer rating;
 

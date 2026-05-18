@@ -77,13 +77,24 @@ public interface InventoryService {
 
     ProductReviewStatsResponse getProductReviewStats(UUID productId);
 
-    ProductReviewResponse createProductReview(UUID productId, UUID userId, CreateProductReviewRequest request);
+    ProductReviewResponse createProductReview(
+            UUID productId,
+            UUID userId,
+            String userName,
+            CreateProductReviewRequest request
+    );
 
-    ProductReviewResponse updateProductReview(UUID reviewId, UUID userId, UpdateProductReviewRequest request);
+    ProductReviewResponse updateProductReview(
+            UUID reviewId,
+            UUID userId,
+            String userName,
+            UpdateProductReviewRequest request
+    );
 
     ProductReviewCommentResponse createProductReviewComment(
             UUID reviewId,
             UUID userId,
+            String userName,
             CreateProductReviewCommentRequest request
     );
 }

@@ -1,0 +1,300 @@
+.role-message-center {
+  position: relative;
+}
+
+.role-message-trigger {
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(7, 23, 38, 0.78);
+  color: var(--role-text);
+  border-radius: 11px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.role-message-trigger:hover,
+.role-message-trigger.open {
+  border-color: rgba(39, 194, 255, 0.5);
+}
+
+.role-message-center-compact .role-message-trigger {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+}
+
+.role-message-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.role-message-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.role-message-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(5, 16, 27, 0.92);
+  background: #ff6f8e;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.role-message-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(820px, 92vw);
+  max-height: min(78vh, 640px);
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(133, 169, 214, 0.33);
+  background: rgba(6, 20, 33, 0.98);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+  padding: 10px;
+  z-index: 9999;
+}
+
+.role-message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(133, 169, 214, 0.2);
+}
+
+.role-message-header strong {
+  font-size: 0.9rem;
+}
+
+.role-message-header span {
+  color: var(--role-text-sub);
+  font-size: 0.76rem;
+}
+
+.role-message-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.95fr) minmax(0, 1.35fr);
+  gap: 10px;
+  min-height: 380px;
+}
+
+.role-message-conversations {
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 10px;
+  background: rgba(8, 24, 40, 0.72);
+  overflow: auto;
+}
+
+.role-message-conversations ul {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  display: grid;
+  gap: 7px;
+}
+
+.role-message-conversation-item {
+  width: 100%;
+  border: 1px solid rgba(133, 169, 214, 0.22);
+  border-radius: 9px;
+  background: rgba(8, 27, 44, 0.82);
+  color: var(--role-text);
+  padding: 8px;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+}
+
+.role-message-conversation-item:hover,
+.role-message-conversation-item.active {
+  border-color: rgba(39, 194, 255, 0.5);
+  background: rgba(12, 35, 55, 0.9);
+}
+
+.role-message-conversation-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.role-message-conversation-top strong {
+  font-size: 0.82rem;
+}
+
+.role-message-conversation-top time {
+  font-size: 0.68rem;
+  color: var(--role-text-sub);
+}
+
+.role-message-conversation-product {
+  font-size: 0.72rem;
+  color: #8dd6ff;
+}
+
+.role-message-conversation-item p {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.role-message-conversation-unread {
+  width: fit-content;
+  border: 1px solid rgba(39, 194, 255, 0.52);
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  color: #8dd6ff;
+}
+
+.role-message-thread {
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 10px;
+  background: rgba(8, 24, 40, 0.72);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.role-message-thread-header {
+  padding: 10px;
+  border-bottom: 1px solid rgba(133, 169, 214, 0.2);
+  display: grid;
+  gap: 3px;
+}
+
+.role-message-thread-header strong {
+  font-size: 0.88rem;
+}
+
+.role-message-thread-header span {
+  color: var(--role-text-sub);
+  font-size: 0.74rem;
+}
+
+.role-message-thread-body {
+  flex: 1;
+  min-height: 200px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.role-message-thread-body ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.role-message-thread-body li {
+  display: flex;
+}
+
+.role-message-thread-body li.mine {
+  justify-content: flex-end;
+}
+
+.role-message-thread-body li.theirs {
+  justify-content: flex-start;
+}
+
+.role-message-bubble {
+  max-width: min(88%, 460px);
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 11px;
+  background: rgba(8, 27, 44, 0.86);
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.role-message-thread-body li.mine .role-message-bubble {
+  border-color: rgba(39, 194, 255, 0.45);
+  background: rgba(17, 57, 90, 0.84);
+}
+
+.role-message-sender {
+  font-size: 0.72rem;
+  color: #8dd6ff;
+}
+
+.role-message-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.8rem;
+}
+
+.role-message-bubble time {
+  font-size: 0.67rem;
+  color: var(--role-text-sub);
+}
+
+.role-message-compose {
+  border-top: 1px solid rgba(133, 169, 214, 0.2);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.role-message-compose textarea {
+  border: 1px solid rgba(133, 169, 214, 0.3);
+  border-radius: 9px;
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  padding: 9px 10px;
+  resize: vertical;
+  min-height: 74px;
+}
+
+.role-message-compose .role-btn-primary {
+  justify-self: end;
+}
+
+.role-message-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--role-text-sub);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .role-message-dropdown {
+    width: min(96vw, 96vw);
+    right: -70px;
+    max-height: min(84vh, 700px);
+  }
+
+  .role-message-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .role-message-thread {
+    min-height: 320px;
+  }
+}

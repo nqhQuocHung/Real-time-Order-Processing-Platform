@@ -5,6 +5,7 @@ import com.nqh.inventoryservice.dtos.ProductReviewCommentResponse;
 import com.nqh.inventoryservice.dtos.ProductReviewResponse;
 import com.nqh.inventoryservice.dtos.ProductReviewStatsResponse;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -34,34 +35,65 @@ public class ProductReviewKafkaProducer {
     @Value("${app.inventory.topic.product-review-comment-created:product.review.comment.created.v1}")
     private String productReviewCommentCreatedTopic;
 
-    public void publishReviewCreated(ProductReviewResponse review, ProductReviewStatsResponse stats) {
+    public void publishReviewCreated(
+            ProductReviewResponse review,
+            ProductReviewStatsResponse stats,
+            UUID actorUserId,
+            String actorUserName,
+            List<Map<String, Object>> recipients
+    ) {
         publish(
                 productReviewCreatedTopic,
                 review != null ? review.getProductId() : null,
                 "ProductReviewCreated",
-                buildPayload(review != null ? review.getProductId() : null, review, null, stats)
+                buildPayload(
+                        review != null ? review.getProductId() : null,
+                        review,
+                        null,
+                        stats,
+                        actorUserId,
+                        actorUserName,
+                        recipients
+                )
         );
     }
 
-    public void publishReviewUpdated(ProductReviewResponse review, ProductReviewStatsResponse stats) {
+    public void publishReviewUpdated(
+            ProductReviewResponse review,
+            ProductReviewStatsResponse stats,
+            UUID actorUserId,
+            String actorUserName,
+            List<Map<String, Object>> recipients
+    ) {
         publish(
                 productReviewUpdatedTopic,
                 review != null ? review.getProductId() : null,
                 "ProductReviewUpdated",
-                buildPayload(review != null ? review.getProductId() : null, review, null, stats)
+                buildPayload(
+                        review != null ? review.getProductId() : null,
+                        review,
+                        null,
+                        stats,
+                        actorUserId,
+                        actorUserName,
+                        recipients
+                )
         );
     }
 
     public void publishCommentCreated(
             UUID productId,
             ProductReviewCommentResponse comment,
-            ProductReviewStatsResponse stats
+            ProductReviewStatsResponse stats,
+            UUID actorUserId,
+            String actorUserName,
+            List<Map<String, Object>> recipients
     ) {
         publish(
                 productReviewCommentCreatedTopic,
                 productId,
                 "ProductReviewCommentCreated",
-                buildPayload(productId, null, comment, stats)
+                buildPayload(productId, null, comment, stats, actorUserId, actorUserName, recipients)
         );
     }
 
@@ -69,13 +101,19 @@ public class ProductReviewKafkaProducer {
             UUID productId,
             ProductReviewResponse review,
             ProductReviewCommentResponse comment,
-            ProductReviewStatsResponse stats
+            ProductReviewStatsResponse stats,
+            UUID actorUserId,
+            String actorUserName,
+            List<Map<String, Object>> recipients
     ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("productId", productId);
         payload.put("review", review);
         payload.put("comment", comment);
         payload.put("stats", stats);
+        payload.put("actorUserId", actorUserId);
+        payload.put("actorUserName", actorUserName);
+        payload.put("recipients", recipients == null ? List.of() : recipients);
         return payload;
     }
 

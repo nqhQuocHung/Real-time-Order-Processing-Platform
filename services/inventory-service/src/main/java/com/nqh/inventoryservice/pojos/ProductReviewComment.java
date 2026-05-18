@@ -45,6 +45,9 @@ public class ProductReviewComment extends BasePojo {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "user_name", length = 120)
+    private String userName;
+
     @Column(name = "comment_content", nullable = false, length = 1500)
     private String content;
 

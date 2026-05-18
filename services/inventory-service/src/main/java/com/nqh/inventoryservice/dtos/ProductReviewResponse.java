@@ -20,6 +20,7 @@ public class ProductReviewResponse {
     private UUID reviewUuid;
     private UUID productId;
     private UUID userId;
+    private String userName;
     private Integer rating;
     private String title;
     private String content;

@@ -173,6 +173,267 @@
   background: rgba(39, 194, 255, 0.2);
 }
 
+.partner-products-page-review-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  background: rgba(2, 10, 19, 0.72);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+  display: grid;
+  place-items: center;
+}
+
+.partner-products-page-review-modal {
+  width: min(760px, 100%);
+  max-height: min(92vh, 760px);
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(70, 144, 220, 0.42);
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(27, 93, 177, 0.22), rgba(6, 18, 33, 0.96) 45%),
+    radial-gradient(130% 130% at 100% 0%, rgba(7, 174, 236, 0.16), rgba(4, 15, 28, 0.96) 62%);
+  box-shadow: 0 24px 54px rgba(2, 9, 16, 0.46);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.partner-products-page-review-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.partner-products-page-review-modal > header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.partner-products-page-review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px;
+}
+
+.partner-products-page-review-toolbar label {
+  display: grid;
+  gap: 5px;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.partner-products-page-review-toolbar select {
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  border-radius: 8px;
+  background: rgba(8, 24, 40, 0.88);
+  color: var(--role-text);
+  padding: 8px 10px;
+}
+
+.partner-products-page-review-meta-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.partner-products-page-review-meta-row span {
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.partner-products-page-review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.partner-products-page-review-item {
+  border: 1px solid rgba(133, 169, 214, 0.26);
+  border-radius: 12px;
+  padding: 11px;
+  background: rgba(6, 20, 34, 0.7);
+  display: grid;
+  gap: 8px;
+}
+
+.partner-products-page-review-item > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.partner-products-page-review-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.84rem;
+}
+
+.partner-products-page-review-rating span {
+  color: rgba(60, 84, 109, 0.92);
+}
+
+.partner-products-page-review-rating span.is-active {
+  color: #ffd77d;
+}
+
+.partner-products-page-review-author {
+  display: grid;
+  gap: 2px;
+}
+
+.partner-products-page-review-author strong {
+  font-size: 0.82rem;
+}
+
+.partner-products-page-review-author small {
+  font-size: 0.74rem;
+  color: var(--role-text-sub);
+}
+
+.partner-products-page-review-item h6 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.partner-products-page-review-item p {
+  margin: 0;
+  line-height: 1.5;
+  color: rgba(224, 239, 252, 0.92);
+}
+
+.partner-products-page-review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.partner-products-page-review-actions span {
+  color: var(--role-text-sub);
+  font-size: 0.76rem;
+}
+
+.partner-products-page-review-pagination {
+  margin-top: 0;
+}
+
+.partner-products-page-comment-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1220;
+  background: rgba(2, 9, 17, 0.74);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.partner-products-page-comment-modal {
+  width: min(660px, 100%);
+  border: 1px solid rgba(82, 156, 230, 0.4);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(30, 104, 187, 0.24), rgba(6, 19, 34, 0.96) 52%),
+    rgba(7, 22, 38, 0.95);
+  box-shadow: 0 20px 44px rgba(3, 12, 22, 0.52);
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.partner-products-page-comment-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.partner-products-page-comment-modal > header h4 {
+  margin: 0;
+  font-size: 1.02rem;
+}
+
+.partner-products-page-comment-target {
+  border: 1px solid rgba(84, 146, 209, 0.3);
+  border-radius: 12px;
+  background: rgba(8, 27, 44, 0.68);
+  padding: 10px 12px;
+  display: grid;
+  gap: 7px;
+}
+
+.partner-products-page-comment-target strong {
+  font-size: 0.83rem;
+}
+
+.partner-products-page-comment-target p {
+  margin: 0;
+  color: rgba(223, 238, 252, 0.94);
+  line-height: 1.5;
+}
+
+.partner-products-page-comment-list {
+  display: grid;
+  gap: 7px;
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.partner-products-page-comment-item {
+  border: 1px solid rgba(133, 169, 214, 0.2);
+  border-radius: 9px;
+  padding: 8px 9px;
+  background: rgba(7, 26, 43, 0.56);
+  display: grid;
+  gap: 3px;
+}
+
+.partner-products-page-comment-item strong {
+  font-size: 0.78rem;
+}
+
+.partner-products-page-comment-item span {
+  color: rgba(230, 243, 255, 0.92);
+  font-size: 0.82rem;
+}
+
+.partner-products-page-comment-item small {
+  color: var(--role-text-sub);
+  font-size: 0.72rem;
+}
+
+.partner-products-page-comment-form {
+  display: grid;
+  gap: 10px;
+}
+
+.partner-products-page-comment-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--role-text-sub);
+  font-size: 0.8rem;
+}
+
+.partner-products-page-comment-form textarea {
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  border-radius: 10px;
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  padding: 10px 11px;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.partner-products-page-comment-actions {
+  justify-content: flex-end;
+}
+
 .partner-products-page-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -431,6 +692,21 @@
 }
 
 @media (max-width: 960px) {
+  .partner-products-page-review-modal {
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+  }
+
+  .partner-products-page-review-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .partner-products-page-comment-actions .role-btn-ghost,
+  .partner-products-page-comment-actions .role-btn-primary {
+    flex: 1;
+  }
+
   .partner-products-page-modal-content {
     grid-template-columns: 1fr;
   }

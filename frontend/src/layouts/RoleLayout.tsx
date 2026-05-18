@@ -17,6 +17,14 @@ import defaultAvatar from '../assets/default-avatar.svg'
 import NotificationBell, {
   type NotificationItem,
 } from '../components/notifications/NotificationBell'
+import MessageCenter, {
+  type MessageConversationItem,
+  type MessageEntryItem,
+} from '../components/messages/MessageCenter'
+import {
+  APP_OPEN_MESSAGE_CONVERSATION_EVENT,
+  type OpenMessageConversationDetail,
+} from '../constants/messageEvents'
 import useNotificationStream from '../hooks/useNotificationStream'
 import './RoleLayout.css'
 
@@ -52,8 +60,32 @@ type NotificationStreamEventDetail = {
   payload: unknown
 }
 
+type MessageConversationListResponse = {
+  content?: MessageConversationItem[]
+  page?: number
+  size?: number
+  totalElements?: number
+  totalPages?: number
+  last?: boolean
+}
+
+type MessageEntryListResponse = {
+  content?: MessageEntryItem[]
+  page?: number
+  size?: number
+  totalElements?: number
+  totalPages?: number
+  last?: boolean
+}
+
+type MessageStreamPayload = {
+  conversationId?: string
+  message?: MessageEntryItem
+}
+
 const APP_NOTIFICATION_EVENT = 'app-notification-event'
 const STREAM_EVENT_DEDUP_WINDOW_MS = 15000
+const MESSAGE_PAGE_SIZE = 30
 
 function toNotificationPayload(payload: unknown): NotificationPayload {
   if (!payload || typeof payload !== 'object') {
@@ -76,7 +108,19 @@ function truncateText(value: string, maxLength = 220) {
   return `${value.slice(0, maxLength)}...`
 }
 
-function buildNotificationLink(eventName: string, requestId: string) {
+function buildNotificationLink(
+  eventName: string,
+  requestId: string,
+  payload: NotificationPayload,
+) {
+  const navigatePath =
+    typeof payload.navigatePath === 'string'
+      ? payload.navigatePath.trim()
+      : ''
+  if (navigatePath.startsWith('/')) {
+    return navigatePath
+  }
+
   if (eventName === 'partner.request.created' && requestId) {
     const encodedRequestId = encodeURIComponent(requestId)
     return `/admin/administration?focusPartnerRequest=${encodedRequestId}`
@@ -167,6 +211,9 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
   const currency = normalizeText(data.currency) || 'VND'
   const paymentStatus = normalizeText(data.status)
   const productId = normalizeText(data.productId)
+  const actorUserName = normalizeText(data.actorUserName)
+  const reviewPayload = toNotificationPayload(data.review)
+  const commentPayload = toNotificationPayload(data.comment)
   const fallbackMessage =
     typeof payload === 'string'
       ? payload
@@ -214,20 +261,23 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
   }
 
   if (eventName === 'product.review.created') {
-    const reviewData = toNotificationPayload(data.review)
-    const rating = String(reviewData.rating ?? '').trim()
+    const rating = String(reviewPayload.rating ?? '').trim()
+    const actor = actorUserName || normalizeText(reviewPayload.userName) || 'A user'
     title = 'New product review'
-    message = `A new review was posted${productId ? ` for product ${productId}` : ''}.${rating ? ` Rating: ${rating}/5.` : ''}`
+    message = `${actor} posted a new review${productId ? ` for product ${productId}` : ''}.${rating ? ` Rating: ${rating}/5.` : ''}`
   }
 
   if (eventName === 'product.review.updated') {
+    const actor = actorUserName || normalizeText(reviewPayload.userName) || 'A user'
     title = 'Product review updated'
-    message = `A product review was updated${productId ? ` for product ${productId}` : ''}.`
+    message = `${actor} updated a review${productId ? ` for product ${productId}` : ''}.`
   }
 
   if (eventName === 'product.review.comment.created') {
+    const actor = actorUserName || normalizeText(commentPayload.userName) || 'A user'
+    const shortComment = truncateText(normalizeText(commentPayload.content), 90)
     title = 'New review comment'
-    message = `A new comment was added${productId ? ` for product ${productId}` : ''}.`
+    message = `${actor} added a comment${productId ? ` for product ${productId}` : ''}.${shortComment ? ` "${shortComment}"` : ''}`
   }
 
   const occurredAt =
@@ -236,7 +286,7 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
     new Date().toISOString()
 
   const notificationId = eventId || requestId || `${eventName}-${Date.now()}-${Math.random()}`
-  const link = buildNotificationLink(eventName, requestId)
+  const link = buildNotificationLink(eventName, requestId, data)
 
   return {
     id: notificationId,
@@ -412,15 +462,27 @@ function RoleLayout() {
   const session = getAuthSession()
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const notificationMenuRef = useRef<HTMLDivElement | null>(null)
+  const messageMenuRef = useRef<HTMLDivElement | null>(null)
   const streamEventSeenRef = useRef<Map<string, number>>(new Map())
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+  const [isMessageOpen, setIsMessageOpen] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [openMenuGroups, setOpenMenuGroups] = useState<Record<string, boolean>>({})
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [messageConversations, setMessageConversations] = useState<MessageConversationItem[]>([])
+  const [activeMessageConversationId, setActiveMessageConversationId] = useState('')
+  const [conversationMessagesById, setConversationMessagesById] = useState<
+    Record<string, MessageEntryItem[]>
+  >({})
+  const [messageDraft, setMessageDraft] = useState('')
+  const [loadingMessageConversations, setLoadingMessageConversations] = useState(false)
+  const [loadingMessageEntries, setLoadingMessageEntries] = useState(false)
+  const [sendingMessage, setSendingMessage] = useState(false)
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
   const [avatarUrl, setAvatarUrl] = useState('')
   const [useFallbackAvatar, setUseFallbackAvatar] = useState(false)
@@ -437,6 +499,9 @@ function RoleLayout() {
   const [changePasswordSuccess, setChangePasswordSuccess] = useState('')
 
   const currentRole = session?.role || AppRole.USER
+  const currentUserId = session?.userId?.trim() || ''
+  const isMessagingEnabled =
+    currentRole === AppRole.USER || currentRole === AppRole.SHOPEE_PARTNER
   const dashboardPath = resolveDefaultPathByRole(currentRole, session?.backendMenus || [])
 
   const dynamicMenu: NavigationMenuItem[] = (session?.backendMenus || [])
@@ -533,6 +598,332 @@ function RoleLayout() {
     return 'Dashboard'
   }, [roleMenuSource, location.pathname])
 
+  const activeConversationMessages = useMemo(
+    () =>
+      activeMessageConversationId
+        ? (conversationMessagesById[activeMessageConversationId] || [])
+        : [],
+    [activeMessageConversationId, conversationMessagesById],
+  )
+
+  function sortConversations(items: MessageConversationItem[]) {
+    return [...items].sort((first, second) => {
+      const firstDate = first.lastMessageAt ? new Date(first.lastMessageAt).getTime() : 0
+      const secondDate = second.lastMessageAt ? new Date(second.lastMessageAt).getTime() : 0
+      return secondDate - firstDate
+    })
+  }
+
+  function upsertConversationItem(
+    previous: MessageConversationItem[],
+    nextConversation: MessageConversationItem,
+  ) {
+    const nextId = nextConversation.conversationId
+    if (!nextId) {
+      return previous
+    }
+
+    const nextList = [...previous]
+    const currentIndex = nextList.findIndex(
+      (conversation) => conversation.conversationId === nextId,
+    )
+
+    if (currentIndex >= 0) {
+      nextList[currentIndex] = {
+        ...nextList[currentIndex],
+        ...nextConversation,
+      }
+    } else {
+      nextList.push(nextConversation)
+    }
+
+    return sortConversations(nextList)
+  }
+
+  async function loadMessageConversations(preferredConversationId?: string) {
+    if (!isMessagingEnabled) {
+      return
+    }
+
+    try {
+      setLoadingMessageConversations(true)
+      const response = await apis().get(endpoints.messages.conversations, {
+        params: {
+          page: 0,
+          size: 50,
+        },
+      })
+      const data = extractApiData<MessageConversationListResponse>(response)
+      const content = Array.isArray(data.content) ? data.content : []
+      setMessageConversations(sortConversations(content))
+
+      const targetConversationId =
+        preferredConversationId?.trim() ||
+        activeMessageConversationId ||
+        content[0]?.conversationId ||
+        ''
+      setActiveMessageConversationId(targetConversationId)
+    } catch (error) {
+      console.error('Cannot load message conversations:', error)
+    } finally {
+      setLoadingMessageConversations(false)
+    }
+  }
+
+  async function markMessageConversationAsRead(conversationId: string) {
+    const normalizedConversationId = conversationId.trim()
+    if (!normalizedConversationId) {
+      return
+    }
+
+    setMessageConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.conversationId === normalizedConversationId
+          ? {
+              ...conversation,
+              unreadCount: 0,
+            }
+          : conversation,
+      ),
+    )
+
+    try {
+      await apis().patch(
+        endpoints.messages.markConversationRead(normalizedConversationId),
+        {},
+      )
+    } catch (error) {
+      console.error('Cannot mark conversation as read:', error)
+    }
+  }
+
+  async function loadMessageEntries(
+    conversationId: string,
+    options?: { markAsRead?: boolean },
+  ) {
+    const normalizedConversationId = conversationId.trim()
+    if (!normalizedConversationId || !isMessagingEnabled) {
+      return
+    }
+
+    const shouldMarkAsRead = options?.markAsRead !== false
+    try {
+      setLoadingMessageEntries(true)
+      const response = await apis().get(
+        endpoints.messages.conversationMessages(normalizedConversationId),
+        {
+          params: {
+            page: 0,
+            size: MESSAGE_PAGE_SIZE,
+            markAsRead: shouldMarkAsRead,
+          },
+        },
+      )
+      const data = extractApiData<MessageEntryListResponse>(response)
+      const content = Array.isArray(data.content) ? data.content : []
+      setConversationMessagesById((previous) => ({
+        ...previous,
+        [normalizedConversationId]: content,
+      }))
+
+      if (shouldMarkAsRead) {
+        setMessageConversations((previous) =>
+          previous.map((conversation) =>
+            conversation.conversationId === normalizedConversationId
+              ? {
+                  ...conversation,
+                  unreadCount: 0,
+                }
+              : conversation,
+          ),
+        )
+      }
+    } catch (error) {
+      console.error('Cannot load conversation messages:', error)
+    } finally {
+      setLoadingMessageEntries(false)
+    }
+  }
+
+  async function openMessageConversationFromProduct(
+    detail: OpenMessageConversationDetail,
+  ) {
+    if (!isMessagingEnabled) {
+      return
+    }
+
+    const partnerUserId = detail.partnerUserId?.trim() || ''
+    if (!partnerUserId) {
+      return
+    }
+
+    try {
+      const response = await apis().post(endpoints.messages.openConversation, {
+        partnerUserId,
+        partnerDisplayName: detail.partnerDisplayName?.trim() || null,
+        productId: detail.productId?.trim() || null,
+        productName: detail.productName?.trim() || null,
+      })
+      const conversation = extractApiData<MessageConversationItem>(response)
+      const conversationId = conversation.conversationId?.trim() || ''
+      if (!conversationId) {
+        return
+      }
+
+      setIsNotificationOpen(false)
+      setIsUserMenuOpen(false)
+      setIsMessageOpen(true)
+      setMessageConversations((previous) =>
+        upsertConversationItem(previous, {
+          ...conversation,
+          unreadCount: 0,
+        }),
+      )
+      setActiveMessageConversationId(conversationId)
+      await loadMessageEntries(conversationId, { markAsRead: true })
+      await loadMessageConversations(conversationId)
+    } catch (error) {
+      console.error('Cannot open message conversation:', error)
+    }
+  }
+
+  async function handleSendMessage() {
+    if (!isMessagingEnabled) {
+      return
+    }
+
+    const conversationId = activeMessageConversationId.trim()
+    const content = messageDraft.trim()
+    if (!conversationId || !content || sendingMessage) {
+      return
+    }
+
+    try {
+      setSendingMessage(true)
+      const response = await apis().post(
+        endpoints.messages.conversationMessages(conversationId),
+        { content },
+      )
+      const message = extractApiData<MessageEntryItem>(response)
+      setMessageDraft('')
+      setConversationMessagesById((previous) => {
+        const existing = previous[conversationId] || []
+        if (existing.some((item) => item.messageId === message.messageId)) {
+          return previous
+        }
+        return {
+          ...previous,
+          [conversationId]: [...existing, message],
+        }
+      })
+
+      setMessageConversations((previous) => {
+        const existing = previous.find(
+          (conversation) => conversation.conversationId === conversationId,
+        )
+        const nextConversation: MessageConversationItem = {
+          conversationId,
+          userId: existing?.userId || '',
+          userDisplayName: existing?.userDisplayName,
+          partnerId: existing?.partnerId || '',
+          partnerDisplayName: existing?.partnerDisplayName,
+          productId: existing?.productId,
+          productName: existing?.productName,
+          lastMessagePreview: message.content,
+          lastMessageSenderId: message.senderId,
+          lastMessageSenderName: message.senderName,
+          lastMessageAt: message.createdAt || new Date().toISOString(),
+          unreadCount: existing?.unreadCount || 0,
+        }
+        return upsertConversationItem(previous, nextConversation)
+      })
+    } catch (error) {
+      console.error('Cannot send message:', error)
+    } finally {
+      setSendingMessage(false)
+    }
+  }
+
+  function handleIncomingMessageStream(payload: unknown) {
+    const parsedPayload = toNotificationPayload(payload) as MessageStreamPayload &
+      Record<string, unknown>
+    const conversationId = normalizeText(parsedPayload.conversationId)
+    const rawMessage = parsedPayload.message
+    const incomingMessage =
+      rawMessage && typeof rawMessage === 'object'
+        ? (rawMessage as MessageEntryItem)
+        : null
+
+    if (!conversationId) {
+      return
+    }
+
+    if (incomingMessage?.messageId) {
+      setConversationMessagesById((previous) => {
+        const existing = previous[conversationId] || []
+        if (existing.some((item) => item.messageId === incomingMessage.messageId)) {
+          return previous
+        }
+
+        return {
+          ...previous,
+          [conversationId]: [...existing, incomingMessage],
+        }
+      })
+    }
+
+    const unreadIncrement =
+      incomingMessage &&
+      incomingMessage.senderId &&
+      incomingMessage.senderId !== currentUserId &&
+      incomingMessage.recipientId === currentUserId &&
+      (!isMessageOpen || activeMessageConversationId !== conversationId)
+        ? 1
+        : 0
+
+    setMessageConversations((previous) => {
+      const fallbackConversation: MessageConversationItem = {
+        conversationId,
+        userId: normalizeText(parsedPayload.userId),
+        userDisplayName: normalizeText(parsedPayload.userDisplayName),
+        partnerId: normalizeText(parsedPayload.partnerId),
+        partnerDisplayName: normalizeText(parsedPayload.partnerDisplayName),
+        productId: normalizeText(parsedPayload.productId),
+        productName: normalizeText(parsedPayload.productName),
+        lastMessagePreview: incomingMessage?.content || '',
+        lastMessageSenderId: incomingMessage?.senderId,
+        lastMessageSenderName: incomingMessage?.senderName,
+        lastMessageAt:
+          incomingMessage?.createdAt ||
+          normalizeText(parsedPayload.lastMessageAt) ||
+          new Date().toISOString(),
+        unreadCount: unreadIncrement,
+      }
+
+      const existingConversation = previous.find(
+        (conversation) => conversation.conversationId === conversationId,
+      )
+      const mergedConversation = {
+        ...(existingConversation || fallbackConversation),
+        ...fallbackConversation,
+        unreadCount: Math.max(
+          0,
+          (existingConversation?.unreadCount || 0) + unreadIncrement,
+        ),
+      }
+
+      if (isMessageOpen && activeMessageConversationId === conversationId) {
+        mergedConversation.unreadCount = 0
+      }
+
+      return upsertConversationItem(previous, mergedConversation)
+    })
+
+    if (isMessageOpen && activeMessageConversationId === conversationId) {
+      void markMessageConversationAsRead(conversationId)
+    }
+  }
+
   useNotificationStream({
     enabled: Boolean(session?.accessToken),
     onEvent: (eventName, payload) => {
@@ -563,6 +954,11 @@ function RoleLayout() {
           },
         }),
       )
+
+      if (eventName === 'chat.message.created') {
+        handleIncomingMessageStream(payload)
+        return
+      }
 
       const notification = buildNotificationMessage(eventName, payload)
       if (!notification) {
@@ -648,6 +1044,7 @@ function RoleLayout() {
     setIsMobileMenuOpen(false)
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
+    setIsMessageOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -656,6 +1053,58 @@ function RoleLayout() {
     }
     setUnreadNotificationCount(0)
   }, [isNotificationOpen])
+
+  useEffect(() => {
+    const unread = messageConversations.reduce(
+      (sum, conversation) => sum + Math.max(0, Number(conversation.unreadCount) || 0),
+      0,
+    )
+    setUnreadMessageCount(unread)
+  }, [messageConversations])
+
+  useEffect(() => {
+    if (!isMessageOpen || !isMessagingEnabled) {
+      return
+    }
+    void loadMessageConversations()
+  }, [isMessageOpen, isMessagingEnabled])
+
+  useEffect(() => {
+    if (!isMessageOpen || !isMessagingEnabled) {
+      return
+    }
+    const conversationId = activeMessageConversationId.trim()
+    if (!conversationId) {
+      return
+    }
+    void loadMessageEntries(conversationId, { markAsRead: true })
+  }, [activeMessageConversationId, isMessageOpen, isMessagingEnabled])
+
+  useEffect(() => {
+    function handleOpenConversationEvent(event: Event) {
+      if (!isMessagingEnabled) {
+        return
+      }
+      const customEvent = event as CustomEvent<OpenMessageConversationDetail>
+      const detail = customEvent.detail
+      if (!detail?.partnerUserId) {
+        return
+      }
+      void openMessageConversationFromProduct(detail)
+    }
+
+    window.addEventListener(
+      APP_OPEN_MESSAGE_CONVERSATION_EVENT,
+      handleOpenConversationEvent as EventListener,
+    )
+
+    return () => {
+      window.removeEventListener(
+        APP_OPEN_MESSAGE_CONVERSATION_EVENT,
+        handleOpenConversationEvent as EventListener,
+      )
+    }
+  }, [isMessagingEnabled])
 
   useEffect(() => {
     if (!activeMenuChainKey) {
@@ -676,7 +1125,7 @@ function RoleLayout() {
   }, [activeMenuChainKey])
 
   useEffect(() => {
-    if (!isUserMenuOpen && !isNotificationOpen) {
+    if (!isUserMenuOpen && !isNotificationOpen && !isMessageOpen) {
       return
     }
 
@@ -688,19 +1137,28 @@ function RoleLayout() {
       const clickedInsideNotificationMenu = Boolean(
         notificationMenuRef.current?.contains(targetNode),
       )
+      const clickedInsideMessageMenu = Boolean(
+        messageMenuRef.current?.contains(targetNode),
+      )
 
-      if (clickedInsideUserMenu || clickedInsideNotificationMenu) {
+      if (
+        clickedInsideUserMenu ||
+        clickedInsideNotificationMenu ||
+        clickedInsideMessageMenu
+      ) {
         return
       }
 
       setIsUserMenuOpen(false)
       setIsNotificationOpen(false)
+      setIsMessageOpen(false)
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         setIsUserMenuOpen(false)
         setIsNotificationOpen(false)
+        setIsMessageOpen(false)
       }
     }
 
@@ -711,7 +1169,7 @@ function RoleLayout() {
       window.removeEventListener('mousedown', handleMouseDown)
       window.removeEventListener('keydown', handleEscape)
     }
-  }, [isNotificationOpen, isUserMenuOpen])
+  }, [isMessageOpen, isNotificationOpen, isUserMenuOpen])
 
   function resetChangePasswordForm() {
     setOldPassword('')
@@ -842,6 +1300,7 @@ function RoleLayout() {
   function handleGoDashboard() {
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
+    setIsMessageOpen(false)
     setIsMobileMenuOpen(false)
     navigate(dashboardPath)
   }
@@ -912,6 +1371,37 @@ function RoleLayout() {
 
     return (
       <div className={`role-user-controls ${compact ? 'role-user-controls-compact' : ''}`}>
+        {isMessagingEnabled && (
+          <MessageCenter
+            ref={messageMenuRef}
+            compact={compact}
+            isOpen={isMessageOpen}
+            unreadCount={unreadMessageCount}
+            conversations={messageConversations}
+            activeConversationId={activeMessageConversationId}
+            messages={activeConversationMessages}
+            currentUserId={currentUserId}
+            draft={messageDraft}
+            sending={sendingMessage}
+            loadingConversations={loadingMessageConversations}
+            loadingMessages={loadingMessageEntries}
+            onToggle={() => {
+              setIsUserMenuOpen(false)
+              setIsNotificationOpen(false)
+              setIsMessageOpen((state) => !state)
+            }}
+            onSelectConversation={(conversationId) => {
+              setActiveMessageConversationId(conversationId)
+              setMessageDraft('')
+              void loadMessageEntries(conversationId, { markAsRead: true })
+            }}
+            onDraftChange={setMessageDraft}
+            onSend={() => {
+              void handleSendMessage()
+            }}
+          />
+        )}
+
         <NotificationBell
           ref={notificationMenuRef}
           compact={compact}
@@ -919,6 +1409,7 @@ function RoleLayout() {
           notifications={notifications}
           onItemClick={(item) => {
             setIsNotificationOpen(false)
+            setIsMessageOpen(false)
             if (!item.link) {
               return
             }
@@ -927,6 +1418,7 @@ function RoleLayout() {
           unreadCount={unreadNotificationCount}
           onToggle={() => {
             setIsUserMenuOpen(false)
+            setIsMessageOpen(false)
             setIsNotificationOpen((state) => !state)
           }}
         />
@@ -940,6 +1432,7 @@ function RoleLayout() {
             className={`role-user-trigger ${compact ? 'compact' : ''}`}
             onClick={() => {
               setIsNotificationOpen(false)
+              setIsMessageOpen(false)
               setIsUserMenuOpen((state) => !state)
             }}
             aria-expanded={isUserMenuOpen}

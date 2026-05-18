@@ -116,7 +116,8 @@ public class InventoryController {
             HttpServletRequest httpServletRequest
     ) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        ProductReviewResponse response = inventoryService.createProductReview(productId, userId, request);
+        String userName = jwt.getClaimAsString("username");
+        ProductReviewResponse response = inventoryService.createProductReview(productId, userId, userName, request);
         return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_REVIEW_CREATE_SUCCESS, response, httpServletRequest);
     }
 
@@ -128,7 +129,8 @@ public class InventoryController {
             HttpServletRequest httpServletRequest
     ) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        ProductReviewResponse response = inventoryService.updateProductReview(reviewId, userId, request);
+        String userName = jwt.getClaimAsString("username");
+        ProductReviewResponse response = inventoryService.updateProductReview(reviewId, userId, userName, request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_REVIEW_UPDATE_SUCCESS, response, httpServletRequest);
     }
 
@@ -140,7 +142,8 @@ public class InventoryController {
             HttpServletRequest httpServletRequest
     ) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        ProductReviewCommentResponse response = inventoryService.createProductReviewComment(reviewId, userId, request);
+        String userName = jwt.getClaimAsString("username");
+        ProductReviewCommentResponse response = inventoryService.createProductReviewComment(reviewId, userId, userName, request);
         return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_REVIEW_COMMENT_CREATE_SUCCESS, response, httpServletRequest);
     }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   apis,
   endpoints,
@@ -17,6 +17,10 @@ import {
   type UserCartMap,
   writeUserCartToStorage,
 } from '../../../features/cart/userCartStorage'
+import {
+  APP_OPEN_MESSAGE_CONVERSATION_EVENT,
+  type OpenMessageConversationDetail,
+} from '../../../constants/messageEvents'
 import './UserProductsPage.css'
 
 const DEFAULT_PRODUCT_PAGE_SIZE = 8
@@ -30,6 +34,7 @@ type ProductReviewComment = {
   reviewId: string
   productId: string
   userId: string
+  userName?: string
   content: string
   editedAt?: string
   createdAt?: string
@@ -41,6 +46,7 @@ type ProductReview = {
   reviewUuid?: string
   productId: string
   userId: string
+  userName?: string
   rating: number
   title?: string
   content: string
@@ -114,6 +120,25 @@ function formatDateTime(value?: string) {
 
 function normalizeReviewText(value?: string | null) {
   return value?.trim() || ''
+}
+
+function resolveReviewDisplayName(
+  userId: string | undefined,
+  userName: string | undefined,
+  currentUserId: string,
+  selfLabel = 'You',
+) {
+  const normalizedUserId = userId?.trim() || ''
+  if (normalizedUserId && normalizedUserId === currentUserId) {
+    return selfLabel
+  }
+
+  const normalizedUserName = userName?.trim() || ''
+  if (normalizedUserName) {
+    return normalizedUserName
+  }
+
+  return normalizedUserId || 'Unknown user'
 }
 
 function normalizeRatingValue(value: number | null | undefined): number {
@@ -226,6 +251,7 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalog: ProductCardData[])
 
 function UserProductsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const session = getAuthSession()
   const currentUserId = session?.userId || ''
   const [products, setProducts] = useState<ProductCardData[]>([])
@@ -256,6 +282,8 @@ function UserProductsPage() {
   const [reviewStatsLoadedByProductId, setReviewStatsLoadedByProductId] = useState<Record<string, boolean>>({})
   const [isReviewComposerOpen, setIsReviewComposerOpen] = useState(false)
   const [activeCommentReviewId, setActiveCommentReviewId] = useState('')
+  const [isReviewPanelVisible, setIsReviewPanelVisible] = useState(false)
+  const [pendingFocusReviewId, setPendingFocusReviewId] = useState('')
 
   const loadCatalog = useCallback(async () => {
     setLoading(true)
@@ -528,8 +556,10 @@ function UserProductsPage() {
     setCommentSubmittingByReviewId({})
     setIsReviewComposerOpen(false)
     setActiveCommentReviewId('')
-    void loadProductReviewBundle(selectedProduct.productId, 0, 'latest')
-  }, [loadProductReviewBundle, selectedProduct?.productId])
+    if (isReviewPanelVisible) {
+      void loadProductReviewBundle(selectedProduct.productId, 0, 'latest')
+    }
+  }, [isReviewPanelVisible, loadProductReviewBundle, selectedProduct?.productId])
 
   useEffect(() => {
     if (!myReview) {
@@ -546,7 +576,7 @@ function UserProductsPage() {
 
   useEffect(() => {
     function onRealtimeReviewEvent(event: Event) {
-      if (!selectedProduct?.productId) {
+      if (!selectedProduct?.productId || !isReviewPanelVisible) {
         return
       }
 
@@ -571,7 +601,40 @@ function UserProductsPage() {
     return () => {
       window.removeEventListener(APP_NOTIFICATION_EVENT, onRealtimeReviewEvent as EventListener)
     }
-  }, [loadProductReviewBundle, reviewPage, reviewSort, selectedProduct?.productId])
+  }, [isReviewPanelVisible, loadProductReviewBundle, reviewPage, reviewSort, selectedProduct?.productId])
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search)
+    const focusProductId = query.get('focusProductId')?.trim() || ''
+    if (!focusProductId || !products.length) {
+      return
+    }
+
+    const matchedProduct = products.find((item) => item.productId === focusProductId)
+    if (!matchedProduct) {
+      return
+    }
+
+    const focusReviewId = query.get('focusReviewId')?.trim() || ''
+    setSelectedProduct(matchedProduct)
+    setIsReviewPanelVisible(true)
+    setPendingFocusReviewId(focusReviewId)
+    navigate(location.pathname, { replace: true })
+  }, [location.pathname, location.search, navigate, products])
+
+  useEffect(() => {
+    if (!pendingFocusReviewId || !selectedProduct?.productId || !reviewList.length) {
+      return
+    }
+
+    const reviewExists = reviewList.some((review) => review.reviewId === pendingFocusReviewId)
+    if (!reviewExists) {
+      return
+    }
+
+    setActiveCommentReviewId(pendingFocusReviewId)
+    setPendingFocusReviewId('')
+  }, [pendingFocusReviewId, reviewList, selectedProduct?.productId])
 
   function handleAddToCart(product: ProductCardData) {
     const availableQuantity = normalizeQuantity(product.availableQuantity)
@@ -617,6 +680,27 @@ function UserProductsPage() {
       const { [productId]: _removed, ...rest } = previous
       return rest
     })
+  }
+
+  function handleOpenPartnerChat(product: ProductCardData) {
+    const partnerUserId = product.shopId?.trim() || ''
+    if (!partnerUserId) {
+      return
+    }
+
+    const detail: OpenMessageConversationDetail = {
+      partnerUserId,
+      partnerDisplayName: product.shopName?.trim() || partnerUserId,
+      productId: product.productId?.trim() || '',
+      productName: product.name?.trim() || product.productName?.trim() || product.productId,
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<OpenMessageConversationDetail>(
+        APP_OPEN_MESSAGE_CONVERSATION_EVENT,
+        { detail },
+      ),
+    )
   }
 
   async function handleSubmitReview(event: FormEvent<HTMLFormElement>) {
@@ -723,6 +807,19 @@ function UserProductsPage() {
     void loadProductReviewBundle(selectedProduct.productId, nextPage, reviewSort)
   }
 
+  function handleOpenReviewPanel(targetReviewId = '') {
+    if (!selectedProduct?.productId) {
+      return
+    }
+
+    setReviewError('')
+    setReviewPage(0)
+    setReviewSort('latest')
+    setIsReviewPanelVisible(true)
+    setPendingFocusReviewId(targetReviewId)
+    void loadProductReviewBundle(selectedProduct.productId, 0, 'latest')
+  }
+
   function closeProductDetail() {
     setSelectedProduct(null)
     setReviewError('')
@@ -735,11 +832,16 @@ function UserProductsPage() {
     setCommentSubmittingByReviewId({})
     setIsReviewComposerOpen(false)
     setActiveCommentReviewId('')
+    setIsReviewPanelVisible(false)
+    setPendingFocusReviewId('')
   }
 
   const detailProductName =
     selectedProduct?.name?.trim() || selectedProduct?.productName?.trim() || 'Unnamed Product'
   const detailShopName = selectedProduct?.shopName?.trim() || selectedProduct?.shopId || '-'
+  const detailReviewStats = selectedProduct?.productId
+    ? reviewStats || reviewStatsByProductId[selectedProduct.productId] || null
+    : null
   const getProductRatingSummary = useCallback(
     (productId: string): ProductCardRatingSummary | null => {
       const stats = reviewStatsByProductId[productId]
@@ -849,45 +951,65 @@ function UserProductsPage() {
                 onViewDetail={setSelectedProduct}
                 actionSlot={
                   inCart ? (
-                    <div className="user-products-page-cart-controls">
-                      <div className="user-products-page-cart-stepper">
+                    <div className="user-products-page-action-stack">
+                      <div className="user-products-page-cart-controls">
+                        <div className="user-products-page-cart-stepper">
+                          <button
+                            type="button"
+                            className="product-card-btn"
+                            onClick={() => handleChangeCartQuantity(item, -1)}
+                            disabled={cartItem.quantity <= 1}
+                          >
+                            -
+                          </button>
+                          <span>{cartItem.quantity}</span>
+                          <button
+                            type="button"
+                            className="product-card-btn"
+                            onClick={() => handleChangeCartQuantity(item, 1)}
+                            disabled={cartItem.quantity >= availableQuantity}
+                          >
+                            +
+                          </button>
+                        </div>
                         <button
                           type="button"
-                          className="product-card-btn"
-                          onClick={() => handleChangeCartQuantity(item, -1)}
-                          disabled={cartItem.quantity <= 1}
+                          className="product-card-btn user-products-page-cart-toggle is-in-cart"
+                          onClick={() => handleRemoveFromCart(item.productId)}
                         >
-                          -
-                        </button>
-                        <span>{cartItem.quantity}</span>
-                        <button
-                          type="button"
-                          className="product-card-btn"
-                          onClick={() => handleChangeCartQuantity(item, 1)}
-                          disabled={cartItem.quantity >= availableQuantity}
-                        >
-                          +
+                          Remove
                         </button>
                       </div>
                       <button
                         type="button"
-                        className="product-card-btn user-products-page-cart-toggle is-in-cart"
-                        onClick={() => handleRemoveFromCart(item.productId)}
+                        className="product-card-btn user-products-page-message-shop-btn"
+                        onClick={() => handleOpenPartnerChat(item)}
+                        disabled={!item.shopId?.trim()}
                       >
-                        Remove
+                        Message Shop
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="product-card-btn user-products-page-cart-toggle is-add"
-                      onClick={() => handleAddToCart(item)}
-                    >
-                      <span className="user-products-page-cart-label">
-                        <span className="user-products-page-cart-price">{displayPrice}</span>
-                        <span className="user-products-page-cart-plus" aria-hidden="true">+</span>
-                      </span>
-                    </button>
+                    <div className="user-products-page-action-stack">
+                      <button
+                        type="button"
+                        className="product-card-btn user-products-page-cart-toggle is-add"
+                        onClick={() => handleAddToCart(item)}
+                      >
+                        <span className="user-products-page-cart-label">
+                          <span className="user-products-page-cart-price">{displayPrice}</span>
+                          <span className="user-products-page-cart-plus" aria-hidden="true">+</span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="product-card-btn user-products-page-message-shop-btn"
+                        onClick={() => handleOpenPartnerChat(item)}
+                        disabled={!item.shopId?.trim()}
+                      >
+                        Message Shop
+                      </button>
+                    </div>
                   )
                 }
               />
@@ -1018,162 +1140,183 @@ function UserProductsPage() {
               {selectedProduct.description?.trim() || 'No description available.'}
             </p>
 
-            <section className="user-products-page-reviews">
-              <div className="user-products-page-reviews-header">
-                <h4>Ratings & Reviews</h4>
+            <div className="user-products-page-review-entry">
+              <button
+                type="button"
+                className="role-btn-primary user-products-page-review-entry-btn"
+                onClick={() => {
+                  if (isReviewPanelVisible) {
+                    setIsReviewPanelVisible(false)
+                    setActiveCommentReviewId('')
+                    return
+                  }
+                  handleOpenReviewPanel()
+                }}
+              >
+                {isReviewPanelVisible ? 'Hide Ratings & Comments' : 'Show Ratings & Comments'}
+              </button>
+              {detailReviewStats && (
                 <div className="user-products-page-reviews-metrics">
-                  <span>{(reviewStats?.averageRating || 0).toFixed(1)} / 5</span>
-                  <span>{reviewStats?.totalReviews || 0} review(s)</span>
-                </div>
-              </div>
-
-              {reviewError && <p className="role-error">{reviewError}</p>}
-
-              <div className="user-products-page-review-stars">
-                {[5, 4, 3, 2, 1].map((starValue) => (
-                  <div key={`star-${starValue}`}>
-                    <span>{starValue}&#9733;</span>
-                    <strong>
-                      {starValue === 5 ? reviewStats?.star5 || 0
-                        : starValue === 4 ? reviewStats?.star4 || 0
-                          : starValue === 3 ? reviewStats?.star3 || 0
-                            : starValue === 2 ? reviewStats?.star2 || 0
-                              : reviewStats?.star1 || 0}
-                    </strong>
-                  </div>
-                ))}
-              </div>
-
-              <div className="user-products-page-review-actions">
-                <button
-                  type="button"
-                  className="role-btn-primary user-products-page-review-open-btn"
-                  onClick={() => {
-                    setReviewError('')
-                    setIsReviewComposerOpen(true)
-                  }}
-                >
-                  {myReview ? 'Update Your Review' : 'Write a Review'}
-                </button>
-                {myReview && (
-                  <span className="role-muted">
-                    You already reviewed this product. You can update it anytime.
-                  </span>
-                )}
-              </div>
-
-              <div className="user-products-page-review-toolbar">
-                <label>
-                  Sort
-                  <select
-                    value={reviewSort}
-                    onChange={(event) => handleChangeReviewSort(event.target.value)}
-                    disabled={reviewLoading}
-                  >
-                    <option value="latest">Latest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="rating_desc">Rating High to Low</option>
-                    <option value="rating_asc">Rating Low to High</option>
-                  </select>
-                </label>
-                <span>{reviewTotalElements} review(s)</span>
-              </div>
-
-              {reviewLoading ? (
-                <p className="role-muted">Loading reviews...</p>
-              ) : (
-                <div className="user-products-page-review-list">
-                  {!reviewList.length && (
-                    <p className="role-muted">No reviews yet. Be the first to review this product.</p>
-                  )}
-
-                  {reviewList.map((review) => {
-                    const comments = Array.isArray(review.comments) ? review.comments : []
-                    const ratingValue = Math.max(1, Math.round(normalizeRatingValue(review.rating)))
-
-                    return (
-                      <article key={review.reviewId} className="user-products-page-review-item">
-                        <header>
-                          <div
-                            className="user-products-page-review-rating"
-                            aria-label={`${ratingValue} out of 5`}
-                          >
-                            {[1, 2, 3, 4, 5].map((starValue) => (
-                              <span
-                                key={`review-rating-${review.reviewId}-${starValue}`}
-                                className={ratingValue >= starValue ? 'is-active' : ''}
-                                aria-hidden="true"
-                              >
-                                &#9733;
-                              </span>
-                            ))}
-                          </div>
-                          <div className="user-products-page-review-meta">
-                            <strong>{review.userId === currentUserId ? 'You' : review.userId}</strong>
-                            <small>
-                              {formatDateTime(review.createdAt)}
-                              {review.editedAt ? ' (edited)' : ''}
-                            </small>
-                          </div>
-                          {review.verifiedPurchase && (
-                            <span className="user-products-page-review-verified">Verified purchase</span>
-                          )}
-                        </header>
-
-                        {review.title?.trim() && <h6>{review.title}</h6>}
-                        <p>{review.content}</p>
-
-                        <div className="user-products-page-review-item-actions">
-                          <button
-                            type="button"
-                            className="role-btn-ghost user-products-page-review-comment-trigger"
-                            onClick={() => {
-                              setReviewError('')
-                              setActiveCommentReviewId(review.reviewId)
-                            }}
-                          >
-                            Xem bình luận
-                          </button>
-                          <span>{comments.length} comment(s)</span>
-                        </div>
-                      </article>
-                    )
-                  })}
+                  <span>{normalizeRatingValue(detailReviewStats.averageRating).toFixed(1)} / 5</span>
+                  <span>{detailReviewStats.totalReviews || 0} review(s)</span>
                 </div>
               )}
+            </div>
 
-              {reviewTotalPages > 0 && (
-                <div className="user-products-page-review-pagination">
+            {isReviewPanelVisible && (
+              <section className="user-products-page-reviews">
+                <div className="user-products-page-reviews-header">
+                  <h4>Ratings & Reviews</h4>
+                </div>
+
+                {reviewError && <p className="role-error">{reviewError}</p>}
+
+                <div className="user-products-page-review-stars">
+                  {[5, 4, 3, 2, 1].map((starValue) => (
+                    <div key={`star-${starValue}`}>
+                      <span>{starValue}&#9733;</span>
+                      <strong>
+                        {starValue === 5 ? detailReviewStats?.star5 || 0
+                          : starValue === 4 ? detailReviewStats?.star4 || 0
+                            : starValue === 3 ? detailReviewStats?.star3 || 0
+                              : starValue === 2 ? detailReviewStats?.star2 || 0
+                                : detailReviewStats?.star1 || 0}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="user-products-page-review-actions">
                   <button
                     type="button"
-                    className="role-btn-ghost user-products-page-btn-page"
-                    onClick={() => handleGoToReviewPage(Math.max(0, reviewPage - 1))}
-                    disabled={reviewPage <= 0 || reviewLoading}
+                    className="role-btn-primary user-products-page-review-open-btn"
+                    onClick={() => {
+                      setReviewError('')
+                      setIsReviewComposerOpen(true)
+                    }}
                   >
-                    Prev
+                    {myReview ? 'Update Your Review' : 'Write a Review'}
                   </button>
-                  {reviewPaginationPages.map((pageNumber) => (
-                    <button
-                      key={`review-page-${pageNumber}`}
-                      type="button"
-                      className={`role-btn-ghost user-products-page-btn-page ${pageNumber === reviewPage ? 'is-active' : ''}`}
-                      onClick={() => handleGoToReviewPage(pageNumber)}
+                  {myReview && (
+                    <span className="role-muted">
+                      You already reviewed this product. You can update it anytime.
+                    </span>
+                  )}
+                </div>
+
+                <div className="user-products-page-review-toolbar">
+                  <label>
+                    Sort
+                    <select
+                      value={reviewSort}
+                      onChange={(event) => handleChangeReviewSort(event.target.value)}
                       disabled={reviewLoading}
                     >
-                      {pageNumber + 1}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="role-btn-ghost user-products-page-btn-page"
-                    onClick={() => handleGoToReviewPage(Math.min(reviewTotalPages - 1, reviewPage + 1))}
-                    disabled={reviewPage >= reviewTotalPages - 1 || reviewLoading}
-                  >
-                    Next
-                  </button>
+                      <option value="latest">Latest</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="rating_desc">Rating High to Low</option>
+                      <option value="rating_asc">Rating Low to High</option>
+                    </select>
+                  </label>
+                  <span>{reviewTotalElements} review(s)</span>
                 </div>
-              )}
-            </section>
+
+                {reviewLoading ? (
+                  <p className="role-muted">Loading reviews...</p>
+                ) : (
+                  <div className="user-products-page-review-list">
+                    {!reviewList.length && (
+                      <p className="role-muted">No reviews yet. Be the first to review this product.</p>
+                    )}
+
+                    {reviewList.map((review) => {
+                      const comments = Array.isArray(review.comments) ? review.comments : []
+                      const ratingValue = Math.max(1, Math.round(normalizeRatingValue(review.rating)))
+
+                      return (
+                        <article key={review.reviewId} className="user-products-page-review-item">
+                          <header>
+                            <div
+                              className="user-products-page-review-rating"
+                              aria-label={`${ratingValue} out of 5`}
+                            >
+                              {[1, 2, 3, 4, 5].map((starValue) => (
+                                <span
+                                  key={`review-rating-${review.reviewId}-${starValue}`}
+                                  className={ratingValue >= starValue ? 'is-active' : ''}
+                                  aria-hidden="true"
+                                >
+                                  &#9733;
+                                </span>
+                              ))}
+                            </div>
+                            <div className="user-products-page-review-meta">
+                              <strong>{resolveReviewDisplayName(review.userId, review.userName, currentUserId)}</strong>
+                              <small>
+                                {formatDateTime(review.createdAt)}
+                                {review.editedAt ? ' (edited)' : ''}
+                              </small>
+                            </div>
+                            {review.verifiedPurchase && (
+                              <span className="user-products-page-review-verified">Verified purchase</span>
+                            )}
+                          </header>
+
+                          {review.title?.trim() && <h6>{review.title}</h6>}
+                          <p>{review.content}</p>
+
+                          <div className="user-products-page-review-item-actions">
+                            <button
+                              type="button"
+                              className="role-btn-ghost user-products-page-review-comment-trigger"
+                              onClick={() => {
+                                setReviewError('')
+                                setActiveCommentReviewId(review.reviewId)
+                              }}
+                            >
+                              View comments
+                            </button>
+                            <span>{comments.length} comment(s)</span>
+                          </div>
+                        </article>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {reviewTotalPages > 0 && (
+                  <div className="user-products-page-review-pagination">
+                    <button
+                      type="button"
+                      className="role-btn-ghost user-products-page-btn-page"
+                      onClick={() => handleGoToReviewPage(Math.max(0, reviewPage - 1))}
+                      disabled={reviewPage <= 0 || reviewLoading}
+                    >
+                      Prev
+                    </button>
+                    {reviewPaginationPages.map((pageNumber) => (
+                      <button
+                        key={`review-page-${pageNumber}`}
+                        type="button"
+                        className={`role-btn-ghost user-products-page-btn-page ${pageNumber === reviewPage ? 'is-active' : ''}`}
+                        onClick={() => handleGoToReviewPage(pageNumber)}
+                        disabled={reviewLoading}
+                      >
+                        {pageNumber + 1}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="role-btn-ghost user-products-page-btn-page"
+                      onClick={() => handleGoToReviewPage(Math.min(reviewTotalPages - 1, reviewPage + 1))}
+                      disabled={reviewPage >= reviewTotalPages - 1 || reviewLoading}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
 
             {isReviewComposerOpen && (
               <div
@@ -1297,7 +1440,12 @@ function UserProductsPage() {
                       ))}
                     </div>
                     <strong>
-                      {activeCommentReview.userId === currentUserId ? 'Your review' : activeCommentReview.userId}
+                      {resolveReviewDisplayName(
+                        activeCommentReview.userId,
+                        activeCommentReview.userName,
+                        currentUserId,
+                        'Your review',
+                      )}
                     </strong>
                     <p>{activeCommentReview.content}</p>
                   </div>
@@ -1306,7 +1454,7 @@ function UserProductsPage() {
                     {(activeCommentReview.comments || []).length > 0 ? (
                       (activeCommentReview.comments || []).map((comment) => (
                         <div key={comment.commentId} className="user-products-page-comment-item">
-                          <strong>{comment.userId === currentUserId ? 'You' : comment.userId}</strong>
+                          <strong>{resolveReviewDisplayName(comment.userId, comment.userName, currentUserId)}</strong>
                           <span>{comment.content}</span>
                           <small>
                             {formatDateTime(comment.createdAt)}
@@ -1372,3 +1520,4 @@ function UserProductsPage() {
 }
 
 export default UserProductsPage
+

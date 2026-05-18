@@ -220,6 +220,14 @@ const endpoints = {
     // SSE endpoint path (BASE_URL is appended by the stream hook)
     stream: '/api/v1/notifications/stream',
   },
+  messages: {
+    openConversation: '/api/v1/messages/conversations/open',
+    conversations: '/api/v1/messages/conversations',
+    conversationMessages: (conversationId: string) =>
+      `/api/v1/messages/conversations/${conversationId}/messages`,
+    markConversationRead: (conversationId: string) =>
+      `/api/v1/messages/conversations/${conversationId}/read`,
+  },
 }
 
 function getLocalStorageValue(key: string): string {
