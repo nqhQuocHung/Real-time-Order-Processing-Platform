@@ -45,7 +45,12 @@ function formatMoney(value: number, currency = 'VND') {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
+    maximumFractionDigits: 0,
   }).format(value || 0)
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat('en-US').format(Math.max(0, Math.round(value || 0)))
 }
 
 function normalizeQuantity(value: number | null | undefined): number {
@@ -58,6 +63,14 @@ function normalizePaidQuantity(item: PartnerProductStock): number {
 
 function normalizePrice(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Math.max(0, Number(value)) : 0
+}
+
+function normalizeStatus(value?: string | null): string {
+  return value?.trim().toUpperCase() || 'UNKNOWN'
+}
+
+function resolveProductLabel(item: PartnerProductStock): string {
+  return item.name?.trim() || item.productName?.trim() || item.productId
 }
 
 function PartnerDashboardPage() {
@@ -125,7 +138,7 @@ function PartnerDashboardPage() {
   const totalProducts = useMemo(() => products.length, [products])
 
   const activeProducts = useMemo(
-    () => products.filter((item) => (item.status || '').trim().toUpperCase() === 'ACTIVE').length,
+    () => products.filter((item) => normalizeStatus(item.status) === 'ACTIVE').length,
     [products],
   )
 
@@ -155,9 +168,9 @@ function PartnerDashboardPage() {
 
   const stockChartItems = useMemo(
     () => [
-      { label: 'Available', value: totalAvailableStock },
-      { label: 'Reserved', value: totalReservedStock },
-      { label: 'Paid Units', value: totalPaidUnits },
+      { label: 'Available', value: totalAvailableStock, tone: 'is-stock' },
+      { label: 'Reserved', value: totalReservedStock, tone: 'is-reserved' },
+      { label: 'Paid Units', value: totalPaidUnits, tone: 'is-paid' },
     ],
     [totalAvailableStock, totalReservedStock, totalPaidUnits],
   )
@@ -167,13 +180,32 @@ function PartnerDashboardPage() {
     [stockChartItems],
   )
 
+  const statusDistribution = useMemo(() => {
+    const counter = new Map<string, number>()
+    for (const item of products) {
+      const key = normalizeStatus(item.status)
+      counter.set(key, (counter.get(key) || 0) + 1)
+    }
+
+    return Array.from(counter.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((first, second) => second.value - first.value)
+      .slice(0, 6)
+  }, [products])
+
+  const maxStatusValue = useMemo(
+    () => Math.max(1, ...statusDistribution.map((item) => item.value)),
+    [statusDistribution],
+  )
+
   const topSellingProducts = useMemo(() => {
     return [...products]
       .sort((first, second) => normalizePaidQuantity(second) - normalizePaidQuantity(first))
       .slice(0, 6)
       .map((item) => ({
-        label: item.name?.trim() || item.productName?.trim() || item.productId,
+        label: resolveProductLabel(item),
         value: normalizePaidQuantity(item),
+        status: normalizeStatus(item.status),
       }))
   }, [products])
 
@@ -190,89 +222,189 @@ function PartnerDashboardPage() {
     return products.find((item) => item.shopId?.trim())?.shopId?.trim() || session?.userId || '-'
   }, [products, session?.userId])
 
+  const stockPressurePercent = useMemo(() => {
+    const tracked = totalAvailableStock + totalReservedStock
+    if (tracked <= 0) {
+      return 0
+    }
+    return Math.round((totalReservedStock / tracked) * 100)
+  }, [totalAvailableStock, totalReservedStock])
+
+  const soldThroughputPercent = useMemo(() => {
+    const tracked = totalAvailableStock + totalReservedStock + totalPaidUnits
+    if (tracked <= 0) {
+      return 0
+    }
+    return Math.round((totalPaidUnits / tracked) * 100)
+  }, [totalAvailableStock, totalReservedStock, totalPaidUnits])
+
+  const stockHealthTone =
+    stockPressurePercent >= 65
+      ? 'is-risk'
+      : stockPressurePercent >= 40
+        ? 'is-watch'
+        : 'is-good'
+
   if (loading) {
-    return <p className="role-muted">Loading Partner Dashboard...</p>
+    return (
+      <section className="partner-dashboard-page role-page-stack">
+        <article className="role-card partner-dashboard-loading">
+          <p className="role-muted">Loading Partner Dashboard...</p>
+        </article>
+      </section>
+    )
   }
 
   return (
     <section className="partner-dashboard-page role-page-stack">
       {error && <p className="role-error">{error}</p>}
 
-      <article className="role-card">
-        <h2>Partner Dashboard</h2>
-        <p className="role-muted">
-          Data is scoped by shop from <code>/api/v1/inventories/my-products</code> to avoid
-          cross-shop overlap.
-        </p>
-        <p className="partner-dashboard-scope">
-          Current shop scope: <strong>{scopedShopName}</strong>
-        </p>
+      <article className="role-card partner-dashboard-hero">
+        <div className="partner-dashboard-hero-main">
+          <p className="partner-dashboard-overline">Partner Intelligence</p>
+          <h2>Sales and Inventory Command Deck</h2>
+          <p className="role-muted">
+            Realtime snapshot for your shop inventory movement, sold units, and stock pressure.
+          </p>
+          <p className="partner-dashboard-scope">
+            Current shop scope: <strong>{scopedShopName}</strong>
+          </p>
+        </div>
 
-        <div className="role-inline-actions">
+        <div className="partner-dashboard-hero-kpis">
+          <div>
+            <span>Stock Pressure</span>
+            <strong>{stockPressurePercent}%</strong>
+            <small>Reserved / (Reserved + Available)</small>
+          </div>
+          <div>
+            <span>Sold Throughput</span>
+            <strong>{soldThroughputPercent}%</strong>
+            <small>Paid / (Available + Reserved + Paid)</small>
+          </div>
+          <div>
+            <span>Live Revenue View</span>
+            <strong>{formatMoney(estimatedRevenue, 'VND')}</strong>
+            <small>Paid units x current price</small>
+          </div>
+        </div>
+
+        <div className="role-inline-actions partner-dashboard-actions">
           <button type="button" className="role-btn-ghost" onClick={() => void loadPartnerData()}>
             Refresh Dashboard
           </button>
         </div>
+      </article>
 
-        <div className="role-metric-grid">
-          <div className="role-metric-card">
+      <article className="role-card partner-dashboard-metrics-wrap">
+        <div className="partner-dashboard-metric-grid">
+          <div className="partner-dashboard-metric-card">
             <span>Total Products</span>
-            <strong>{totalProducts}</strong>
+            <strong>{formatCount(totalProducts)}</strong>
           </div>
-          <div className="role-metric-card">
+          <div className="partner-dashboard-metric-card">
             <span>Active Products</span>
-            <strong>{activeProducts}</strong>
+            <strong>{formatCount(activeProducts)}</strong>
           </div>
-          <div className="role-metric-card">
+          <div className="partner-dashboard-metric-card">
+            <span>Available Units</span>
+            <strong>{formatCount(totalAvailableStock)}</strong>
+          </div>
+          <div className="partner-dashboard-metric-card">
+            <span>Reserved Units</span>
+            <strong>{formatCount(totalReservedStock)}</strong>
+          </div>
+          <div className="partner-dashboard-metric-card">
             <span>Paid Units</span>
-            <strong>{totalPaidUnits}</strong>
-          </div>
-          <div className="role-metric-card">
-            <span>Estimated Revenue</span>
-            <strong>{formatMoney(estimatedRevenue, 'VND')}</strong>
-            <small>Computed as paid units x price.</small>
+            <strong>{formatCount(totalPaidUnits)}</strong>
           </div>
         </div>
       </article>
 
-      <article className="role-card">
-        <h3>Stock Overview</h3>
-        <div className="partner-dashboard-chart">
-          {stockChartItems.map((item) => {
-            const widthPercent = Math.round((item.value / maxStockChartValue) * 100)
-            return (
-              <div className="partner-dashboard-chart-row" key={item.label}>
-                <span>{item.label}</span>
-                <div className="partner-dashboard-chart-track">
-                  <div
-                    className="partner-dashboard-chart-bar"
-                    style={{ width: `${widthPercent}%` }}
-                  />
-                </div>
-                <strong>{item.value}</strong>
-              </div>
-            )
-          })}
-        </div>
-      </article>
+      <div className="partner-dashboard-board">
+        <article className="role-card partner-dashboard-surface">
+          <h3>Stock Balance</h3>
+          <div className={`partner-dashboard-health ${stockHealthTone}`}>
+            <div className="partner-dashboard-health-track">
+              <div
+                className="partner-dashboard-health-fill"
+                style={{ width: `${Math.min(100, Math.max(0, stockPressurePercent))}%` }}
+              />
+            </div>
+            <small>
+              Reserved pressure is <strong>{stockPressurePercent}%</strong>.
+            </small>
+          </div>
 
-      <article className="role-card">
-        <h3>Top Selling Products</h3>
-        {!topSellingProducts.length && <p className="role-muted">No sales data yet.</p>}
-        {!!topSellingProducts.length && (
           <div className="partner-dashboard-chart">
-            {topSellingProducts.map((item) => {
-              const widthPercent = Math.round((item.value / maxTopSellingValue) * 100)
+            {stockChartItems.map((item) => {
+              const widthPercent = Math.round((item.value / maxStockChartValue) * 100)
               return (
                 <div className="partner-dashboard-chart-row" key={item.label}>
                   <span>{item.label}</span>
                   <div className="partner-dashboard-chart-track">
                     <div
-                      className="partner-dashboard-chart-bar is-alt"
+                      className={`partner-dashboard-chart-bar ${item.tone}`}
                       style={{ width: `${widthPercent}%` }}
                     />
                   </div>
-                  <strong>{item.value}</strong>
+                  <strong>{formatCount(item.value)}</strong>
+                </div>
+              )
+            })}
+          </div>
+        </article>
+
+        <article className="role-card partner-dashboard-surface">
+          <h3>Status Distribution</h3>
+          {!statusDistribution.length && <p className="role-muted">No status data available.</p>}
+          {!!statusDistribution.length && (
+            <div className="partner-dashboard-chart">
+              {statusDistribution.map((item) => {
+                const widthPercent = Math.round((item.value / maxStatusValue) * 100)
+                return (
+                  <div className="partner-dashboard-chart-row" key={item.label}>
+                    <span>{item.label}</span>
+                    <div className="partner-dashboard-chart-track">
+                      <div
+                        className="partner-dashboard-chart-bar is-status"
+                        style={{ width: `${widthPercent}%` }}
+                      />
+                    </div>
+                    <strong>{formatCount(item.value)}</strong>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </article>
+      </div>
+
+      <article className="role-card partner-dashboard-top-sales">
+        <h3>Top Selling Products</h3>
+        {!topSellingProducts.length && <p className="role-muted">No sales data yet.</p>}
+        {!!topSellingProducts.length && (
+          <div className="partner-dashboard-rank-list">
+            {topSellingProducts.map((item, index) => {
+              const widthPercent = Math.round((item.value / maxTopSellingValue) * 100)
+              return (
+                <div className="partner-dashboard-rank-row" key={`${item.label}-${index}`}>
+                  <div className="partner-dashboard-rank-id">#{index + 1}</div>
+                  <div className="partner-dashboard-rank-main">
+                    <div className="partner-dashboard-rank-head">
+                      <strong>{item.label}</strong>
+                      <span className={`partner-dashboard-rank-status is-${item.status.toLowerCase()}`}>
+                        {item.status}
+                      </span>
+                    </div>
+                    <div className="partner-dashboard-rank-track">
+                      <div
+                        className="partner-dashboard-rank-fill"
+                        style={{ width: `${widthPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="partner-dashboard-rank-value">{formatCount(item.value)}</div>
                 </div>
               )
             })}
