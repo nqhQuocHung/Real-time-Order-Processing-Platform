@@ -55,6 +55,23 @@ function normalizeMenuPath(path?: string) {
   return (path || '').trim()
 }
 
+function normalizeSearchText(value?: string | null) {
+  return (value || '').trim().toLowerCase()
+}
+
+function menuMatchesSearchKeyword(
+  menu: Pick<MenuSummary, 'key' | 'label' | 'path'>,
+  normalizedKeyword: string,
+) {
+  if (!normalizedKeyword) {
+    return true
+  }
+
+  return [menu.label, menu.key, normalizeMenuPath(menu.path)]
+    .map((value) => normalizeSearchText(value))
+    .some((value) => value.includes(normalizedKeyword))
+}
+
 function isContainerMenu(menu: MenuSummary) {
   return Boolean(menu.isContainer) || !normalizeMenuPath(menu.path)
 }
@@ -182,6 +199,7 @@ function AdminAccessManagementPage() {
   const [editingMenuError, setEditingMenuError] = useState('')
   const [deletingMenuId, setDeletingMenuId] = useState('')
   const [pendingDeleteMenu, setPendingDeleteMenu] = useState<MenuSummary | null>(null)
+  const [pageSearchKeyword, setPageSearchKeyword] = useState('')
   const [mappingMenuPage, setMappingMenuPage] = useState(0)
   const [roleTablePage, setRoleTablePage] = useState(0)
   const [menuTablePage, setMenuTablePage] = useState(0)
@@ -201,6 +219,21 @@ function AdminAccessManagementPage() {
     [roles],
   )
   const sortedMenus = useMemo(() => [...menus].sort(compareMenusByOrder), [menus])
+  const normalizedPageSearchKeyword = useMemo(
+    () => normalizeSearchText(pageSearchKeyword),
+    [pageSearchKeyword],
+  )
+  const filteredFlattenedMenus = useMemo(
+    () =>
+      flattenedMenus.filter(({ node }) =>
+        menuMatchesSearchKeyword(node, normalizedPageSearchKeyword),
+      ),
+    [flattenedMenus, normalizedPageSearchKeyword],
+  )
+  const filteredSortedMenus = useMemo(
+    () => sortedMenus.filter((menu) => menuMatchesSearchKeyword(menu, normalizedPageSearchKeyword)),
+    [normalizedPageSearchKeyword, sortedMenus],
+  )
 
   const parentTabOptions = useMemo(() => {
     return menus
@@ -231,15 +264,15 @@ function AdminAccessManagementPage() {
   }, [menus, pendingDeleteMenu?.id])
 
   const mappingMenuTotalPages = useMemo(() => {
-    return flattenedMenus.length > 0
-      ? Math.ceil(flattenedMenus.length / mappingMenuPageSize)
+    return filteredFlattenedMenus.length > 0
+      ? Math.ceil(filteredFlattenedMenus.length / mappingMenuPageSize)
       : 0
-  }, [flattenedMenus.length, mappingMenuPageSize])
+  }, [filteredFlattenedMenus.length, mappingMenuPageSize])
 
   const visibleMappingMenus = useMemo(() => {
     const start = mappingMenuPage * mappingMenuPageSize
-    return flattenedMenus.slice(start, start + mappingMenuPageSize)
-  }, [flattenedMenus, mappingMenuPage, mappingMenuPageSize])
+    return filteredFlattenedMenus.slice(start, start + mappingMenuPageSize)
+  }, [filteredFlattenedMenus, mappingMenuPage, mappingMenuPageSize])
 
   const mappingMenuPaginationPages = useMemo(
     () => buildPaginationPages(mappingMenuPage, mappingMenuTotalPages),
@@ -261,13 +294,15 @@ function AdminAccessManagementPage() {
   )
 
   const menuTableTotalPages = useMemo(() => {
-    return sortedMenus.length > 0 ? Math.ceil(sortedMenus.length / menuTablePageSize) : 0
-  }, [menuTablePageSize, sortedMenus.length])
+    return filteredSortedMenus.length > 0
+      ? Math.ceil(filteredSortedMenus.length / menuTablePageSize)
+      : 0
+  }, [filteredSortedMenus.length, menuTablePageSize])
 
   const visibleMenus = useMemo(() => {
     const start = menuTablePage * menuTablePageSize
-    return sortedMenus.slice(start, start + menuTablePageSize)
-  }, [menuTablePage, menuTablePageSize, sortedMenus])
+    return filteredSortedMenus.slice(start, start + menuTablePageSize)
+  }, [filteredSortedMenus, menuTablePage, menuTablePageSize])
 
   const menuTablePaginationPages = useMemo(
     () => buildPaginationPages(menuTablePage, menuTableTotalPages),
@@ -318,6 +353,11 @@ function AdminAccessManagementPage() {
       setNewPageParentMenuId('')
     }
   }, [newPageParentMenuId, parentTabOptions])
+
+  useEffect(() => {
+    setMappingMenuPage(0)
+    setMenuTablePage(0)
+  }, [normalizedPageSearchKeyword])
 
   useEffect(() => {
     if (mappingMenuTotalPages === 0 && mappingMenuPage !== 0) {
@@ -659,20 +699,20 @@ function AdminAccessManagementPage() {
     setMenuTablePage(targetPage)
   }
 
-  const mappingMenuStart = flattenedMenus.length === 0 ? 0 : mappingMenuPage * mappingMenuPageSize + 1
-  const mappingMenuEnd = flattenedMenus.length === 0
+  const mappingMenuStart = filteredFlattenedMenus.length === 0 ? 0 : mappingMenuPage * mappingMenuPageSize + 1
+  const mappingMenuEnd = filteredFlattenedMenus.length === 0
     ? 0
-    : Math.min((mappingMenuPage + 1) * mappingMenuPageSize, flattenedMenus.length)
+    : Math.min((mappingMenuPage + 1) * mappingMenuPageSize, filteredFlattenedMenus.length)
 
   const roleTableStart = sortedRoles.length === 0 ? 0 : roleTablePage * roleTablePageSize + 1
   const roleTableEnd = sortedRoles.length === 0
     ? 0
     : Math.min((roleTablePage + 1) * roleTablePageSize, sortedRoles.length)
 
-  const menuTableStart = sortedMenus.length === 0 ? 0 : menuTablePage * menuTablePageSize + 1
-  const menuTableEnd = sortedMenus.length === 0
+  const menuTableStart = filteredSortedMenus.length === 0 ? 0 : menuTablePage * menuTablePageSize + 1
+  const menuTableEnd = filteredSortedMenus.length === 0
     ? 0
-    : Math.min((menuTablePage + 1) * menuTablePageSize, sortedMenus.length)
+    : Math.min((menuTablePage + 1) * menuTablePageSize, filteredSortedMenus.length)
 
   return (
     <section className="admin-access-management-page role-page-stack">
@@ -895,8 +935,26 @@ function AdminAccessManagementPage() {
           </p>
         )}
 
+        <div className="role-inline-form admin-access-management-search-grid">
+          <label className="admin-access-management-search-full">
+            Search tab/page by name or URL
+            <input
+              value={pageSearchKeyword}
+              onChange={(event) => setPageSearchKeyword(event.target.value)}
+              placeholder="e.g. dashboard or /admin/orders"
+              disabled={submitting || loading}
+            />
+          </label>
+        </div>
+
         <div className="admin-access-management-menu-list">
-          {!flattenedMenus.length && <p className="role-muted">No tab/page data available.</p>}
+          {!filteredFlattenedMenus.length && (
+            <p className="role-muted">
+              {flattenedMenus.length
+                ? 'No tab/page matches current search.'
+                : 'No tab/page data available.'}
+            </p>
+          )}
           {visibleMappingMenus.map(({ node, depth }) => (
             <label
               key={node.key}
@@ -924,7 +982,7 @@ function AdminAccessManagementPage() {
 
         <div className="admin-access-management-pagination">
           <p className="admin-access-management-pagination-summary">
-            Showing {mappingMenuStart}-{mappingMenuEnd} of {flattenedMenus.length}
+            Showing {mappingMenuStart}-{mappingMenuEnd} of {filteredFlattenedMenus.length}
           </p>
           <div className="admin-access-management-pagination-controls">
             <button
@@ -1035,6 +1093,27 @@ function AdminAccessManagementPage() {
 
       <article className="role-card">
         <h3>Current Tabs / Pages</h3>
+        <div className="role-inline-form admin-access-management-search-grid">
+          <label className="admin-access-management-search-full">
+            Search tab/page by name or URL
+            <input
+              value={pageSearchKeyword}
+              onChange={(event) => setPageSearchKeyword(event.target.value)}
+              placeholder="e.g. user support or /user/support"
+              disabled={submitting || loading}
+            />
+          </label>
+        </div>
+        <div className="role-inline-actions">
+          <button
+            type="button"
+            className="role-btn-ghost"
+            onClick={() => setPageSearchKeyword('')}
+            disabled={!pageSearchKeyword.trim()}
+          >
+            Clear Search
+          </button>
+        </div>
         <div className="role-table-wrap">
           <table>
             <thead>
@@ -1050,10 +1129,12 @@ function AdminAccessManagementPage() {
               </tr>
             </thead>
             <tbody>
-              {!menus.length && (
+              {!filteredSortedMenus.length && (
                 <tr>
                   <td colSpan={8} className="role-empty-cell">
-                    No tab/page data available.
+                    {sortedMenus.length
+                      ? 'No tab/page matches current search.'
+                      : 'No tab/page data available.'}
                   </td>
                 </tr>
               )}
@@ -1100,7 +1181,7 @@ function AdminAccessManagementPage() {
 
         <div className="admin-access-management-pagination">
           <p className="admin-access-management-pagination-summary">
-            Showing {menuTableStart}-{menuTableEnd} of {sortedMenus.length}
+            Showing {menuTableStart}-{menuTableEnd} of {filteredSortedMenus.length}
           </p>
           <div className="admin-access-management-pagination-controls">
             <button
