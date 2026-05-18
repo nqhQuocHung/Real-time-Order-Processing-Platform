@@ -9,4 +9,6 @@ public interface AdminSseService {
     void sendToAdmins(String eventName, Object data);
 
     void sendToUser(String userId, String eventName, Object data);
+
+    void sendToAllUsers(String eventName, Object data);
 }

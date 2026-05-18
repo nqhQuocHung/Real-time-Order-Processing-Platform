@@ -1,7 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../../config/apis'
-import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
+import {
+  apis,
+  endpoints,
+  extractApiData,
+  extractApiErrorMessage,
+  getAuthSession,
+} from '../../../config/apis'
+import ProductCard, {
+  type ProductCardData,
+  type ProductCardRatingSummary,
+} from '../../../components/products/ProductCard'
 import {
   readUserCartFromStorage,
   type UserCartItem,
@@ -12,6 +21,61 @@ import './UserProductsPage.css'
 
 const DEFAULT_PRODUCT_PAGE_SIZE = 8
 const PRODUCT_PAGE_SIZE_OPTIONS = [8, 12, 16, 24]
+const DEFAULT_REVIEW_PAGE_SIZE = 6
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+
+type ProductReviewComment = {
+  commentId: string
+  commentUuid?: string
+  reviewId: string
+  productId: string
+  userId: string
+  content: string
+  editedAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+type ProductReview = {
+  reviewId: string
+  reviewUuid?: string
+  productId: string
+  userId: string
+  rating: number
+  title?: string
+  content: string
+  orderCode?: string
+  verifiedPurchase?: boolean
+  editedAt?: string
+  createdAt?: string
+  updatedAt?: string
+  comments?: ProductReviewComment[]
+}
+
+type ProductReviewListResponse = {
+  content: ProductReview[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  last: boolean
+}
+
+type ProductReviewStats = {
+  productId: string
+  averageRating: number
+  totalReviews: number
+  star1: number
+  star2: number
+  star3: number
+  star4: number
+  star5: number
+}
+
+type AppNotificationEventDetail = {
+  eventName: string
+  payload: unknown
+}
 
 function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Math.max(0, Math.floor(Number(value))) : 0
@@ -39,6 +103,24 @@ function formatProductPrice(value?: number | null, currency?: string | null): st
   }
 
   return 'N/A'
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return '-'
+  }
+  return new Date(value).toLocaleString('en-US')
+}
+
+function normalizeReviewText(value?: string | null) {
+  return value?.trim() || ''
+}
+
+function normalizeRatingValue(value: number | null | undefined): number {
+  if (!Number.isFinite(value as number)) {
+    return 0
+  }
+  return Math.max(0, Math.min(5, Number(value)))
 }
 
 function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
@@ -144,6 +226,8 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalog: ProductCardData[])
 
 function UserProductsPage() {
   const navigate = useNavigate()
+  const session = getAuthSession()
+  const currentUserId = session?.userId || ''
   const [products, setProducts] = useState<ProductCardData[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -154,6 +238,24 @@ function UserProductsPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PRODUCT_PAGE_SIZE)
   const [cart, setCart] = useState<UserCartMap>(() => readUserCartFromStorage())
   const [selectedProduct, setSelectedProduct] = useState<ProductCardData | null>(null)
+  const [reviewList, setReviewList] = useState<ProductReview[]>([])
+  const [reviewStats, setReviewStats] = useState<ProductReviewStats | null>(null)
+  const [reviewLoading, setReviewLoading] = useState(false)
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+  const [reviewPage, setReviewPage] = useState(0)
+  const [reviewTotalPages, setReviewTotalPages] = useState(0)
+  const [reviewTotalElements, setReviewTotalElements] = useState(0)
+  const [reviewSort, setReviewSort] = useState('latest')
+  const [reviewFormRating, setReviewFormRating] = useState(5)
+  const [reviewFormTitle, setReviewFormTitle] = useState('')
+  const [reviewFormContent, setReviewFormContent] = useState('')
+  const [commentDraftByReviewId, setCommentDraftByReviewId] = useState<Record<string, string>>({})
+  const [commentSubmittingByReviewId, setCommentSubmittingByReviewId] = useState<Record<string, boolean>>({})
+  const [reviewStatsByProductId, setReviewStatsByProductId] = useState<Record<string, ProductReviewStats>>({})
+  const [reviewStatsLoadedByProductId, setReviewStatsLoadedByProductId] = useState<Record<string, boolean>>({})
+  const [isReviewComposerOpen, setIsReviewComposerOpen] = useState(false)
+  const [activeCommentReviewId, setActiveCommentReviewId] = useState('')
 
   const loadCatalog = useCallback(async () => {
     setLoading(true)
@@ -172,6 +274,64 @@ function UserProductsPage() {
     }
   }, [])
 
+  const loadProductReviewBundle = useCallback(async (
+    productId: string,
+    targetPage = reviewPage,
+    targetSort = reviewSort,
+  ) => {
+    if (!productId) {
+      return
+    }
+
+    setReviewLoading(true)
+    setReviewError('')
+    try {
+      const [reviewsResponse, statsResponse] = await Promise.all([
+        apis().get(endpoints.inventories.productReviews(productId), {
+          params: {
+            page: targetPage,
+            size: DEFAULT_REVIEW_PAGE_SIZE,
+            sort: targetSort,
+          },
+        }),
+        apis().get(endpoints.inventories.productReviewStats(productId)),
+      ])
+
+      const reviewListData = extractApiData<ProductReviewListResponse>(reviewsResponse)
+      const reviewStatsData = extractApiData<ProductReviewStats>(statsResponse)
+
+      setReviewList(Array.isArray(reviewListData.content) ? reviewListData.content : [])
+      setReviewPage(Number.isFinite(reviewListData.page as number) ? Number(reviewListData.page) : 0)
+      setReviewTotalPages(
+        Number.isFinite(reviewListData.totalPages as number)
+          ? Math.max(0, Number(reviewListData.totalPages))
+          : 0,
+      )
+      setReviewTotalElements(
+        Number.isFinite(reviewListData.totalElements as number)
+          ? Math.max(0, Number(reviewListData.totalElements))
+          : 0,
+      )
+      setReviewStats(reviewStatsData)
+      setReviewStatsByProductId((previous) => ({
+        ...previous,
+        [productId]: reviewStatsData,
+      }))
+      setReviewStatsLoadedByProductId((previous) => ({
+        ...previous,
+        [productId]: true,
+      }))
+    } catch (err) {
+      setReviewError(extractApiErrorMessage(err, 'Cannot load product reviews.'))
+      setReviewList([])
+      setReviewTotalPages(0)
+      setReviewTotalElements(0)
+      setReviewStats(null)
+    } finally {
+      setReviewLoading(false)
+    }
+  }, [reviewPage, reviewSort])
+
   useEffect(() => {
     void loadCatalog()
   }, [loadCatalog])
@@ -179,13 +339,6 @@ function UserProductsPage() {
   useEffect(() => {
     writeUserCartToStorage(cart)
   }, [cart])
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void loadCatalog()
-    }, 15000)
-    return () => window.clearInterval(intervalId)
-  }, [loadCatalog])
 
   const activeProducts = useMemo(
     () => products.filter((item) => normalizeQuantity(item.availableQuantity) > 0),
@@ -267,6 +420,69 @@ function UserProductsPage() {
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, page, pageSize])
 
+  useEffect(() => {
+    const productIds = Array.from(
+      new Set(
+        pagedProducts
+          .map((item) => item.productId?.trim())
+          .filter((productId): productId is string => Boolean(productId)),
+      ),
+    )
+    const uncachedProductIds = productIds.filter(
+      (productId) => !reviewStatsLoadedByProductId[productId],
+    )
+    if (!uncachedProductIds.length) {
+      return
+    }
+
+    let active = true
+
+    void (async () => {
+      const results = await Promise.all(
+        uncachedProductIds.map(async (productId) => {
+          try {
+            const response = await apis().get(endpoints.inventories.productReviewStats(productId))
+            return {
+              productId,
+              stats: extractApiData<ProductReviewStats>(response),
+            }
+          } catch {
+            return {
+              productId,
+              stats: null,
+            }
+          }
+        }),
+      )
+
+      if (!active) {
+        return
+      }
+
+      setReviewStatsLoadedByProductId((previous) => {
+        const next = { ...previous }
+        for (const { productId } of results) {
+          next[productId] = true
+        }
+        return next
+      })
+
+      setReviewStatsByProductId((previous) => {
+        const next = { ...previous }
+        for (const { productId, stats } of results) {
+          if (stats) {
+            next[productId] = stats
+          }
+        }
+        return next
+      })
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [pagedProducts, reviewStatsLoadedByProductId])
+
   const cartItems = useMemo(() => {
     return Object.values(cart).sort((firstItem, secondItem) =>
       firstItem.productName.localeCompare(secondItem.productName),
@@ -278,6 +494,84 @@ function UserProductsPage() {
     () => cartItems.reduce((sum, item) => sum + normalizeQuantity(item.quantity), 0),
     [cartItems],
   )
+  const myReview = useMemo(() => {
+    if (!currentUserId) {
+      return null
+    }
+    return reviewList.find((review) => review.userId === currentUserId) || null
+  }, [currentUserId, reviewList])
+  const activeCommentReview = useMemo(() => {
+    if (!activeCommentReviewId) {
+      return null
+    }
+    return reviewList.find((review) => review.reviewId === activeCommentReviewId) || null
+  }, [activeCommentReviewId, reviewList])
+  const activeCommentDraft = activeCommentReviewId ? commentDraftByReviewId[activeCommentReviewId] || '' : ''
+  const activeCommentSubmitting = activeCommentReviewId
+    ? Boolean(commentSubmittingByReviewId[activeCommentReviewId])
+    : false
+  const activeCommentReviewRating = activeCommentReview
+    ? Math.max(1, Math.round(normalizeRatingValue(activeCommentReview.rating)))
+    : 1
+
+  useEffect(() => {
+    if (!selectedProduct?.productId) {
+      return
+    }
+
+    setReviewPage(0)
+    setReviewSort('latest')
+    setReviewFormRating(5)
+    setReviewFormTitle('')
+    setReviewFormContent('')
+    setCommentDraftByReviewId({})
+    setCommentSubmittingByReviewId({})
+    setIsReviewComposerOpen(false)
+    setActiveCommentReviewId('')
+    void loadProductReviewBundle(selectedProduct.productId, 0, 'latest')
+  }, [loadProductReviewBundle, selectedProduct?.productId])
+
+  useEffect(() => {
+    if (!myReview) {
+      setReviewFormRating(5)
+      setReviewFormTitle('')
+      setReviewFormContent('')
+      return
+    }
+
+    setReviewFormRating(Math.max(1, Math.min(5, Number(myReview.rating) || 5)))
+    setReviewFormTitle(myReview.title?.trim() || '')
+    setReviewFormContent(myReview.content?.trim() || '')
+  }, [myReview])
+
+  useEffect(() => {
+    function onRealtimeReviewEvent(event: Event) {
+      if (!selectedProduct?.productId) {
+        return
+      }
+
+      const customEvent = event as CustomEvent<AppNotificationEventDetail>
+      const eventName = customEvent.detail?.eventName || ''
+      if (!eventName.startsWith('product.review.')) {
+        return
+      }
+
+      const payload = customEvent.detail?.payload as
+        | { productId?: string | null }
+        | undefined
+      const payloadProductId = payload?.productId?.trim() || ''
+      if (!payloadProductId || payloadProductId !== selectedProduct.productId) {
+        return
+      }
+
+      void loadProductReviewBundle(selectedProduct.productId, reviewPage, reviewSort)
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, onRealtimeReviewEvent as EventListener)
+    return () => {
+      window.removeEventListener(APP_NOTIFICATION_EVENT, onRealtimeReviewEvent as EventListener)
+    }
+  }, [loadProductReviewBundle, reviewPage, reviewSort, selectedProduct?.productId])
 
   function handleAddToCart(product: ProductCardData) {
     const availableQuantity = normalizeQuantity(product.availableQuantity)
@@ -325,13 +619,144 @@ function UserProductsPage() {
     })
   }
 
+  async function handleSubmitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!selectedProduct?.productId) {
+      return
+    }
+    if (!currentUserId) {
+      setReviewError('Please login again to review this product.')
+      return
+    }
+    if (!normalizeReviewText(reviewFormContent)) {
+      setReviewError('Please enter your review content.')
+      return
+    }
+
+    setReviewSubmitting(true)
+    setReviewError('')
+    try {
+      const payload = {
+        rating: reviewFormRating,
+        title: normalizeReviewText(reviewFormTitle) || null,
+        content: normalizeReviewText(reviewFormContent),
+      }
+
+      if (myReview?.reviewId) {
+        await apis().put(
+          endpoints.inventories.updateProductReview(myReview.reviewId),
+          payload,
+        )
+      } else {
+        await apis().post(
+          endpoints.inventories.createProductReview(selectedProduct.productId),
+          payload,
+        )
+      }
+
+      setIsReviewComposerOpen(false)
+      void loadProductReviewBundle(selectedProduct.productId, 0, reviewSort)
+    } catch (err) {
+      setReviewError(extractApiErrorMessage(err, 'Cannot save product review.'))
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
+
+  async function handleSubmitComment(reviewId: string): Promise<boolean> {
+    if (!selectedProduct?.productId || !reviewId) {
+      return false
+    }
+    if (!currentUserId) {
+      setReviewError('Please login again to comment.')
+      return false
+    }
+
+    const content = normalizeReviewText(commentDraftByReviewId[reviewId])
+    if (!content) {
+      return false
+    }
+
+    setCommentSubmittingByReviewId((previous) => ({
+      ...previous,
+      [reviewId]: true,
+    }))
+    setReviewError('')
+
+    try {
+      await apis().post(
+        endpoints.inventories.createProductReviewComment(reviewId),
+        { content },
+      )
+      setCommentDraftByReviewId((previous) => ({
+        ...previous,
+        [reviewId]: '',
+      }))
+      void loadProductReviewBundle(selectedProduct.productId, reviewPage, reviewSort)
+      return true
+    } catch (err) {
+      setReviewError(extractApiErrorMessage(err, 'Cannot create review comment.'))
+      return false
+    } finally {
+      setCommentSubmittingByReviewId((previous) => ({
+        ...previous,
+        [reviewId]: false,
+      }))
+    }
+  }
+
+  function handleChangeReviewSort(nextSort: string) {
+    if (!selectedProduct?.productId) {
+      setReviewSort(nextSort)
+      return
+    }
+    setReviewSort(nextSort)
+    setReviewPage(0)
+    void loadProductReviewBundle(selectedProduct.productId, 0, nextSort)
+  }
+
+  function handleGoToReviewPage(nextPage: number) {
+    if (!selectedProduct?.productId || nextPage < 0 || nextPage >= reviewTotalPages) {
+      return
+    }
+    setReviewPage(nextPage)
+    void loadProductReviewBundle(selectedProduct.productId, nextPage, reviewSort)
+  }
+
   function closeProductDetail() {
     setSelectedProduct(null)
+    setReviewError('')
+    setReviewList([])
+    setReviewStats(null)
+    setReviewPage(0)
+    setReviewTotalPages(0)
+    setReviewTotalElements(0)
+    setCommentDraftByReviewId({})
+    setCommentSubmittingByReviewId({})
+    setIsReviewComposerOpen(false)
+    setActiveCommentReviewId('')
   }
 
   const detailProductName =
     selectedProduct?.name?.trim() || selectedProduct?.productName?.trim() || 'Unnamed Product'
   const detailShopName = selectedProduct?.shopName?.trim() || selectedProduct?.shopId || '-'
+  const getProductRatingSummary = useCallback(
+    (productId: string): ProductCardRatingSummary | null => {
+      const stats = reviewStatsByProductId[productId]
+      if (!stats) {
+        return null
+      }
+      return {
+        averageRating: normalizeRatingValue(stats.averageRating),
+        totalReviews: Math.max(0, Number(stats.totalReviews) || 0),
+      }
+    },
+    [reviewStatsByProductId],
+  )
+  const reviewPaginationPages = useMemo(
+    () => buildPaginationPages(reviewPage, reviewTotalPages, 5),
+    [reviewPage, reviewTotalPages],
+  )
 
   return (
     <section className="user-products-page role-page-stack">
@@ -340,7 +765,7 @@ function UserProductsPage() {
           <div>
             <h2>Product Catalog</h2>
             <p className="role-muted">
-              Browse all products currently sold by partners. Quantities are refreshed periodically.
+              Browse all products currently sold by partners. Use Refresh Catalog to sync latest stock.
             </p>
           </div>
           <div className="user-products-page-catalog-metrics" aria-label="Catalog summary">
@@ -420,6 +845,7 @@ function UserProductsPage() {
               <ProductCard
                 key={item.stockId || item.itemId || item.productId}
                 product={item}
+                ratingSummary={getProductRatingSummary(item.productId)}
                 onViewDetail={setSelectedProduct}
                 actionSlot={
                   inCart ? (
@@ -591,6 +1017,353 @@ function UserProductsPage() {
             <p className="user-products-page-modal-description">
               {selectedProduct.description?.trim() || 'No description available.'}
             </p>
+
+            <section className="user-products-page-reviews">
+              <div className="user-products-page-reviews-header">
+                <h4>Ratings & Reviews</h4>
+                <div className="user-products-page-reviews-metrics">
+                  <span>{(reviewStats?.averageRating || 0).toFixed(1)} / 5</span>
+                  <span>{reviewStats?.totalReviews || 0} review(s)</span>
+                </div>
+              </div>
+
+              {reviewError && <p className="role-error">{reviewError}</p>}
+
+              <div className="user-products-page-review-stars">
+                {[5, 4, 3, 2, 1].map((starValue) => (
+                  <div key={`star-${starValue}`}>
+                    <span>{starValue}&#9733;</span>
+                    <strong>
+                      {starValue === 5 ? reviewStats?.star5 || 0
+                        : starValue === 4 ? reviewStats?.star4 || 0
+                          : starValue === 3 ? reviewStats?.star3 || 0
+                            : starValue === 2 ? reviewStats?.star2 || 0
+                              : reviewStats?.star1 || 0}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="user-products-page-review-actions">
+                <button
+                  type="button"
+                  className="role-btn-primary user-products-page-review-open-btn"
+                  onClick={() => {
+                    setReviewError('')
+                    setIsReviewComposerOpen(true)
+                  }}
+                >
+                  {myReview ? 'Update Your Review' : 'Write a Review'}
+                </button>
+                {myReview && (
+                  <span className="role-muted">
+                    You already reviewed this product. You can update it anytime.
+                  </span>
+                )}
+              </div>
+
+              <div className="user-products-page-review-toolbar">
+                <label>
+                  Sort
+                  <select
+                    value={reviewSort}
+                    onChange={(event) => handleChangeReviewSort(event.target.value)}
+                    disabled={reviewLoading}
+                  >
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="rating_desc">Rating High to Low</option>
+                    <option value="rating_asc">Rating Low to High</option>
+                  </select>
+                </label>
+                <span>{reviewTotalElements} review(s)</span>
+              </div>
+
+              {reviewLoading ? (
+                <p className="role-muted">Loading reviews...</p>
+              ) : (
+                <div className="user-products-page-review-list">
+                  {!reviewList.length && (
+                    <p className="role-muted">No reviews yet. Be the first to review this product.</p>
+                  )}
+
+                  {reviewList.map((review) => {
+                    const comments = Array.isArray(review.comments) ? review.comments : []
+                    const ratingValue = Math.max(1, Math.round(normalizeRatingValue(review.rating)))
+
+                    return (
+                      <article key={review.reviewId} className="user-products-page-review-item">
+                        <header>
+                          <div
+                            className="user-products-page-review-rating"
+                            aria-label={`${ratingValue} out of 5`}
+                          >
+                            {[1, 2, 3, 4, 5].map((starValue) => (
+                              <span
+                                key={`review-rating-${review.reviewId}-${starValue}`}
+                                className={ratingValue >= starValue ? 'is-active' : ''}
+                                aria-hidden="true"
+                              >
+                                &#9733;
+                              </span>
+                            ))}
+                          </div>
+                          <div className="user-products-page-review-meta">
+                            <strong>{review.userId === currentUserId ? 'You' : review.userId}</strong>
+                            <small>
+                              {formatDateTime(review.createdAt)}
+                              {review.editedAt ? ' (edited)' : ''}
+                            </small>
+                          </div>
+                          {review.verifiedPurchase && (
+                            <span className="user-products-page-review-verified">Verified purchase</span>
+                          )}
+                        </header>
+
+                        {review.title?.trim() && <h6>{review.title}</h6>}
+                        <p>{review.content}</p>
+
+                        <div className="user-products-page-review-item-actions">
+                          <button
+                            type="button"
+                            className="role-btn-ghost user-products-page-review-comment-trigger"
+                            onClick={() => {
+                              setReviewError('')
+                              setActiveCommentReviewId(review.reviewId)
+                            }}
+                          >
+                            Xem bình luận
+                          </button>
+                          <span>{comments.length} comment(s)</span>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+
+              {reviewTotalPages > 0 && (
+                <div className="user-products-page-review-pagination">
+                  <button
+                    type="button"
+                    className="role-btn-ghost user-products-page-btn-page"
+                    onClick={() => handleGoToReviewPage(Math.max(0, reviewPage - 1))}
+                    disabled={reviewPage <= 0 || reviewLoading}
+                  >
+                    Prev
+                  </button>
+                  {reviewPaginationPages.map((pageNumber) => (
+                    <button
+                      key={`review-page-${pageNumber}`}
+                      type="button"
+                      className={`role-btn-ghost user-products-page-btn-page ${pageNumber === reviewPage ? 'is-active' : ''}`}
+                      onClick={() => handleGoToReviewPage(pageNumber)}
+                      disabled={reviewLoading}
+                    >
+                      {pageNumber + 1}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="role-btn-ghost user-products-page-btn-page"
+                    onClick={() => handleGoToReviewPage(Math.min(reviewTotalPages - 1, reviewPage + 1))}
+                    disabled={reviewPage >= reviewTotalPages - 1 || reviewLoading}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {isReviewComposerOpen && (
+              <div
+                className="user-products-page-submodal-backdrop"
+                onClick={() => setIsReviewComposerOpen(false)}
+              >
+                <div
+                  className="user-products-page-submodal"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <header>
+                    <h5>{myReview ? 'Update Your Review' : 'Write a Review'}</h5>
+                    <button
+                      type="button"
+                      className="role-btn-ghost"
+                      onClick={() => setIsReviewComposerOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </header>
+
+                  <form className="user-products-page-review-form" onSubmit={handleSubmitReview}>
+                    <label>
+                      Rating
+                      <div className="user-products-page-rating-picker" role="radiogroup" aria-label="Select rating">
+                        {[1, 2, 3, 4, 5].map((starValue) => (
+                          <button
+                            key={`review-form-rating-${starValue}`}
+                            type="button"
+                            className={`user-products-page-rating-star ${reviewFormRating >= starValue ? 'is-active' : ''}`}
+                            onClick={() => setReviewFormRating(starValue)}
+                            disabled={reviewSubmitting}
+                            aria-label={`${starValue} star`}
+                          >
+                            &#9733;
+                          </button>
+                        ))}
+                      </div>
+                      <span className="user-products-page-rating-picker-caption">
+                        {reviewFormRating} / 5 star
+                      </span>
+                    </label>
+
+                    <label>
+                      Title (optional)
+                      <input
+                        value={reviewFormTitle}
+                        onChange={(event) => setReviewFormTitle(event.target.value)}
+                        maxLength={160}
+                        placeholder="Short summary..."
+                        disabled={reviewSubmitting}
+                      />
+                    </label>
+
+                    <label>
+                      Review
+                      <textarea
+                        value={reviewFormContent}
+                        onChange={(event) => setReviewFormContent(event.target.value)}
+                        maxLength={2000}
+                        placeholder="Share your experience with this product..."
+                        disabled={reviewSubmitting}
+                      />
+                    </label>
+
+                    <div className="user-products-page-popup-actions">
+                      <button
+                        type="button"
+                        className="role-btn-ghost"
+                        onClick={() => setIsReviewComposerOpen(false)}
+                        disabled={reviewSubmitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="role-btn-primary"
+                        disabled={reviewSubmitting}
+                      >
+                        {reviewSubmitting ? 'Saving...' : myReview ? 'Update Review' : 'Post Review'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {activeCommentReview && (
+              <div
+                className="user-products-page-submodal-backdrop"
+                onClick={() => setActiveCommentReviewId('')}
+              >
+                <div
+                  className="user-products-page-submodal user-products-page-comment-popup"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <header>
+                    <h5>Comment On Review</h5>
+                    <button
+                      type="button"
+                      className="role-btn-ghost"
+                      onClick={() => setActiveCommentReviewId('')}
+                    >
+                      Close
+                    </button>
+                  </header>
+
+                  <div className="user-products-page-comment-target">
+                    <div
+                      className="user-products-page-review-rating"
+                      aria-label={`${activeCommentReviewRating} out of 5`}
+                    >
+                      {[1, 2, 3, 4, 5].map((starValue) => (
+                        <span
+                          key={`comment-target-rating-${activeCommentReview.reviewId}-${starValue}`}
+                          className={activeCommentReviewRating >= starValue ? 'is-active' : ''}
+                          aria-hidden="true"
+                        >
+                          &#9733;
+                        </span>
+                      ))}
+                    </div>
+                    <strong>
+                      {activeCommentReview.userId === currentUserId ? 'Your review' : activeCommentReview.userId}
+                    </strong>
+                    <p>{activeCommentReview.content}</p>
+                  </div>
+
+                  <div className="user-products-page-comment-list user-products-page-comment-list-popup">
+                    {(activeCommentReview.comments || []).length > 0 ? (
+                      (activeCommentReview.comments || []).map((comment) => (
+                        <div key={comment.commentId} className="user-products-page-comment-item">
+                          <strong>{comment.userId === currentUserId ? 'You' : comment.userId}</strong>
+                          <span>{comment.content}</span>
+                          <small>
+                            {formatDateTime(comment.createdAt)}
+                            {comment.editedAt ? ' (edited)' : ''}
+                          </small>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="role-muted">No comments yet.</p>
+                    )}
+                  </div>
+
+                  <form
+                    className="user-products-page-comment-popup-form"
+                    onSubmit={async (event) => {
+                      event.preventDefault()
+                      const saved = await handleSubmitComment(activeCommentReview.reviewId)
+                      if (saved) {
+                        setActiveCommentReviewId('')
+                      }
+                    }}
+                  >
+                    <label>
+                      Add Comment
+                    <textarea
+                      value={activeCommentDraft}
+                      onChange={(event) => setCommentDraftByReviewId((previous) => ({
+                        ...previous,
+                        [activeCommentReview.reviewId]: event.target.value,
+                      }))}
+                      placeholder="Write your comment..."
+                      maxLength={1500}
+                      disabled={activeCommentSubmitting}
+                    />
+                    </label>
+
+                    <div className="user-products-page-popup-actions">
+                      <button
+                        type="button"
+                        className="role-btn-ghost"
+                        onClick={() => setActiveCommentReviewId('')}
+                        disabled={activeCommentSubmitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="role-btn-primary"
+                        disabled={activeCommentSubmitting || !normalizeReviewText(activeCommentDraft)}
+                      >
+                        {activeCommentSubmitting ? 'Sending...' : 'Send Comment'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

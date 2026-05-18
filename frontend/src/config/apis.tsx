@@ -197,6 +197,11 @@ const endpoints = {
     confirmDeduct: '/api/v1/inventories/confirm-deduct',
     adjust: '/api/v1/inventories/adjust',
     uploadProductImage: '/api/v1/inventories/products/upload-image',
+    productReviews: (productId: string) => `/api/v1/inventories/products/${productId}/reviews`,
+    productReviewStats: (productId: string) => `/api/v1/inventories/products/${productId}/review-stats`,
+    createProductReview: (productId: string) => `/api/v1/inventories/products/${productId}/reviews`,
+    updateProductReview: (reviewId: string) => `/api/v1/inventories/reviews/${reviewId}`,
+    createProductReviewComment: (reviewId: string) => `/api/v1/inventories/reviews/${reviewId}/comments`,
   },
   payments: {
     createIntent: '/api/v1/payments/intents',

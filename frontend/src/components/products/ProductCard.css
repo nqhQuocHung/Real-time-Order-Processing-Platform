@@ -80,6 +80,13 @@
   gap: 8px;
 }
 
+.product-card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .product-card-header h3 {
   margin: 0;
   font-size: 1.45rem;
@@ -110,6 +117,37 @@
   color: #ffb9c8;
   border-color: rgba(255, 185, 200, 0.5);
   background: rgba(126, 37, 58, 0.3);
+}
+
+.product-card-rating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(83, 149, 214, 0.4);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(7, 26, 44, 0.82);
+  line-height: 1;
+}
+
+.product-card-rating-pill-stars {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 0.7rem;
+}
+
+.product-card-rating-pill-stars span {
+  color: rgba(80, 107, 132, 0.92);
+}
+
+.product-card-rating-pill-stars span.is-active {
+  color: #ffc55e;
+}
+
+.product-card-rating-pill-text {
+  font-size: 0.7rem;
+  color: rgba(208, 230, 249, 0.9);
+  white-space: nowrap;
 }
 
 .product-card-description {

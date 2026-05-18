@@ -97,6 +97,14 @@ function buildNotificationLink(eventName: string, requestId: string) {
     return '/user/orders'
   }
 
+  if (
+    eventName === 'product.review.created' ||
+    eventName === 'product.review.updated' ||
+    eventName === 'product.review.comment.created'
+  ) {
+    return '/user/products'
+  }
+
   return ''
 }
 
@@ -158,6 +166,7 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
   const amount = normalizeText(data.amount)
   const currency = normalizeText(data.currency) || 'VND'
   const paymentStatus = normalizeText(data.status)
+  const productId = normalizeText(data.productId)
   const fallbackMessage =
     typeof payload === 'string'
       ? payload
@@ -202,6 +211,23 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
   if (eventName === 'order.lifecycle.failed') {
     title = 'Order failed'
     message = `Order ${orderCode || '-'} processing failed.`
+  }
+
+  if (eventName === 'product.review.created') {
+    const reviewData = toNotificationPayload(data.review)
+    const rating = String(reviewData.rating ?? '').trim()
+    title = 'New product review'
+    message = `A new review was posted${productId ? ` for product ${productId}` : ''}.${rating ? ` Rating: ${rating}/5.` : ''}`
+  }
+
+  if (eventName === 'product.review.updated') {
+    title = 'Product review updated'
+    message = `A product review was updated${productId ? ` for product ${productId}` : ''}.`
+  }
+
+  if (eventName === 'product.review.comment.created') {
+    title = 'New review comment'
+    message = `A new comment was added${productId ? ` for product ${productId}` : ''}.`
   }
 
   const occurredAt =

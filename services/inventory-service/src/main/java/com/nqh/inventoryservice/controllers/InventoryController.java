@@ -5,6 +5,8 @@ import com.nqh.inventoryservice.common.messages.MessageCode;
 import com.nqh.inventoryservice.common.response.ApiResponseFactory;
 import com.nqh.inventoryservice.common.response.BaseResponse;
 import com.nqh.inventoryservice.dtos.CreatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.CreateProductReviewCommentRequest;
+import com.nqh.inventoryservice.dtos.CreateProductReviewRequest;
 import com.nqh.inventoryservice.dtos.CreateProductCategoryRequest;
 import com.nqh.inventoryservice.dtos.InventoryAdjustRequest;
 import com.nqh.inventoryservice.dtos.InventoryCheckRequest;
@@ -14,9 +16,14 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewCommentResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewListResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewStatsResponse;
 import com.nqh.inventoryservice.dtos.ProductImageUploadResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductReviewRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import com.nqh.inventoryservice.services.InventoryService;
 import com.nqh.inventoryservice.services.UploadService;
@@ -78,6 +85,63 @@ public class InventoryController {
         UUID shopId = UUID.fromString(jwt.getSubject());
         List<InventoryStockResponse> response = inventoryService.getCatalogByShopId(shopId);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/products/{productId}/reviews")
+    public ResponseEntity<BaseResponse<ProductReviewListResponse>> getProductReviews(
+            @PathVariable UUID productId,
+            @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest httpServletRequest
+    ) {
+        ProductReviewListResponse response = inventoryService.getProductReviews(productId, sort, page, size);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/products/{productId}/review-stats")
+    public ResponseEntity<BaseResponse<ProductReviewStatsResponse>> getProductReviewStats(
+            @PathVariable UUID productId,
+            HttpServletRequest httpServletRequest
+    ) {
+        ProductReviewStatsResponse response = inventoryService.getProductReviewStats(productId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/products/{productId}/reviews")
+    public ResponseEntity<BaseResponse<ProductReviewResponse>> createProductReview(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID productId,
+            @RequestBody @Valid CreateProductReviewRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ProductReviewResponse response = inventoryService.createProductReview(productId, userId, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_REVIEW_CREATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @PutMapping("/reviews/{reviewId}")
+    public ResponseEntity<BaseResponse<ProductReviewResponse>> updateProductReview(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID reviewId,
+            @RequestBody @Valid UpdateProductReviewRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ProductReviewResponse response = inventoryService.updateProductReview(reviewId, userId, request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.INVENTORY_REVIEW_UPDATE_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/reviews/{reviewId}/comments")
+    public ResponseEntity<BaseResponse<ProductReviewCommentResponse>> createProductReviewComment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID reviewId,
+            @RequestBody @Valid CreateProductReviewCommentRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        ProductReviewCommentResponse response = inventoryService.createProductReviewComment(reviewId, userId, request);
+        return apiResponseFactory.success(HttpStatus.CREATED, MessageCode.INVENTORY_REVIEW_COMMENT_CREATE_SUCCESS, response, httpServletRequest);
     }
 
     @GetMapping("/admin/products")

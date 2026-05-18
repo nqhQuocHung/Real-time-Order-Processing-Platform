@@ -10,8 +10,15 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.CreateProductReviewRequest;
+import com.nqh.inventoryservice.dtos.CreateProductReviewCommentRequest;
+import com.nqh.inventoryservice.dtos.ProductReviewCommentResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewListResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewStatsResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductReviewRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import java.util.List;
 import java.util.UUID;
@@ -65,4 +72,18 @@ public interface InventoryService {
     InventoryStockResponse adjustStock(InventoryAdjustRequest request);
 
     InventorySummaryResponse getInventorySummary();
+
+    ProductReviewListResponse getProductReviews(UUID productId, String sort, int page, int size);
+
+    ProductReviewStatsResponse getProductReviewStats(UUID productId);
+
+    ProductReviewResponse createProductReview(UUID productId, UUID userId, CreateProductReviewRequest request);
+
+    ProductReviewResponse updateProductReview(UUID reviewId, UUID userId, UpdateProductReviewRequest request);
+
+    ProductReviewCommentResponse createProductReviewComment(
+            UUID reviewId,
+            UUID userId,
+            CreateProductReviewCommentRequest request
+    );
 }
