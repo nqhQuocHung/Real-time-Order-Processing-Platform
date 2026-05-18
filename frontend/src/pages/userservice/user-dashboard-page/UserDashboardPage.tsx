@@ -74,7 +74,30 @@ function formatMoney(value: number, currency: string) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency || 'VND',
+    maximumFractionDigits: 0,
   }).format(value || 0)
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat('en-US').format(Math.max(0, Math.round(value || 0)))
+}
+
+function normalizeStatus(value?: string | null): string {
+  return value?.trim().toUpperCase() || 'UNKNOWN'
+}
+
+function toStatusClassToken(value?: string | null): string {
+  return normalizeStatus(value).toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
+function resolveDisplayName(profile: UserProfile | null, sessionUsername?: string): string {
+  const first = profile?.firstName?.trim() || ''
+  const last = profile?.lastName?.trim() || ''
+  const full = [first, last].filter(Boolean).join(' ').trim()
+  if (full) {
+    return full
+  }
+  return profile?.username || sessionUsername || 'User'
 }
 
 function UserDashboardPage() {
@@ -145,6 +168,40 @@ function UserDashboardPage() {
     [orders],
   )
 
+  const recentAverageValue = useMemo(() => {
+    if (!orders.length) {
+      return 0
+    }
+    return recentTotal / orders.length
+  }, [orders.length, recentTotal])
+
+  const latestOrderAt = useMemo(() => orders[0]?.createdAt, [orders])
+
+  const statusBreakdown = useMemo(() => {
+    const counter = new Map<string, number>()
+    for (const order of orders) {
+      const key = normalizeStatus(order.status)
+      counter.set(key, (counter.get(key) || 0) + 1)
+    }
+
+    return Array.from(counter.entries())
+      .map(([status, value]) => ({ status, value }))
+      .sort((first, second) => second.value - first.value)
+  }, [orders])
+
+  const maxStatusCount = useMemo(
+    () => Math.max(1, ...statusBreakdown.map((item) => item.value)),
+    [statusBreakdown],
+  )
+
+  const displayName = useMemo(
+    () => resolveDisplayName(profile, session?.username),
+    [profile, session?.username],
+  )
+
+  const canSubmitNewPartnerRequest =
+    partnerRequest?.status !== 'PENDING' && partnerRequest?.status !== 'APPROVED'
+
   async function promoteSessionToPartnerIfNeeded() {
     if (promotingSessionRef.current) {
       return
@@ -158,24 +215,24 @@ function UserDashboardPage() {
         return
       }
 
-      const profile = await fetchMyProfile()
-      const backendRoles = profile.roles || []
+      const profileResponse = await fetchMyProfile()
+      const backendRoles = profileResponse.roles || []
       const role = resolvePrimaryRole(backendRoles)
 
       setAuthSession({
-        userId: profile.userId || session?.userId || '',
-        username: profile.username || session?.username || '',
-        email: profile.email || session?.email || '',
+        userId: profileResponse.userId || session?.userId || '',
+        username: profileResponse.username || session?.username || '',
+        email: profileResponse.email || session?.email || '',
         role,
         backendRoles,
-        backendPermissions: profile.permissions || [],
-        backendMenus: profile.menus || [],
+        backendPermissions: profileResponse.permissions || [],
+        backendMenus: profileResponse.menus || [],
       })
 
       setPartnerRequestSuccess('Your partner request was approved. Partner workspace is now available.')
-    } catch (error) {
+    } catch (sessionError) {
       setPartnerRequestError(
-        extractApiErrorMessage(error, 'Cannot update session after partner approval.'),
+        extractApiErrorMessage(sessionError, 'Cannot update session after partner approval.'),
       )
     } finally {
       promotingSessionRef.current = false
@@ -267,46 +324,91 @@ function UserDashboardPage() {
   }
 
   if (loading) {
-    return <p className="role-muted">Loading User Dashboard...</p>
+    return (
+      <section className="user-dashboard-page role-page-stack">
+        <article className="role-card user-dashboard-loading">
+          <p className="role-muted">Loading User Dashboard...</p>
+        </article>
+      </section>
+    )
   }
 
   return (
     <section className="user-dashboard-page role-page-stack">
       {error && <p className="role-error">{error}</p>}
 
-      <article className="role-card">
-        <h2>User Dashboard</h2>
-        <p className="role-muted">
-          Hello {profile?.firstName || profile?.username || session?.username}. Here is
-          an overview of your personal data.
-        </p>
-        <div className="role-metric-grid">
+      <article className="role-card user-dashboard-hero">
+        <div className="user-dashboard-hero-main">
+          <p className="user-dashboard-overline">User Command Center</p>
+          <h2>Welcome back, {displayName}</h2>
+          <p className="role-muted">
+            Track your order flow, spending, and partner upgrade progress from one dashboard.
+          </p>
+        </div>
+
+        <div className="user-dashboard-identity-panel">
+          <span>Current Role</span>
+          <strong>{session?.role || 'UNKNOWN'}</strong>
+          <small>Last order: {formatDate(latestOrderAt)}</small>
+        </div>
+
+        <div className="role-metric-grid user-dashboard-metric-grid">
           <div className="role-metric-card">
             <span>Total Orders</span>
-            <strong>{totalOrders}</strong>
+            <strong>{formatCount(totalOrders)}</strong>
           </div>
           <div className="role-metric-card">
             <span>Recent Order Value</span>
             <strong>{formatMoney(recentTotal, orders[0]?.currency || 'VND')}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Email</span>
+            <span>Average (Recent 5)</span>
+            <strong>{formatMoney(recentAverageValue, orders[0]?.currency || 'VND')}</strong>
+          </div>
+          <div className="role-metric-card">
+            <span>Account Email</span>
             <strong>{profile?.email || '-'}</strong>
           </div>
         </div>
       </article>
 
+      <article className="role-card user-dashboard-status-card">
+        <h3>Order Status Snapshot</h3>
+        {!statusBreakdown.length && <p className="role-muted">No orders yet.</p>}
+        {!!statusBreakdown.length && (
+          <div className="user-dashboard-status-bars">
+            {statusBreakdown.map((item) => {
+              const widthPercent = Math.round((item.value / maxStatusCount) * 100)
+              return (
+                <div className="user-dashboard-status-row" key={item.status}>
+                  <span>{item.status}</span>
+                  <div className="user-dashboard-status-track">
+                    <div
+                      className={`user-dashboard-status-fill is-${toStatusClassToken(item.status)}`}
+                      style={{ width: `${widthPercent}%` }}
+                    />
+                  </div>
+                  <strong>{formatCount(item.value)}</strong>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </article>
+
       {isUserRole && (
-        <article className="role-card">
+        <article className="role-card user-dashboard-partner-card">
           <h3>Become a Partner</h3>
           <p className="role-muted">
-            Send a request to upgrade your account to partner role. Admin will approve or reject.
+            Send a request to upgrade your account to partner role. Admin will review and respond.
           </p>
 
           {partnerRequest && (
-            <div className="user-dashboard-partner-status">
-              <span>Current Request Status</span>
-              <strong>{partnerRequest.status}</strong>
+            <div className={`user-dashboard-partner-status is-${toStatusClassToken(partnerRequest.status)}`}>
+              <div className="user-dashboard-partner-status-head">
+                <span>Current Request Status</span>
+                <strong>{partnerRequest.status}</strong>
+              </div>
               <small>Shop name: {partnerRequest.shopName || '-'}</small>
               <small>
                 Requested at: {formatDate(partnerRequest.createdAt)} | Reviewed at:{' '}
@@ -321,7 +423,7 @@ function UserDashboardPage() {
           {partnerRequestError && <p className="role-error">{partnerRequestError}</p>}
           {partnerRequestSuccess && <p className="role-muted">{partnerRequestSuccess}</p>}
 
-          {(partnerRequest?.status !== 'PENDING' && partnerRequest?.status !== 'APPROVED') && (
+          {canSubmitNewPartnerRequest && (
             <>
               <label className="user-dashboard-partner-note">
                 Shop name
@@ -366,12 +468,13 @@ function UserDashboardPage() {
         </article>
       )}
 
-      <article className="role-card">
+      <article className="role-card user-dashboard-orders-card">
         <h3>Recent Orders</h3>
         <div className="role-table-wrap">
           <table>
             <thead>
               <tr>
+                <th>#</th>
                 <th>Order Code</th>
                 <th>Status</th>
                 <th>Total Amount</th>
@@ -379,17 +482,22 @@ function UserDashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => (
+              {orders.map((order, index) => (
                 <tr key={order.orderCode}>
+                  <td>{index + 1}</td>
                   <td>{order.orderCode}</td>
-                  <td>{order.status}</td>
+                  <td>
+                    <span className={`user-dashboard-order-status is-${toStatusClassToken(order.status)}`}>
+                      {normalizeStatus(order.status)}
+                    </span>
+                  </td>
                   <td>{formatMoney(order.totalAmount, order.currency)}</td>
                   <td>{formatDate(order.createdAt)}</td>
                 </tr>
               ))}
               {!orders.length && (
                 <tr>
-                  <td colSpan={4} className="role-empty-cell">
+                  <td colSpan={5} className="role-empty-cell">
                     No orders yet.
                   </td>
                 </tr>

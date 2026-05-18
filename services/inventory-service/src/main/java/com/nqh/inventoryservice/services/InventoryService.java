@@ -10,8 +10,15 @@ import com.nqh.inventoryservice.dtos.InventoryReservationResponse;
 import com.nqh.inventoryservice.dtos.InventoryReserveRequest;
 import com.nqh.inventoryservice.dtos.InventoryStockResponse;
 import com.nqh.inventoryservice.dtos.InventorySummaryResponse;
+import com.nqh.inventoryservice.dtos.CreateProductReviewRequest;
+import com.nqh.inventoryservice.dtos.CreateProductReviewCommentRequest;
+import com.nqh.inventoryservice.dtos.ProductReviewCommentResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewListResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewResponse;
+import com.nqh.inventoryservice.dtos.ProductReviewStatsResponse;
 import com.nqh.inventoryservice.dtos.ProductCategoryResponse;
 import com.nqh.inventoryservice.dtos.UpdatePartnerProductRequest;
+import com.nqh.inventoryservice.dtos.UpdateProductReviewRequest;
 import com.nqh.inventoryservice.dtos.UpdateProductCategoryRequest;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +31,8 @@ public interface InventoryService {
     List<InventoryStockResponse> getCatalog();
 
     List<InventoryStockResponse> getCatalogByShopId(UUID shopId);
+
+    List<InventoryStockResponse> getAdminProducts(UUID shopId, boolean includeInactive);
 
     InventoryStockResponse createPartnerProduct(UUID requesterUserId, boolean isAdmin, CreatePartnerProductRequest request);
 
@@ -63,4 +72,29 @@ public interface InventoryService {
     InventoryStockResponse adjustStock(InventoryAdjustRequest request);
 
     InventorySummaryResponse getInventorySummary();
+
+    ProductReviewListResponse getProductReviews(UUID productId, String sort, int page, int size);
+
+    ProductReviewStatsResponse getProductReviewStats(UUID productId);
+
+    ProductReviewResponse createProductReview(
+            UUID productId,
+            UUID userId,
+            String userName,
+            CreateProductReviewRequest request
+    );
+
+    ProductReviewResponse updateProductReview(
+            UUID reviewId,
+            UUID userId,
+            String userName,
+            UpdateProductReviewRequest request
+    );
+
+    ProductReviewCommentResponse createProductReviewComment(
+            UUID reviewId,
+            UUID userId,
+            String userName,
+            CreateProductReviewCommentRequest request
+    );
 }

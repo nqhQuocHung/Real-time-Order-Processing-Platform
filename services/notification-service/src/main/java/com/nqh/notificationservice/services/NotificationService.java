@@ -16,6 +16,7 @@ public interface NotificationService {
 
     NotificationListResponse getNotifications(
             String orderCode,
+            String recipient,
             NotificationStatusEnum status,
             NotificationChannelEnum channel,
             LocalDateTime createdFrom,

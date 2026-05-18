@@ -1,4 +1,157 @@
 .user-dashboard-page {
+  font-family: Bahnschrift, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.user-dashboard-page .role-card {
+  animation: userDashboardLift 0.45s ease both;
+}
+
+.user-dashboard-page .role-card:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.user-dashboard-page .role-card:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.user-dashboard-overline {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 0.72rem;
+  color: rgba(120, 210, 255, 0.95);
+}
+
+.user-dashboard-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(130% 120% at 0% 0%, rgba(39, 194, 255, 0.2), rgba(6, 20, 35, 0.2) 60%),
+    radial-gradient(130% 130% at 100% 10%, rgba(51, 223, 170, 0.2), rgba(6, 20, 35, 0.18) 62%),
+    var(--role-surface);
+}
+
+.user-dashboard-hero::before {
+  content: "";
+  position: absolute;
+  left: -90px;
+  bottom: -90px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34, 228, 198, 0.2), rgba(34, 228, 198, 0));
+  pointer-events: none;
+}
+
+.user-dashboard-hero-main h2 {
+  margin-bottom: 6px;
+  font-size: clamp(1.18rem, 2vw, 1.5rem);
+}
+
+.user-dashboard-identity-panel {
+  margin-top: 12px;
+  border: 1px solid rgba(124, 180, 229, 0.34);
+  border-radius: 11px;
+  background: rgba(7, 22, 38, 0.74);
+  padding: 10px;
+  display: grid;
+  gap: 5px;
+  width: fit-content;
+  min-width: 220px;
+}
+
+.user-dashboard-identity-panel span {
+  color: var(--role-text-sub);
+  font-size: 0.75rem;
+}
+
+.user-dashboard-identity-panel strong {
+  font-size: 1.04rem;
+}
+
+.user-dashboard-identity-panel small {
+  color: var(--role-text-sub);
+  font-size: 0.77rem;
+}
+
+.user-dashboard-metric-grid {
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.user-dashboard-status-card {
+  background:
+    linear-gradient(170deg, rgba(8, 29, 49, 0.9), rgba(7, 23, 38, 0.96)),
+    var(--role-surface);
+}
+
+.user-dashboard-status-bars {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.user-dashboard-status-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 56px;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-dashboard-status-row > span {
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-dashboard-status-track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(133, 169, 214, 0.2);
+  overflow: hidden;
+}
+
+.user-dashboard-status-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #27c2ff, #22e4c6);
+  transition: width 0.3s ease;
+}
+
+.user-dashboard-status-fill.is-pending {
+  background: linear-gradient(90deg, #f59e0b, #fb923c);
+}
+
+.user-dashboard-status-fill.is-paid,
+.user-dashboard-status-fill.is-completed,
+.user-dashboard-status-fill.is-success {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+
+.user-dashboard-status-fill.is-canceled,
+.user-dashboard-status-fill.is-cancelled,
+.user-dashboard-status-fill.is-failed,
+.user-dashboard-status-fill.is-rejected {
+  background: linear-gradient(90deg, #ef4444, #fb7185);
+}
+
+.user-dashboard-status-fill.is-processing,
+.user-dashboard-status-fill.is-confirmed,
+.user-dashboard-status-fill.is-shipping {
+  background: linear-gradient(90deg, #6366f1, #38bdf8);
+}
+
+.user-dashboard-status-row strong {
+  text-align: right;
+  font-size: 0.84rem;
+}
+
+.user-dashboard-partner-card {
+  background:
+    radial-gradient(120% 120% at 100% 0%, rgba(39, 194, 255, 0.16), rgba(6, 20, 35, 0.16)),
+    var(--role-surface);
 }
 
 .user-dashboard-partner-status {
@@ -11,19 +164,49 @@
   background: rgba(10, 30, 50, 0.7);
 }
 
-.user-dashboard-partner-status span {
+.user-dashboard-partner-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.user-dashboard-partner-status-head span {
   color: var(--role-text-sub);
   font-size: 0.8rem;
 }
 
-.user-dashboard-partner-status strong {
-  font-size: 1rem;
+.user-dashboard-partner-status-head strong {
+  border-radius: 999px;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  letter-spacing: 0.05em;
+  background: rgba(7, 24, 40, 0.85);
 }
 
 .user-dashboard-partner-status small {
   color: var(--role-text-sub);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.user-dashboard-partner-status.is-pending .user-dashboard-partner-status-head strong {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.4);
+  background: rgba(133, 77, 14, 0.24);
+}
+
+.user-dashboard-partner-status.is-approved .user-dashboard-partner-status-head strong {
+  color: #5effaa;
+  border-color: rgba(94, 255, 170, 0.44);
+  background: rgba(23, 126, 85, 0.2);
+}
+
+.user-dashboard-partner-status.is-rejected .user-dashboard-partner-status-head strong {
+  color: #ffb9c8;
+  border-color: rgba(255, 185, 200, 0.46);
+  background: rgba(126, 37, 58, 0.24);
 }
 
 .user-dashboard-partner-note {
@@ -50,4 +233,98 @@
   background: rgba(8, 24, 40, 0.9);
   color: var(--role-text);
   padding: 10px;
+}
+
+.user-dashboard-orders-card .role-table-wrap table {
+  min-width: 760px;
+}
+
+.user-dashboard-order-status {
+  border-radius: 999px;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--role-text-sub);
+  background: rgba(8, 24, 40, 0.84);
+}
+
+.user-dashboard-order-status.is-pending {
+  color: #fcd34d;
+  border-color: rgba(252, 211, 77, 0.4);
+  background: rgba(133, 77, 14, 0.2);
+}
+
+.user-dashboard-order-status.is-paid,
+.user-dashboard-order-status.is-completed,
+.user-dashboard-order-status.is-success {
+  color: #5effaa;
+  border-color: rgba(94, 255, 170, 0.42);
+  background: rgba(23, 126, 85, 0.2);
+}
+
+.user-dashboard-order-status.is-canceled,
+.user-dashboard-order-status.is-cancelled,
+.user-dashboard-order-status.is-failed,
+.user-dashboard-order-status.is-rejected {
+  color: #ffb9c8;
+  border-color: rgba(255, 185, 200, 0.44);
+  background: rgba(126, 37, 58, 0.22);
+}
+
+.user-dashboard-order-status.is-processing,
+.user-dashboard-order-status.is-confirmed,
+.user-dashboard-order-status.is-shipping {
+  color: #9ed8ff;
+  border-color: rgba(158, 216, 255, 0.4);
+  background: rgba(27, 79, 135, 0.24);
+}
+
+.user-dashboard-loading {
+  min-height: 110px;
+  display: grid;
+  place-items: center;
+}
+
+@keyframes userDashboardLift {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1120px) {
+  .user-dashboard-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .user-dashboard-status-row {
+    grid-template-columns: 120px 1fr 56px;
+  }
+}
+
+@media (max-width: 700px) {
+  .user-dashboard-identity-panel {
+    width: 100%;
+  }
+
+  .user-dashboard-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-dashboard-status-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .user-dashboard-status-row strong {
+    text-align: left;
+  }
 }

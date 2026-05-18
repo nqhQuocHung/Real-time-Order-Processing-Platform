@@ -66,7 +66,9 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<BaseResponse<NotificationListResponse>> getNotifications(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String recipient,
             @RequestParam(required = false) NotificationStatusEnum status,
             @RequestParam(required = false) NotificationChannelEnum channel,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime createdFrom,
@@ -75,8 +77,10 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(200) int size,
             HttpServletRequest httpServletRequest
     ) {
+        String resolvedRecipient = resolveRecipientForList(recipient, jwt);
         NotificationListResponse response = notificationService.getNotifications(
                 orderCode,
+                resolvedRecipient,
                 status,
                 channel,
                 createdFrom,
@@ -151,5 +155,23 @@ public class NotificationController {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private String resolveRecipientForList(String requestedRecipient, Jwt jwt) {
+        String normalizedRequestedRecipient = normalize(requestedRecipient);
+        if (isAdminUser(null, jwt)) {
+            return normalizedRequestedRecipient;
+        }
+
+        String currentUserId = jwt != null ? normalize(jwt.getSubject()) : null;
+        if (currentUserId == null) {
+            return normalizedRequestedRecipient;
+        }
+
+        if (normalizedRequestedRecipient == null || normalizedRequestedRecipient.equals(currentUserId)) {
+            return currentUserId;
+        }
+
+        return currentUserId;
     }
 }

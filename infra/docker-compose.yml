@@ -151,6 +151,10 @@ services:
       CLOUDINARY_SECURE: ${CLOUDINARY_SECURE:-true}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      TOPIC_PRODUCT_REVIEW_CREATED: product.review.created.v1
+      TOPIC_PRODUCT_REVIEW_UPDATED: product.review.updated.v1
+      TOPIC_PRODUCT_REVIEW_COMMENT_CREATED: product.review.comment.created.v1
     networks:
       - platform-net
 
@@ -210,6 +214,9 @@ services:
       TOPIC_ORDER_FAILED: order.lifecycle.failed.v1
       TOPIC_PARTNER_REQUEST_CREATED: partner.request.created.v1
       TOPIC_PARTNER_REQUEST_DECIDED: partner.request.decided.v1
+      TOPIC_PRODUCT_REVIEW_CREATED: product.review.created.v1
+      TOPIC_PRODUCT_REVIEW_UPDATED: product.review.updated.v1
+      TOPIC_PRODUCT_REVIEW_COMMENT_CREATED: product.review.comment.created.v1
       ORDER_SERVICE_INTERNAL_URL: http://order-service:8082
       INVENTORY_SERVICE_INTERNAL_URL: http://inventory-service:8083
     networks:

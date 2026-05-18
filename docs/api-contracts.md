@@ -303,6 +303,11 @@ Request:
 - `POST /api/v1/inventories/release`: Nha giu hang (rollback reserve) cho order.
 - `POST /api/v1/inventories/confirm-deduct`: Chot tru ton kho sau khi thanh toan thanh cong.
 - `POST /api/v1/inventories/adjust`: Cong/tru ton kho thu cong (restock hoac correction).
+- `GET /api/v1/inventories/products/{productId}/reviews?page=&size=&sort=`: Lay danh sach review cua san pham.
+- `GET /api/v1/inventories/products/{productId}/review-stats`: Lay thong ke sao + diem trung binh cua san pham.
+- `POST /api/v1/inventories/products/{productId}/reviews`: Tao review moi cho san pham (1 user / 1 review).
+- `PUT /api/v1/inventories/reviews/{reviewId}`: Cap nhat review cua chinh user da tao.
+- `POST /api/v1/inventories/reviews/{reviewId}/comments`: Them comment vao review.
 
 ## 11. Payment Endpoint Contract (Core Demo)
 

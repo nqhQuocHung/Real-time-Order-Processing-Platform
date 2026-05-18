@@ -28,6 +28,11 @@ export type ProductCardData = {
   isActive?: boolean | null
 }
 
+export type ProductCardRatingSummary = {
+  averageRating: number
+  totalReviews: number
+}
+
 type ProductCardProps = {
   product: ProductCardData
   onEdit?: (product: ProductCardData) => void
@@ -35,10 +40,18 @@ type ProductCardProps = {
   onViewDetail?: (product: ProductCardData) => void
   deleting?: boolean
   actionSlot?: ReactNode
+  ratingSummary?: ProductCardRatingSummary | null
 }
 
 function normalizeQuantity(value: number | null | undefined): number {
   return Number.isFinite(value as number) ? Number(value) : 0
+}
+
+function normalizeRating(value: number | null | undefined): number {
+  if (!Number.isFinite(value as number)) {
+    return 0
+  }
+  return Math.max(0, Math.min(5, Number(value)))
 }
 
 function ProductCard({
@@ -48,6 +61,7 @@ function ProductCard({
   onViewDetail,
   deleting,
   actionSlot,
+  ratingSummary,
 }: ProductCardProps) {
   const displayName = product.name?.trim() || product.productName?.trim() || 'Unnamed Product'
   const displayStatus = product.status?.trim() || (product.isActive ? 'ACTIVE' : 'INACTIVE')
@@ -56,6 +70,8 @@ function ProductCard({
   const displayCategoryName = product.categoryName?.trim() || product.categoryId?.trim() || '-'
   const statusClass = displayStatus.toLowerCase()
   const isViewable = typeof onViewDetail === 'function'
+  const ratingValue = normalizeRating(ratingSummary?.averageRating)
+  const totalReviews = Math.max(0, Number(ratingSummary?.totalReviews) || 0)
 
   function handleOpenDetail() {
     onViewDetail?.(product)
@@ -90,7 +106,25 @@ function ProductCard({
 
       <div className="product-card-body">
         <header className="product-card-header">
-          <span className={`product-card-status ${statusClass}`}>{displayStatus}</span>
+          <div className="product-card-header-row">
+            <span className={`product-card-status ${statusClass}`}>{displayStatus}</span>
+            <span className="product-card-rating-pill">
+              <span className="product-card-rating-pill-stars" aria-label={`${ratingValue.toFixed(1)} out of 5`}>
+                {[1, 2, 3, 4, 5].map((starValue) => (
+                  <span
+                    key={`product-card-star-${product.productId}-${starValue}`}
+                    className={ratingValue >= starValue ? 'is-active' : ''}
+                    aria-hidden="true"
+                  >
+                    &#9733;
+                  </span>
+                ))}
+              </span>
+              <span className="product-card-rating-pill-text">
+                {totalReviews > 0 ? `${ratingValue.toFixed(1)} (${totalReviews})` : 'No review'}
+              </span>
+            </span>
+          </div>
           <h3>{displayName}</h3>
         </header>
 

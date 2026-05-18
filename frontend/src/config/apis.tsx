@@ -180,6 +180,7 @@ const endpoints = {
   },
   inventories: {
     catalog: '/api/v1/inventories/catalog',
+    adminProducts: '/api/v1/inventories/admin/products',
     myProducts: '/api/v1/inventories/my-products',
     createProduct: '/api/v1/inventories/products',
     updateProduct: (productId: string) => `/api/v1/inventories/products/${productId}`,
@@ -196,6 +197,11 @@ const endpoints = {
     confirmDeduct: '/api/v1/inventories/confirm-deduct',
     adjust: '/api/v1/inventories/adjust',
     uploadProductImage: '/api/v1/inventories/products/upload-image',
+    productReviews: (productId: string) => `/api/v1/inventories/products/${productId}/reviews`,
+    productReviewStats: (productId: string) => `/api/v1/inventories/products/${productId}/review-stats`,
+    createProductReview: (productId: string) => `/api/v1/inventories/products/${productId}/reviews`,
+    updateProductReview: (reviewId: string) => `/api/v1/inventories/reviews/${reviewId}`,
+    createProductReviewComment: (reviewId: string) => `/api/v1/inventories/reviews/${reviewId}/comments`,
   },
   payments: {
     createIntent: '/api/v1/payments/intents',
@@ -213,6 +219,14 @@ const endpoints = {
 
     // SSE endpoint path (BASE_URL is appended by the stream hook)
     stream: '/api/v1/notifications/stream',
+  },
+  messages: {
+    openConversation: '/api/v1/messages/conversations/open',
+    conversations: '/api/v1/messages/conversations',
+    conversationMessages: (conversationId: string) =>
+      `/api/v1/messages/conversations/${conversationId}/messages`,
+    markConversationRead: (conversationId: string) =>
+      `/api/v1/messages/conversations/${conversationId}/read`,
   },
 }
 

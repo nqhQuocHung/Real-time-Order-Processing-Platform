@@ -29,6 +29,7 @@ type PaymentFlashType = 'success' | 'error'
 type PaymentDialogState = {
   orderCode: string
   paymentUrl: string
+  paymentDeadlineAt?: string
 }
 
 
@@ -148,6 +149,19 @@ function formatRemainingSeconds(deadlineAt: string | undefined, nowTick: number)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}m ${seconds}s`
+}
+
+function isPaymentDeadlineExpired(deadlineAt: string | undefined, nowTick: number): boolean {
+  if (!deadlineAt) {
+    return false
+  }
+
+  const deadline = new Date(deadlineAt).getTime()
+  if (!Number.isFinite(deadline)) {
+    return false
+  }
+
+  return deadline <= nowTick
 }
 
 function buildCatalogMap(catalog: ProductCatalogItem[]): Record<string, ProductCatalogItem> {
@@ -729,8 +743,16 @@ function UserOrdersPage() {
       const createdOrder = extractApiData<CreateOrderResponse>(response)
       setLatestCreatedOrder(createdOrder)
       setCheckoutSuccess(
-        `Order ${createdOrder.orderCode} created with status ${createdOrder.status}. Complete payment before timeout.`,
+        `Order ${createdOrder.orderCode} created with status ${createdOrder.status}. Payment popup is ready.`,
       )
+      if (createdOrder.paymentUrl) {
+        openPaymentDialog(
+          createdOrder.orderCode,
+          createdOrder.paymentUrl,
+          createdOrder.paymentDeadlineAt,
+          true,
+        )
+      }
       setCart((previous) => {
         const next = { ...previous }
         for (const createdItem of orderItems) {
@@ -777,18 +799,29 @@ function UserOrdersPage() {
     }
   }
 
-  function openPaymentDialog(orderCode: string, paymentUrl: string) {
+  function openPaymentDialog(
+    orderCode: string,
+    paymentUrl: string,
+    paymentDeadlineAt?: string,
+    showQrByDefault = true,
+  ) {
     if (!paymentUrl) {
       setError(`Payment URL is missing for order ${orderCode}.`)
+      return
+    }
+
+    if (isPaymentDeadlineExpired(paymentDeadlineAt, Date.now())) {
+      setError(`Payment session for order ${orderCode} is expired.`)
       return
     }
 
     setActivePaymentDialog({
       orderCode,
       paymentUrl,
+      paymentDeadlineAt,
     })
     setShowPaymentDialog(true)
-    setShowQrCode(false)
+    setShowQrCode(showQrByDefault)
   }
 
   function closePaymentDialog() {
@@ -796,6 +829,13 @@ function UserOrdersPage() {
     setShowQrCode(false)
     setActivePaymentDialog(null)
   }
+
+  const activeDialogRemaining = activePaymentDialog
+    ? formatRemainingSeconds(activePaymentDialog.paymentDeadlineAt, nowTick)
+    : '-'
+  const activeDialogExpired = activePaymentDialog
+    ? isPaymentDeadlineExpired(activePaymentDialog.paymentDeadlineAt, nowTick)
+    : false
 
   return (
     <section className="user-orders-page role-page-stack">
@@ -813,7 +853,7 @@ function UserOrdersPage() {
             onClick={() => void handleCreateOrder()}
             disabled={checkoutLoading || cartItems.length === 0}
           >
-            {checkoutLoading ? 'Creating Order...' : 'Create Order From Cart'}
+            {checkoutLoading ? 'Creating Order...' : 'Create Order & Open Payment'}
           </button>
           <button
             type="button"
@@ -836,21 +876,16 @@ function UserOrdersPage() {
         {checkoutError && <p className="role-error">{checkoutError}</p>}
         {checkoutSuccess && <p className="role-muted">{checkoutSuccess}</p>}
 
-        {latestCreatedOrder?.paymentUrl && (
+        {latestCreatedOrder && (
           <div className="user-orders-payment-hint">
             <span>
-              Order <strong>{latestCreatedOrder.orderCode}</strong> is waiting for payment.
+              Latest order: <strong>{latestCreatedOrder.orderCode}</strong> ({latestCreatedOrder.status})
             </span>
-
-            <button
-              type="button"
-              className="role-btn-primary"
-              onClick={() => {
-                openPaymentDialog(latestCreatedOrder.orderCode, latestCreatedOrder.paymentUrl || '')
-              }}
-            >
-              Open Payment Dialog
-            </button>
+            <small>
+              {latestCreatedOrder.paymentDeadlineAt
+                ? `Pay before ${formatDate(latestCreatedOrder.paymentDeadlineAt)}`
+                : 'Payment deadline is managed by order service.'}
+            </small>
           </div>
         )}
 
@@ -872,6 +907,9 @@ function UserOrdersPage() {
                 Order <strong>{activePaymentDialog.orderCode}</strong> is reserved. Complete payment
                 before it expires.
               </p>
+              <p className={`payment-dialog-deadline ${activeDialogExpired ? 'is-expired' : ''}`}>
+                Remaining: {activeDialogRemaining}
+              </p>
 
               {showQrCode && (
                 <div className="payment-qrcode">
@@ -887,8 +925,9 @@ function UserOrdersPage() {
                   onClick={() => {
                     window.location.assign(activePaymentDialog.paymentUrl)
                   }}
+                  disabled={activeDialogExpired}
                 >
-                  Pay Now
+                  {activeDialogExpired ? 'Payment Expired' : 'Pay Now'}
                 </button>
                 <button
                   type="button"
@@ -896,6 +935,7 @@ function UserOrdersPage() {
                   onClick={() => {
                     window.open(activePaymentDialog.paymentUrl, '_blank', 'noopener,noreferrer')
                   }}
+                  disabled={activeDialogExpired}
                 >
                   Open New Tab
                 </button>
@@ -985,7 +1025,7 @@ function UserOrdersPage() {
           </div>
         </div>
 
-        <div className="role-inline-form">
+        <div className="role-inline-form user-orders-filter-bar">
           <label>
             Status
             <select
@@ -1045,6 +1085,13 @@ function UserOrdersPage() {
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
                 const isReserved = order.status === 'RESERVED'
                 const isPendingPayment = !paymentInfo?.status || paymentInfo.status === 'PENDING'
+                const isPaymentExpired = isReserved
+                  && isPendingPayment
+                  && isPaymentDeadlineExpired(order.paymentDeadlineAt, nowTick)
+                const canContinuePayment = Boolean(paymentUrl)
+                  && isReserved
+                  && isPendingPayment
+                  && !isPaymentExpired
                 const remaining = isReserved && isPendingPayment
                   ? formatRemainingSeconds(order.paymentDeadlineAt, nowTick)
                   : '-'
@@ -1056,17 +1103,28 @@ function UserOrdersPage() {
                       {paymentInfo?.status ? ` / Payment: ${paymentInfo.status}` : ''}
                     </td>
                     <td>{formatMoney(order.totalAmount, order.currency)}</td>
-                    <td>{remaining}</td>
+                    <td>
+                      <span className={`user-orders-pay-before ${remaining === 'Expired' ? 'is-expired' : ''}`}>
+                        {remaining}
+                      </span>
+                    </td>
                     <td>{formatDate(order.createdAt)}</td>
                     <td>
                       <div className="user-orders-row-actions">
-                        {paymentUrl && isReserved && (
+                        {canContinuePayment && (
                           <button
                             type="button"
                             className="role-btn-primary user-orders-pay-button"
-                            onClick={() => openPaymentDialog(order.orderCode, paymentUrl)}
+                            onClick={() =>
+                              openPaymentDialog(
+                                order.orderCode,
+                                paymentUrl || '',
+                                order.paymentDeadlineAt,
+                                true,
+                              )
+                            }
                           >
-                            Pay Now
+                            Continue Payment
                           </button>
                         )}
                         {isReserved && (

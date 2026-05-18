@@ -1,2 +1,276 @@
-﻿.user-support-page {
+.user-support-page {
+  font-family: Bahnschrift, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.user-support-page .role-card {
+  animation: userSupportRise 0.46s ease both;
+}
+
+.user-support-page .role-card:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.user-support-page .role-card:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.user-support-overline {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-size: 0.72rem;
+  color: rgba(120, 210, 255, 0.95);
+}
+
+.user-support-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 130% at 8% 0%, rgba(57, 173, 255, 0.26), rgba(7, 20, 35, 0.2) 56%),
+    radial-gradient(130% 130% at 95% 10%, rgba(27, 223, 181, 0.22), rgba(7, 20, 35, 0.2) 60%),
+    var(--role-surface);
+}
+
+.user-support-hero::after {
+  content: "";
+  position: absolute;
+  right: -80px;
+  top: -80px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(39, 194, 255, 0.28), rgba(39, 194, 255, 0));
+  pointer-events: none;
+}
+
+.user-support-hero-main h2 {
+  margin-bottom: 6px;
+  font-size: clamp(1.18rem, 2vw, 1.48rem);
+}
+
+.user-support-hero-badges {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.user-support-hero-badges > div {
+  border: 1px solid rgba(123, 183, 233, 0.34);
+  border-radius: 11px;
+  background: rgba(7, 22, 38, 0.74);
+  padding: 10px;
+}
+
+.user-support-hero-badges span {
+  display: block;
+  color: var(--role-text-sub);
+  font-size: 0.75rem;
+}
+
+.user-support-hero-badges strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 1.12rem;
+  color: #ecf8ff;
+}
+
+.user-support-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.user-support-channels,
+.user-support-quick-actions {
+  background:
+    linear-gradient(175deg, rgba(8, 29, 49, 0.86), rgba(7, 23, 38, 0.95)),
+    var(--role-surface);
+}
+
+.user-support-channel-list,
+.user-support-action-list {
+  display: grid;
+  gap: 10px;
+}
+
+.user-support-channel-card,
+.user-support-action-card {
+  border: 1px solid rgba(133, 169, 214, 0.28);
+  border-radius: 11px;
+  padding: 10px;
+  background: rgba(6, 21, 35, 0.76);
+  text-decoration: none;
+}
+
+.user-support-channel-card:hover,
+.user-support-action-card:hover {
+  border-color: rgba(39, 194, 255, 0.52);
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.user-support-channel-card span,
+.user-support-action-card span {
+  display: block;
+  color: var(--role-text-sub);
+  font-size: 0.77rem;
+  line-height: 1.4;
+}
+
+.user-support-channel-card strong,
+.user-support-action-card strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--role-text);
+  font-size: 0.9rem;
+}
+
+.user-support-channel-card small {
+  display: block;
+  margin-top: 6px;
+  color: var(--role-text-sub);
+  font-size: 0.74rem;
+}
+
+.user-support-faq {
+  background:
+    radial-gradient(120% 120% at 0% 100%, rgba(27, 223, 181, 0.1), rgba(7, 20, 35, 0.12)),
+    var(--role-surface);
+}
+
+.user-support-faq-head {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 420px);
+  gap: 10px;
+  align-items: end;
+}
+
+.user-support-faq-head h3 {
+  margin: 0;
+}
+
+.user-support-faq-head label {
+  display: grid;
+  gap: 5px;
+}
+
+.user-support-faq-head span {
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.user-support-faq-head input {
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.user-support-faq-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.user-support-faq-item {
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(8, 25, 41, 0.76);
+}
+
+.user-support-faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+
+.user-support-faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.user-support-faq-item summary small {
+  color: #7cdcff;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.user-support-faq-item summary strong {
+  font-size: 0.87rem;
+}
+
+.user-support-faq-item p {
+  margin: 0;
+  padding: 0 10px 10px;
+  color: var(--role-text-sub);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.user-support-faq-empty {
+  margin: 0;
+  border: 1px dashed rgba(133, 169, 214, 0.35);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.user-support-ticket {
+  background:
+    linear-gradient(170deg, rgba(8, 29, 49, 0.9), rgba(7, 23, 38, 0.96)),
+    var(--role-surface);
+}
+
+.user-support-success {
+  margin-top: 8px;
+  color: #8cebc8;
+}
+
+.user-support-ticket-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-support-ticket-full {
+  grid-column: 1 / -1;
+}
+
+.user-support-ticket-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+@keyframes userSupportRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 980px) {
+  .user-support-hero-badges {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .user-support-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-support-faq-head {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .user-support-hero-badges,
+  .user-support-ticket-form {
+    grid-template-columns: 1fr;
+  }
 }

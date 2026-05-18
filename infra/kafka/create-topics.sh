@@ -17,6 +17,10 @@ TOPICS=(
 
   "partner.request.created.v1"
   "partner.request.decided.v1"
+
+  "product.review.created.v1"
+  "product.review.updated.v1"
+  "product.review.comment.created.v1"
 )
 
 echo "[kafka-init] Waiting for Kafka broker at ${BOOTSTRAP_SERVER}..."

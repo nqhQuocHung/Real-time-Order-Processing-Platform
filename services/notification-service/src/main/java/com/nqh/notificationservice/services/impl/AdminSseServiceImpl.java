@@ -59,6 +59,18 @@ public class AdminSseServiceImpl implements AdminSseService {
         }
     }
 
+    @Override
+    public void sendToAllUsers(String eventName, Object data) {
+        userEmittersByUserId.forEach((userId, emitters) -> {
+            if (emitters == null || emitters.isEmpty()) {
+                return;
+            }
+            for (SseEmitter emitter : emitters) {
+                sendEvent(emitter, userId, false, eventName, data);
+            }
+        });
+    }
+
     private void sendEvent(
             SseEmitter emitter,
             String userId,

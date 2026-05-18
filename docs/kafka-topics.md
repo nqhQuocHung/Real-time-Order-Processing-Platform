@@ -28,6 +28,9 @@ Vi du:
 | `payment.transaction.failed.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan that bai |
 | `partner.request.created.v1` | `auth-service` | `notification-service` | Co yeu cau nang cap partner moi |
 | `partner.request.decided.v1` | `auth-service` | `notification-service` | Ket qua phe duyet tu admin |
+| `product.review.created.v1` | `inventory-service` | `notification-service` | Review moi duoc tao |
+| `product.review.updated.v1` | `inventory-service` | `notification-service` | Review duoc cap nhat |
+| `product.review.comment.created.v1` | `inventory-service` | `notification-service` | Comment moi tren review |
 
 ## 4. Message key strategy
 
@@ -35,6 +38,7 @@ Vi du:
 - Partner request:
   - created event key theo `requestId`
   - decided event key theo `userId`
+- Product review topics dung key theo `productId` de cap nhat realtime theo tung san pham.
 
 ## 5. Event envelope (order/payment domains)
 

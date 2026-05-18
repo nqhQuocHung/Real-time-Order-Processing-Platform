@@ -40,6 +40,10 @@
   background: rgba(8, 37, 60, 0.72);
 }
 
+.user-orders-filter-bar {
+  margin-bottom: 12px;
+}
+
 .user-orders-cart-actions {
   display: inline-flex;
   gap: 6px;
@@ -79,6 +83,11 @@
 
 .user-orders-payment-hint strong {
   color: var(--role-text);
+}
+
+.user-orders-payment-hint small {
+  color: var(--role-text-sub);
+  font-size: 0.8rem;
 }
 
 .payment-dialog-overlay {
@@ -128,6 +137,25 @@
 
 .payment-dialog-message strong {
   color: var(--role-text);
+}
+
+.payment-dialog-deadline {
+  margin: 8px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(133, 169, 214, 0.3);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  color: #c7e7ff;
+  background: rgba(10, 31, 51, 0.85);
+}
+
+.payment-dialog-deadline.is-expired {
+  color: #ffc3cf;
+  border-color: rgba(255, 143, 161, 0.5);
+  background: rgba(136, 42, 63, 0.26);
 }
 
 .payment-qrcode {
@@ -191,6 +219,22 @@
 .user-orders-page-btn-page.is-active {
   border-color: rgba(39, 194, 255, 0.6);
   background: rgba(39, 194, 255, 0.2);
+}
+
+.user-orders-pay-before {
+  border: 1px solid rgba(133, 169, 214, 0.28);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  color: #c7e7ff;
+  background: rgba(9, 30, 49, 0.76);
+  white-space: nowrap;
+}
+
+.user-orders-pay-before.is-expired {
+  color: #ffc3cf;
+  border-color: rgba(255, 143, 161, 0.52);
+  background: rgba(136, 42, 63, 0.25);
 }
 
 @media (max-width: 760px) {

@@ -7,6 +7,11 @@
   --role-text-sub: #a8bedf;
   --role-brand: #27c2ff;
   --role-brand-2: #22e4c6;
+  --role-btn-height: 40px;
+  --role-btn-height-compact: 34px;
+  --role-btn-radius: 10px;
+  --role-btn-font-size: 0.86rem;
+  --role-btn-font-size-compact: 0.78rem;
   min-height: 100vh;
   height: 100vh;
   height: 100dvh;
@@ -475,8 +480,15 @@
 .role-btn-primary,
 .role-btn-ghost {
   border: 1px solid transparent;
-  border-radius: 9px;
-  padding: 10px 13px;
+  border-radius: var(--role-btn-radius);
+  min-height: var(--role-btn-height);
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-size: var(--role-btn-font-size);
+  line-height: 1;
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -518,6 +530,21 @@
   transform: none;
   box-shadow: none;
   filter: none;
+}
+
+.role-inline-form > .role-btn-primary,
+.role-inline-form > .role-btn-ghost {
+  justify-self: start;
+  align-self: end;
+  width: fit-content;
+}
+
+.role-table-wrap .role-btn-primary,
+.role-table-wrap .role-btn-ghost {
+  min-height: var(--role-btn-height-compact);
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: var(--role-btn-font-size-compact);
 }
 
 .role-table-wrap {
@@ -747,5 +774,11 @@
   .role-kv-grid,
   .role-inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .role-inline-form > .role-btn-primary,
+  .role-inline-form > .role-btn-ghost {
+    width: 100%;
+    justify-self: stretch;
   }
 }

@@ -15,7 +15,9 @@ import com.nqh.notificationservice.repositories.NotificationLogRepository;
 import com.nqh.notificationservice.services.NotificationService;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
@@ -90,6 +92,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional(readOnly = true)
     public NotificationListResponse getNotifications(
             String orderCode,
+            String recipient,
             NotificationStatusEnum status,
             NotificationChannelEnum channel,
             LocalDateTime createdFrom,
@@ -100,7 +103,14 @@ public class NotificationServiceImpl implements NotificationService {
         validateDateRange(createdFrom, createdTo);
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Specification<NotificationLog> specification = buildSpecification(orderCode, status, channel, createdFrom, createdTo);
+        Specification<NotificationLog> specification = buildSpecification(
+                orderCode,
+                recipient,
+                status,
+                channel,
+                createdFrom,
+                createdTo
+        );
         Page<NotificationLog> notificationPage = notificationLogRepository.findAll(specification, pageable);
 
         return NotificationListResponse.builder()
@@ -149,11 +159,12 @@ public class NotificationServiceImpl implements NotificationService {
         String orderCode = firstNonBlank(
                 extractField(rootNode, "payload.orderCode"),
                 extractField(rootNode, "payload.orderId"),
+                extractField(rootNode, "payload.productId"),
                 extractField(rootNode, "orderCode"),
                 extractField(rootNode, "orderId"),
                 "UNKNOWN"
         );
-        String recipient = firstNonBlank(
+        String fallbackRecipient = firstNonBlank(
                 extractField(rootNode, "payload.recipient"),
                 extractField(rootNode, "payload.customerEmail"),
                 extractField(rootNode, "payload.customerId"),
@@ -161,24 +172,32 @@ public class NotificationServiceImpl implements NotificationService {
                 extractField(rootNode, "customerEmail"),
                 defaultRecipient
         );
+        List<String> recipients = extractRecipients(rootNode);
+        if (recipients.isEmpty()) {
+            recipients = List.of(fallbackRecipient);
+        }
 
-        NotificationLog notificationLog = NotificationLog.builder()
-                .notificationCode(generateNotificationCode())
-                .orderCode(trimToMaxLength(orderCode, 64))
-                .eventType(trimToMaxLength(eventType, 120))
-                .channel(NotificationChannelEnum.EMAIL)
-                .recipient(trimToMaxLength(recipient, 255))
-                .title(trimToMaxLength(buildTitle(eventType), 255))
-                .content(trimToMaxLength(buildEventContent(rawMessage), 2000))
-                .status(NotificationStatusEnum.SENT)
-                .provider("KAFKA_EVENT")
-                .actor("NOTIFICATION_CONSUMER")
-                .note(trimToMaxLength("topic=" + topic, 255))
-                .sentAt(LocalDateTime.now())
-                .build();
+        LocalDateTime sentAt = LocalDateTime.now();
+        List<NotificationLog> logs = new ArrayList<>();
+        for (String recipient : recipients) {
+            logs.add(NotificationLog.builder()
+                    .notificationCode(generateNotificationCode())
+                    .orderCode(trimToMaxLength(orderCode, 64))
+                    .eventType(trimToMaxLength(eventType, 120))
+                    .channel(NotificationChannelEnum.PUSH)
+                    .recipient(trimToMaxLength(recipient, 255))
+                    .title(trimToMaxLength(buildTitle(eventType), 255))
+                    .content(trimToMaxLength(buildEventContent(rawMessage), 2000))
+                    .status(NotificationStatusEnum.SENT)
+                    .provider("KAFKA_EVENT")
+                    .actor("NOTIFICATION_CONSUMER")
+                    .note(trimToMaxLength("topic=" + topic, 255))
+                    .sentAt(sentAt)
+                    .build());
+        }
 
-        NotificationLog saved = notificationLogRepository.save(notificationLog);
-        return mapToResponse(saved);
+        List<NotificationLog> savedLogs = notificationLogRepository.saveAll(logs);
+        return mapToResponse(savedLogs.get(0));
     }
 
     private JsonNode parseJsonNode(String rawMessage) {
@@ -237,6 +256,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private Specification<NotificationLog> buildSpecification(
             String orderCode,
+            String recipient,
             NotificationStatusEnum status,
             NotificationChannelEnum channel,
             LocalDateTime createdFrom,
@@ -246,6 +266,9 @@ public class NotificationServiceImpl implements NotificationService {
 
         if (StringUtils.hasText(orderCode)) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("orderCode"), orderCode.trim()));
+        }
+        if (StringUtils.hasText(recipient)) {
+            specification = specification.and((root, query, cb) -> cb.equal(root.get("recipient"), recipient.trim()));
         }
         if (status != null) {
             specification = specification.and((root, query, cb) -> cb.equal(root.get("status"), status));
@@ -304,6 +327,42 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
         return null;
+    }
+
+    private List<String> extractRecipients(JsonNode rootNode) {
+        if (rootNode == null) {
+            return List.of();
+        }
+
+        JsonNode recipientsNode = rootNode.path("payload").path("recipients");
+        if (!recipientsNode.isArray() || recipientsNode.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> recipients = new ArrayList<>();
+        for (JsonNode recipientNode : recipientsNode) {
+            String recipient = firstNonBlank(
+                    asTrimmedText(recipientNode.path("userId")),
+                    asTrimmedText(recipientNode.path("recipientUserId")),
+                    asTrimmedText(recipientNode.path("recipient"))
+            );
+            if (recipient == null || recipients.contains(recipient)) {
+                continue;
+            }
+            recipients.add(recipient);
+        }
+        return recipients;
+    }
+
+    private String asTrimmedText(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        String value = node.asText(null);
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private NotificationLogResponse mapToResponse(NotificationLog notificationLog) {

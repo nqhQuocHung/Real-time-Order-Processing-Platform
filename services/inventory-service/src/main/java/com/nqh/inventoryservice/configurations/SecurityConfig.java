@@ -68,8 +68,40 @@ public class SecurityConfig {
                                 "PERM_MANAGE_PRODUCTS",
                                 "PERM_MANAGE_ALL_ORDERS"
                         )
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/inventories/products/*/reviews",
+                                "/api/v1/inventories/products/*/review-stats"
+                        )
+                        .hasAnyAuthority(
+                                "PERM_VIEW_PRODUCT_CATALOG",
+                                "PERM_MANAGE_SELF_ORDERS",
+                                "PERM_MANAGE_PARTNER_PRODUCTS",
+                                "PERM_MANAGE_PRODUCTS",
+                                "PERM_MANAGE_ALL_ORDERS"
+                        )
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/inventories/products/*/reviews",
+                                "/api/v1/inventories/reviews/*/comments"
+                        )
+                        .hasAnyAuthority(
+                                "PERM_MANAGE_SELF_ORDERS",
+                                "PERM_MANAGE_PARTNER_PRODUCTS",
+                                "PERM_MANAGE_PRODUCTS",
+                                "PERM_MANAGE_ALL_ORDERS"
+                        )
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/inventories/reviews/*")
+                        .hasAnyAuthority(
+                                "PERM_MANAGE_SELF_ORDERS",
+                                "PERM_MANAGE_PARTNER_PRODUCTS",
+                                "PERM_MANAGE_PRODUCTS",
+                                "PERM_MANAGE_ALL_ORDERS"
+                        )
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/my-products")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventories/admin/products")
+                        .hasAnyAuthority("PERM_MANAGE_PRODUCTS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/categories")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
                         .requestMatchers(HttpMethod.POST, "/api/v1/inventories/categories")
