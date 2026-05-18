@@ -70,6 +70,8 @@ public class SecurityConfig {
                         )
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/my-products")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventories/admin/products")
+                        .hasAnyAuthority("PERM_MANAGE_PRODUCTS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/inventories/categories")
                         .hasAnyAuthority("PERM_MANAGE_PARTNER_PRODUCTS", "PERM_MANAGE_PRODUCTS")
                         .requestMatchers(HttpMethod.POST, "/api/v1/inventories/categories")

@@ -1,2 +1,203 @@
-﻿.admin-product-management-page {
+.admin-product-page-metrics {
+  margin-top: 0.85rem;
+}
+
+.admin-product-page-filter {
+  margin-top: 0.85rem;
+}
+
+.admin-product-page-grid {
+  margin-top: 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.admin-product-page-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed rgba(133, 169, 214, 0.35);
+  border-radius: 10px;
+}
+
+.admin-product-page-pagination {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-product-page-pagination-summary {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.admin-product-page-pagination-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-product-page-btn-page {
+  min-width: 40px;
+  padding: 7px 10px;
+  font-size: 0.76rem;
+}
+
+.admin-product-page-btn-page.is-active {
+  border-color: rgba(39, 194, 255, 0.6);
+  background: rgba(39, 194, 255, 0.2);
+}
+
+.admin-product-page-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(2, 10, 19, 0.74);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+  display: grid;
+  place-items: center;
+}
+
+.admin-product-page-modal {
+  width: min(980px, 100%);
+  max-height: min(92vh, 760px);
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(70, 144, 220, 0.42);
+  background:
+    radial-gradient(120% 120% at 0% 0%, rgba(27, 93, 177, 0.22), rgba(6, 18, 33, 0.96) 45%),
+    radial-gradient(130% 130% at 100% 0%, rgba(7, 174, 236, 0.16), rgba(4, 15, 28, 0.96) 62%);
+  box-shadow: 0 24px 54px rgba(2, 9, 16, 0.46);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-product-page-modal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-product-page-modal > header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.admin-product-page-modal-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.admin-product-page-modal-image {
+  border: 1px solid rgba(79, 128, 179, 0.28);
+  border-radius: 12px;
+  background: rgba(5, 18, 32, 0.62);
+  overflow: hidden;
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.admin-product-page-modal-image img {
+  width: 100%;
+  height: clamp(200px, 34vh, 320px);
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(89, 142, 198, 0.34);
+  background: rgba(7, 22, 38, 0.78);
+}
+
+.admin-product-page-upload-label {
+  display: grid;
+  gap: 6px;
+  color: rgba(157, 196, 230, 0.88);
+  font-size: 0.76rem;
+}
+
+.admin-product-page-upload-label input[type='file'] {
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+}
+
+.admin-product-page-modal-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-product-page-modal-fields label {
+  display: grid;
+  gap: 6px;
+  color: rgba(157, 196, 230, 0.88);
+  font-size: 0.76rem;
+}
+
+.admin-product-page-modal-fields input,
+.admin-product-page-modal-fields select,
+.admin-product-page-modal-fields textarea {
+  width: 100%;
+  border: 1px solid rgba(133, 169, 214, 0.32);
+  background: rgba(8, 24, 40, 0.9);
+  color: var(--role-text);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.admin-product-page-modal-fields textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.admin-product-page-modal-full-width {
+  grid-column: 1 / -1;
+}
+
+.admin-product-page-modal-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 960px) {
+  .admin-product-page-modal {
+    max-height: calc(100vh - 24px);
+    overflow: auto;
+  }
+
+  .admin-product-page-modal-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-product-page-modal-image img {
+    height: min(56vw, 280px);
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-product-page-modal-backdrop {
+    padding: 10px;
+  }
+
+  .admin-product-page-modal {
+    padding: 12px;
+  }
+
+  .admin-product-page-modal-fields {
+    grid-template-columns: 1fr;
+  }
 }

@@ -108,6 +108,26 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<InventoryStockResponse> getAdminProducts(UUID shopId, boolean includeInactive) {
+        List<InventoryStock> stocks;
+        if (shopId != null) {
+            stocks = includeInactive
+                    ? inventoryStockRepository.findByShopIdOrderByUpdatedAtDesc(shopId)
+                    : inventoryStockRepository.findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(shopId);
+        } else {
+            stocks = includeInactive
+                    ? inventoryStockRepository.findAllByOrderByUpdatedAtDesc()
+                    : inventoryStockRepository.findByIsActiveTrueOrderByUpdatedAtDesc();
+        }
+
+        Map<UUID, String> categoryNameById = buildCategoryNameMap(stocks);
+        return stocks.stream()
+                .map(stock -> mapToStockResponse(stock, resolveCategoryName(stock.getCategoryId(), categoryNameById)))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ProductCategoryResponse> getProductCategories() {
         return productCategoryRepository.findByIsActiveTrueOrderByCategoryNameAsc().stream()
                 .map(this::mapToProductCategoryResponse)

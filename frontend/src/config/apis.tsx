@@ -180,6 +180,7 @@ const endpoints = {
   },
   inventories: {
     catalog: '/api/v1/inventories/catalog',
+    adminProducts: '/api/v1/inventories/admin/products',
     myProducts: '/api/v1/inventories/my-products',
     createProduct: '/api/v1/inventories/products',
     updateProduct: (productId: string) => `/api/v1/inventories/products/${productId}`,

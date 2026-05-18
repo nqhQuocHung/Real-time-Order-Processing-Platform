@@ -1,4 +1,8 @@
-﻿.admin-reports-pagination {
+.admin-reports-actions {
+  margin-top: 14px;
+}
+
+.admin-reports-pagination {
   margin-top: 12px;
   display: flex;
   justify-content: space-between;

@@ -80,6 +80,22 @@ public class InventoryController {
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 
+    @GetMapping("/admin/products")
+    public ResponseEntity<BaseResponse<List<InventoryStockResponse>>> getAdminProducts(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) UUID shopId,
+            @RequestParam(defaultValue = "true") boolean includeInactive,
+            HttpServletRequest httpServletRequest
+    ) {
+        boolean isAdmin = jwt != null
+                && jwt.getClaimAsStringList("roles") != null
+                && jwt.getClaimAsStringList("roles").stream().anyMatch("ADMIN"::equalsIgnoreCase);
+        ensureAdminAccess(isAdmin);
+
+        List<InventoryStockResponse> response = inventoryService.getAdminProducts(shopId, includeInactive);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
     @PostMapping(value = "/products", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<BaseResponse<InventoryStockResponse>> createPartnerProduct(
             @AuthenticationPrincipal Jwt jwt,
@@ -285,6 +301,12 @@ public class InventoryController {
     }
 
     private void ensureAdminForCategoryManagement(boolean isAdmin) {
+        if (!isAdmin) {
+            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.COMMON_FORBIDDEN);
+        }
+    }
+
+    private void ensureAdminAccess(boolean isAdmin) {
         if (!isAdmin) {
             throw new AppException(HttpStatus.FORBIDDEN, MessageCode.COMMON_FORBIDDEN);
         }

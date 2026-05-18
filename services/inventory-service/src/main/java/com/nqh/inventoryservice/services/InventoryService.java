@@ -25,6 +25,8 @@ public interface InventoryService {
 
     List<InventoryStockResponse> getCatalogByShopId(UUID shopId);
 
+    List<InventoryStockResponse> getAdminProducts(UUID shopId, boolean includeInactive);
+
     InventoryStockResponse createPartnerProduct(UUID requesterUserId, boolean isAdmin, CreatePartnerProductRequest request);
 
     List<ProductCategoryResponse> getProductCategories();

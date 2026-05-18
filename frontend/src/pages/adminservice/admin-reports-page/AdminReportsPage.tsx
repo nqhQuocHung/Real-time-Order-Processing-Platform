@@ -44,10 +44,179 @@ function formatMoney(value: number) {
   }).format(value || 0)
 }
 
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('vi-VN').format(value || 0)
+}
+
+function formatDateTime(value: Date) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(value)
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function buildReportPdfHtml(params: {
+  generatedAt: string
+  totalRevenue: number
+  totalOrders: number
+  statusEntries: Array<[string, number]>
+}) {
+  const rows = params.statusEntries.length
+    ? params.statusEntries.map(
+      ([status, count]) => `
+        <tr>
+          <td>${escapeHtml(status)}</td>
+          <td>${formatNumber(count)}</td>
+        </tr>
+      `,
+    ).join('')
+    : `
+      <tr>
+        <td colspan="2">Chưa có dữ liệu.</td>
+      </tr>
+    `
+
+  return `
+    <!doctype html>
+    <html lang="vi">
+      <head>
+        <meta charset="utf-8" />
+        <title>Bao-cao-he-thong</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 16mm;
+          }
+          * {
+            box-sizing: border-box;
+          }
+          body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            color: #0f172a;
+            font-size: 14px;
+            line-height: 1.45;
+          }
+          h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #0b4f7d;
+          }
+          .muted {
+            color: #4b5563;
+            margin-top: 6px;
+          }
+          .meta {
+            margin-top: 4px;
+            color: #334155;
+            font-size: 13px;
+          }
+          .summary {
+            margin-top: 16px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          .summary-card {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 10px 12px;
+            background: #f8fafc;
+          }
+          .summary-card span {
+            display: block;
+            color: #475569;
+            font-size: 12px;
+          }
+          .summary-card strong {
+            display: block;
+            margin-top: 6px;
+            font-size: 18px;
+            color: #0f172a;
+          }
+          h2 {
+            margin: 22px 0 10px;
+            font-size: 18px;
+            color: #0b4f7d;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th,
+          td {
+            border: 1px solid #cbd5e1;
+            padding: 8px 10px;
+            text-align: left;
+          }
+          th {
+            background: #e2e8f0;
+            color: #0f172a;
+          }
+          .footer {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #64748b;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Báo cáo hệ thống</h1>
+        <p class="muted">Báo cáo tổng hợp nhanh theo dữ liệu đơn hàng hiện tại.</p>
+        <p class="meta">Thời gian xuất: ${escapeHtml(params.generatedAt)}</p>
+
+        <section class="summary">
+          <article class="summary-card">
+            <span>Tổng doanh thu</span>
+            <strong>${escapeHtml(formatMoney(params.totalRevenue))}</strong>
+          </article>
+          <article class="summary-card">
+            <span>Tổng bản ghi đơn đang tính</span>
+            <strong>${escapeHtml(formatNumber(params.totalOrders))}</strong>
+          </article>
+        </section>
+
+        <h2>Phân bổ trạng thái đơn hàng</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Trạng thái</th>
+              <th>Số lượng</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <p class="footer">Gợi ý: Trong hộp thoại in, chọn đích "Save as PDF" để lưu file PDF.</p>
+
+        <script>
+          window.addEventListener('load', function () {
+            setTimeout(function () {
+              window.print();
+            }, 120);
+          });
+        </script>
+      </body>
+    </html>
+  `
+}
+
 function AdminReportsPage() {
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [error, setError] = useState('')
   const [statusPage, setStatusPage] = useState(0)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const statusPageSize = 5
 
   useEffect(() => {
@@ -123,6 +292,33 @@ function AdminReportsPage() {
     setStatusPage(targetPage)
   }
 
+  function handleExportPdf() {
+    setError('')
+    setExportingPdf(true)
+    try {
+      const printWindow = window.open('', '_blank', 'noopener,noreferrer')
+      if (!printWindow) {
+        setError('Trình duyệt đã chặn popup xuất PDF. Vui lòng cho phép popup và thử lại.')
+        return
+      }
+
+      const html = buildReportPdfHtml({
+        generatedAt: formatDateTime(new Date()),
+        totalRevenue,
+        totalOrders: orders.length,
+        statusEntries,
+      })
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+    } catch {
+      setError('Không thể khởi tạo file PDF từ báo cáo.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <section className="admin-reports-page role-page-stack">
       <article className="role-card">
@@ -142,6 +338,17 @@ function AdminReportsPage() {
             <span>Tổng bản ghi đơn đang tính</span>
             <strong>{orders.length}</strong>
           </div>
+        </div>
+
+        <div className="role-inline-actions admin-reports-actions">
+          <button
+            type="button"
+            className="role-btn-primary"
+            onClick={handleExportPdf}
+            disabled={exportingPdf}
+          >
+            {exportingPdf ? 'Đang chuẩn bị PDF...' : 'Xuất báo cáo PDF'}
+          </button>
         </div>
       </article>
 

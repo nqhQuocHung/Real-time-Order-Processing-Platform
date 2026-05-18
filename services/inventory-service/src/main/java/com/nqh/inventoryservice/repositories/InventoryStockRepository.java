@@ -18,7 +18,11 @@ public interface InventoryStockRepository extends JpaRepository<InventoryStock, 
 
     List<InventoryStock> findByIsActiveTrueOrderByUpdatedAtDesc();
 
+    List<InventoryStock> findAllByOrderByUpdatedAtDesc();
+
     List<InventoryStock> findByIsActiveTrueAndShopIdOrderByUpdatedAtDesc(UUID shopId);
+
+    List<InventoryStock> findByShopIdOrderByUpdatedAtDesc(UUID shopId);
 
     Optional<InventoryStock> findByIsActiveTrueAndProductIdAndShopId(UUID productId, UUID shopId);
 
