@@ -951,7 +951,7 @@ function UserProductsPage() {
                 onViewDetail={setSelectedProduct}
                 actionSlot={
                   inCart ? (
-                    <div className="user-products-page-action-stack">
+                    <div className="user-products-page-action-row">
                       <div className="user-products-page-cart-controls">
                         <div className="user-products-page-cart-stepper">
                           <button
@@ -990,7 +990,7 @@ function UserProductsPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="user-products-page-action-stack">
+                    <div className="user-products-page-action-row">
                       <button
                         type="button"
                         className="product-card-btn user-products-page-cart-toggle is-add"

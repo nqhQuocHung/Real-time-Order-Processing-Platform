@@ -84,26 +84,29 @@
 }
 
 .user-products-page-cart-toggle {
-  width: min(100%, 320px);
+  min-width: 156px;
   justify-content: center;
   text-align: center;
   font-size: 0.96rem;
   padding: 11px 14px;
 }
 
-.user-products-page-action-stack {
+.user-products-page-action-row {
   width: 100%;
-  display: grid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
-  justify-items: center;
 }
 
 .user-products-page-cart-controls {
-  width: 100%;
+  width: auto;
   display: flex;
   gap: 8px;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .user-products-page-cart-stepper {
@@ -151,7 +154,7 @@
 }
 
 .user-products-page-message-shop-btn {
-  width: min(100%, 320px);
+  min-width: 156px;
   border-color: rgba(116, 177, 255, 0.58);
   color: #b9ddff;
   background: rgba(8, 37, 62, 0.74);

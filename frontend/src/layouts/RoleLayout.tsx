@@ -469,6 +469,7 @@ function RoleLayout() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isMessageOpen, setIsMessageOpen] = useState(false)
+  const [isMessageThreadOpen, setIsMessageThreadOpen] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [openMenuGroups, setOpenMenuGroups] = useState<Record<string, boolean>>({})
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -660,9 +661,13 @@ function RoleLayout() {
       const targetConversationId =
         preferredConversationId?.trim() ||
         activeMessageConversationId ||
-        content[0]?.conversationId ||
         ''
-      setActiveMessageConversationId(targetConversationId)
+      if (targetConversationId) {
+        const exists = content.some(
+          (conversation) => conversation.conversationId === targetConversationId,
+        )
+        setActiveMessageConversationId(exists ? targetConversationId : '')
+      }
     } catch (error) {
       console.error('Cannot load message conversations:', error)
     } finally {
@@ -745,6 +750,24 @@ function RoleLayout() {
     }
   }
 
+  async function openMessageThread(
+    conversationId: string,
+    options?: { closeList?: boolean },
+  ) {
+    const normalizedConversationId = conversationId.trim()
+    if (!normalizedConversationId) {
+      return
+    }
+
+    setActiveMessageConversationId(normalizedConversationId)
+    setIsMessageThreadOpen(true)
+    setMessageDraft('')
+    if (options?.closeList !== false) {
+      setIsMessageOpen(false)
+    }
+    await loadMessageEntries(normalizedConversationId, { markAsRead: true })
+  }
+
   async function openMessageConversationFromProduct(
     detail: OpenMessageConversationDetail,
   ) {
@@ -772,15 +795,14 @@ function RoleLayout() {
 
       setIsNotificationOpen(false)
       setIsUserMenuOpen(false)
-      setIsMessageOpen(true)
+      setIsMessageOpen(false)
       setMessageConversations((previous) =>
         upsertConversationItem(previous, {
           ...conversation,
           unreadCount: 0,
         }),
       )
-      setActiveMessageConversationId(conversationId)
-      await loadMessageEntries(conversationId, { markAsRead: true })
+      await openMessageThread(conversationId)
       await loadMessageConversations(conversationId)
     } catch (error) {
       console.error('Cannot open message conversation:', error)
@@ -877,7 +899,7 @@ function RoleLayout() {
       incomingMessage.senderId &&
       incomingMessage.senderId !== currentUserId &&
       incomingMessage.recipientId === currentUserId &&
-      (!isMessageOpen || activeMessageConversationId !== conversationId)
+      (!isMessageThreadOpen || activeMessageConversationId !== conversationId)
         ? 1
         : 0
 
@@ -912,14 +934,14 @@ function RoleLayout() {
         ),
       }
 
-      if (isMessageOpen && activeMessageConversationId === conversationId) {
+      if (isMessageThreadOpen && activeMessageConversationId === conversationId) {
         mergedConversation.unreadCount = 0
       }
 
       return upsertConversationItem(previous, mergedConversation)
     })
 
-    if (isMessageOpen && activeMessageConversationId === conversationId) {
+    if (isMessageThreadOpen && activeMessageConversationId === conversationId) {
       void markMessageConversationAsRead(conversationId)
     }
   }
@@ -1045,6 +1067,7 @@ function RoleLayout() {
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
     setIsMessageOpen(false)
+    setIsMessageThreadOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -1070,7 +1093,7 @@ function RoleLayout() {
   }, [isMessageOpen, isMessagingEnabled])
 
   useEffect(() => {
-    if (!isMessageOpen || !isMessagingEnabled) {
+    if (!isMessageThreadOpen || !isMessagingEnabled) {
       return
     }
     const conversationId = activeMessageConversationId.trim()
@@ -1078,7 +1101,7 @@ function RoleLayout() {
       return
     }
     void loadMessageEntries(conversationId, { markAsRead: true })
-  }, [activeMessageConversationId, isMessageOpen, isMessagingEnabled])
+  }, [activeMessageConversationId, isMessageThreadOpen, isMessagingEnabled])
 
   useEffect(() => {
     function handleOpenConversationEvent(event: Event) {
@@ -1301,6 +1324,7 @@ function RoleLayout() {
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
     setIsMessageOpen(false)
+    setIsMessageThreadOpen(false)
     setIsMobileMenuOpen(false)
     navigate(dashboardPath)
   }
@@ -1376,6 +1400,7 @@ function RoleLayout() {
             ref={messageMenuRef}
             compact={compact}
             isOpen={isMessageOpen}
+            isThreadOpen={isMessageThreadOpen}
             unreadCount={unreadMessageCount}
             conversations={messageConversations}
             activeConversationId={activeMessageConversationId}
@@ -1391,10 +1416,9 @@ function RoleLayout() {
               setIsMessageOpen((state) => !state)
             }}
             onSelectConversation={(conversationId) => {
-              setActiveMessageConversationId(conversationId)
-              setMessageDraft('')
-              void loadMessageEntries(conversationId, { markAsRead: true })
+              void openMessageThread(conversationId)
             }}
+            onCloseThread={() => setIsMessageThreadOpen(false)}
             onDraftChange={setMessageDraft}
             onSend={() => {
               void handleSendMessage()

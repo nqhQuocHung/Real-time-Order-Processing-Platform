@@ -31,6 +31,7 @@ export type MessageEntryItem = {
 type MessageCenterProps = {
   compact?: boolean
   isOpen: boolean
+  isThreadOpen: boolean
   unreadCount: number
   conversations: MessageConversationItem[]
   activeConversationId: string
@@ -42,6 +43,7 @@ type MessageCenterProps = {
   loadingMessages: boolean
   onToggle: () => void
   onSelectConversation: (conversationId: string) => void
+  onCloseThread: () => void
   onDraftChange: (value: string) => void
   onSend: () => void
 }
@@ -73,6 +75,7 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
   {
     compact = false,
     isOpen,
+    isThreadOpen,
     unreadCount,
     conversations,
     activeConversationId,
@@ -84,6 +87,7 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
     loadingMessages,
     onToggle,
     onSelectConversation,
+    onCloseThread,
     onDraftChange,
     onSend,
   },
@@ -119,99 +123,103 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
             <span>{conversations.length}</span>
           </div>
 
-          <div className="role-message-layout">
-            <aside className="role-message-conversations">
-              {loadingConversations ? (
-                <p className="role-message-empty">Loading conversations...</p>
-              ) : conversations.length === 0 ? (
-                <p className="role-message-empty">No conversation yet.</p>
-              ) : (
-                <ul>
-                  {conversations.map((conversation) => {
-                    const title = resolveConversationTitle(conversation, currentUserId)
-                    const unread = Math.max(0, Number(conversation.unreadCount) || 0)
-                    return (
-                      <li key={conversation.conversationId}>
-                        <button
-                          type="button"
-                          className={`role-message-conversation-item ${
-                            conversation.conversationId === activeConversationId ? 'active' : ''
-                          }`}
-                          onClick={() => onSelectConversation(conversation.conversationId)}
-                        >
-                          <div className="role-message-conversation-top">
-                            <strong>{title}</strong>
-                            <time>{formatOccurredAt(conversation.lastMessageAt)}</time>
-                          </div>
-                          {conversation.productName && (
-                            <span className="role-message-conversation-product">
-                              {conversation.productName}
-                            </span>
-                          )}
-                          <p>{conversation.lastMessagePreview || 'Start conversation...'}</p>
-                          {unread > 0 && <span className="role-message-conversation-unread">{unread}</span>}
-                        </button>
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </aside>
-
-            <section className="role-message-thread">
-              {!activeConversation ? (
-                <p className="role-message-empty">Select a conversation to start chatting.</p>
-              ) : (
-                <>
-                  <div className="role-message-thread-header">
-                    <strong>{resolveConversationTitle(activeConversation, currentUserId)}</strong>
-                    {activeConversation.productName && <span>{activeConversation.productName}</span>}
-                  </div>
-                  <div className="role-message-thread-body">
-                    {loadingMessages ? (
-                      <p className="role-message-empty">Loading messages...</p>
-                    ) : messages.length === 0 ? (
-                      <p className="role-message-empty">No messages yet.</p>
-                    ) : (
-                      <ul>
-                        {messages.map((message) => {
-                          const mine = message.senderId === currentUserId
-                          return (
-                            <li key={message.messageId} className={mine ? 'mine' : 'theirs'}>
-                              <div className="role-message-bubble">
-                                <span className="role-message-sender">
-                                  {mine ? 'You' : message.senderName?.trim() || message.senderRole || 'User'}
-                                </span>
-                                <p>{message.content}</p>
-                                <time>{formatOccurredAt(message.createdAt)}</time>
-                              </div>
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="role-message-compose">
-                    <textarea
-                      value={draft}
-                      onChange={(event) => onDraftChange(event.target.value)}
-                      placeholder="Type your message..."
-                      rows={3}
-                    />
-                    <button
-                      type="button"
-                      className="role-btn-primary"
-                      onClick={onSend}
-                      disabled={sending || !draft.trim()}
-                    >
-                      {sending ? 'Sending...' : 'Send'}
-                    </button>
-                  </div>
-                </>
-              )}
-            </section>
-          </div>
+          <aside className="role-message-conversations role-message-conversations-list-only">
+            {loadingConversations ? (
+              <p className="role-message-empty">Loading conversations...</p>
+            ) : conversations.length === 0 ? (
+              <p className="role-message-empty">No conversation yet.</p>
+            ) : (
+              <ul>
+                {conversations.map((conversation) => {
+                  const title = resolveConversationTitle(conversation, currentUserId)
+                  const unread = Math.max(0, Number(conversation.unreadCount) || 0)
+                  return (
+                    <li key={conversation.conversationId}>
+                      <button
+                        type="button"
+                        className={`role-message-conversation-item ${
+                          conversation.conversationId === activeConversationId ? 'active' : ''
+                        }`}
+                        onClick={() => onSelectConversation(conversation.conversationId)}
+                      >
+                        <div className="role-message-conversation-top">
+                          <strong>{title}</strong>
+                          <time>{formatOccurredAt(conversation.lastMessageAt)}</time>
+                        </div>
+                        {conversation.productName && (
+                          <span className="role-message-conversation-product">
+                            {conversation.productName}
+                          </span>
+                        )}
+                        <p>{conversation.lastMessagePreview || 'Start conversation...'}</p>
+                        {unread > 0 && <span className="role-message-conversation-unread">{unread}</span>}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </aside>
         </div>
+      )}
+
+      {isThreadOpen && activeConversation && (
+        <section className="role-message-thread-widget">
+          <div className="role-message-thread-header">
+            <div className="role-message-thread-header-info">
+              <strong>{resolveConversationTitle(activeConversation, currentUserId)}</strong>
+              {activeConversation.productName && <span>{activeConversation.productName}</span>}
+            </div>
+            <button
+              type="button"
+              className="role-message-thread-close"
+              onClick={onCloseThread}
+              aria-label="Close chat box"
+            >
+              ×
+            </button>
+          </div>
+          <div className="role-message-thread-body">
+            {loadingMessages ? (
+              <p className="role-message-empty">Loading messages...</p>
+            ) : messages.length === 0 ? (
+              <p className="role-message-empty">No messages yet.</p>
+            ) : (
+              <ul>
+                {messages.map((message) => {
+                  const mine = message.senderId === currentUserId
+                  return (
+                    <li key={message.messageId} className={mine ? 'mine' : 'theirs'}>
+                      <div className="role-message-bubble">
+                        <span className="role-message-sender">
+                          {mine ? 'You' : message.senderName?.trim() || message.senderRole || 'User'}
+                        </span>
+                        <p>{message.content}</p>
+                        <time>{formatOccurredAt(message.createdAt)}</time>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+          <div className="role-message-compose">
+            <textarea
+              value={draft}
+              onChange={(event) => onDraftChange(event.target.value)}
+              placeholder="Type your message..."
+              rows={3}
+            />
+            <button
+              type="button"
+              className="role-btn-primary"
+              onClick={onSend}
+              disabled={sending || !draft.trim()}
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </section>
       )}
     </div>
   )
