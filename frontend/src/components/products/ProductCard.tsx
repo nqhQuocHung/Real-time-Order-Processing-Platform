@@ -41,6 +41,7 @@ type ProductCardProps = {
   deleting?: boolean
   actionSlot?: ReactNode
   ratingSummary?: ProductCardRatingSummary | null
+  onOpenChat?: (shopId: string | undefined, shopName: string | undefined) => void
 }
 
 function normalizeQuantity(value: number | null | undefined): number {
@@ -62,6 +63,7 @@ function ProductCard({
   deleting,
   actionSlot,
   ratingSummary,
+  onOpenChat,
 }: ProductCardProps) {
   const displayName = product.name?.trim() || product.productName?.trim() || 'Unnamed Product'
   const displayStatus = product.status?.trim() || (product.isActive ? 'ACTIVE' : 'INACTIVE')
@@ -73,8 +75,16 @@ function ProductCard({
   const ratingValue = normalizeRating(ratingSummary?.averageRating)
   const totalReviews = Math.max(0, Number(ratingSummary?.totalReviews) || 0)
 
+
   function handleOpenDetail() {
     onViewDetail?.(product)
+  }
+
+  function handleOpenChatClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (onOpenChat) {
+      onOpenChat(product.shopId, product.shopName)
+    }
   }
 
   return (
@@ -174,13 +184,22 @@ function ProductCard({
           </div>
         </div>
 
-        {(onEdit || onDelete || actionSlot) && (
+        {(onEdit || onDelete || actionSlot || onOpenChat) && (
           <div
             className="product-card-actions"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
             {actionSlot}
+            {onOpenChat && (
+              <button
+                type="button"
+                className="product-card-btn product-card-btn-message"
+                onClick={handleOpenChatClick}
+              >
+                Message
+              </button>
+            )}
             {onEdit && (
               <button
                 type="button"

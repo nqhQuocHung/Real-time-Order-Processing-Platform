@@ -27,6 +27,7 @@ import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
+import com.nqh.authservice.dtos.PublicUserProfileResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
@@ -148,6 +149,15 @@ public class AuthController {
             HttpServletRequest httpServletRequest
     ) {
         UserProfileResponse response = authService.getUserById(userId);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
+    }
+
+    @GetMapping("/public/users/{userId}")
+    public ResponseEntity<BaseResponse<PublicUserProfileResponse>> getPublicUserById(
+            @PathVariable UUID userId,
+            HttpServletRequest httpServletRequest
+    ) {
+        PublicUserProfileResponse response = authService.getPublicUserById(userId);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.COMMON_SUCCESS, response, httpServletRequest);
     }
 

@@ -31,6 +31,8 @@
   border-radius: 12px;
   background: rgba(8, 24, 40, 0.66);
   padding: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .admin-dashboard-chart-card h4 {
@@ -52,6 +54,7 @@
 .admin-dashboard-pie-chart {
   width: 180px;
   height: 180px;
+  max-width: 100%;
 }
 
 .admin-dashboard-pie-center-title {
@@ -100,6 +103,7 @@
   width: 220px;
   height: 110px;
   overflow: hidden;
+  max-width: 100%;
 }
 
 .admin-dashboard-fan-gauge {
@@ -107,6 +111,7 @@
   width: 220px;
   height: 220px;
   border-radius: 50%;
+  max-width: 100%;
 }
 
 .admin-dashboard-fan-hole {
@@ -172,12 +177,12 @@
 
 .admin-dashboard-line-chart-wrap {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .admin-dashboard-line-chart {
   width: 100%;
-  min-width: 620px;
+  min-width: 0;
   display: block;
 }
 
@@ -227,7 +232,34 @@
     white-space: normal;
   }
 
+  .admin-dashboard-chart-card {
+    padding: 10px;
+  }
+
+  .admin-dashboard-pie-chart {
+    width: 146px;
+    height: 146px;
+  }
+
+  .admin-dashboard-fan-mask {
+    width: 176px;
+    height: 88px;
+  }
+
+  .admin-dashboard-fan-gauge {
+    width: 176px;
+    height: 176px;
+  }
+
+  .admin-dashboard-fan-hole {
+    inset: 24px;
+  }
+
   .admin-dashboard-line-chart {
-    min-width: 520px;
+    min-width: 0;
+  }
+
+  .admin-dashboard-line-axis-label {
+    font-size: 8px;
   }
 }

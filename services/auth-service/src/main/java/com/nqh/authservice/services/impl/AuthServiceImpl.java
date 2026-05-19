@@ -33,6 +33,7 @@ import com.nqh.authservice.dtos.PermissionSummaryResponse;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
+import com.nqh.authservice.dtos.PublicUserProfileResponse;
 import com.nqh.authservice.dtos.RoleSummaryResponse;
 import com.nqh.authservice.dtos.UpdateRoleMenusRequest;
 import com.nqh.authservice.dtos.UpdateMenuRequest;
@@ -528,6 +529,19 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
 
         return mapToUserProfile(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicUserProfileResponse getPublicUserById(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.AUTH_USER_NOT_FOUND));
+
+        return PublicUserProfileResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .avatar(user.getAvatar())
+                .build();
     }
 
     @Override

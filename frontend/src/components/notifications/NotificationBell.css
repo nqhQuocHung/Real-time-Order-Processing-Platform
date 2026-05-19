@@ -160,3 +160,45 @@
   font-size: 0.72rem;
   color: #8dd6ff;
 }
+
+@media (max-width: 760px) {
+  .role-notification-dropdown {
+    position: fixed;
+    top: max(56px, env(safe-area-inset-top));
+    right: max(8px, env(safe-area-inset-right));
+    left: max(8px, env(safe-area-inset-left));
+    width: auto;
+    max-height: min(62dvh, 520px);
+    padding: 6px;
+    border-radius: 12px;
+    z-index: 12040;
+  }
+
+  .role-notification-list {
+    gap: 6px;
+  }
+
+  .role-notification-item {
+    padding: 7px;
+    gap: 5px;
+  }
+
+  .role-notification-title {
+    font-size: 0.78rem;
+  }
+
+  .role-notification-message {
+    font-size: 0.73rem;
+  }
+
+  .role-notification-meta {
+    font-size: 0.66rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .role-notification-dropdown {
+    top: max(52px, env(safe-area-inset-top));
+    max-height: min(58dvh, 470px);
+  }
+}

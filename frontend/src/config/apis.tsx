@@ -145,6 +145,7 @@ const endpoints = {
     otpChangePassword: '/api/v1/auth/otp-change-password',
     me: '/api/v1/auth/me',
     getUserById: (id: number | string) => `/api/v1/auth/user/${id}`,
+    getPublicUserById: (id: number | string) => `/api/v1/auth/public/users/${id}`,
     users: '/api/v1/auth/users',
     usersSummary: '/api/v1/auth/users/summary',
     updateUser: (id: number | string) => `/api/v1/auth/user/${id}`,
