@@ -304,10 +304,15 @@ Request:
 - `POST /api/v1/inventories/confirm-deduct`: Chot tru ton kho sau khi thanh toan thanh cong.
 - `POST /api/v1/inventories/adjust`: Cong/tru ton kho thu cong (restock hoac correction).
 - `GET /api/v1/inventories/products/{productId}/reviews?page=&size=&sort=`: Lay danh sach review cua san pham.
+  - `sort`: `latest | oldest | rating_desc | rating_asc`.
+  - `size`: toi da `50`.
 - `GET /api/v1/inventories/products/{productId}/review-stats`: Lay thong ke sao + diem trung binh cua san pham.
 - `POST /api/v1/inventories/products/{productId}/reviews`: Tao review moi cho san pham (1 user / 1 review).
+  - Body: `rating` (`1..5`, bat buoc), `title` (toi da 160 ky tu), `content` (toi da 2000 ky tu, bat buoc), `orderCode` (toi da 64 ky tu, optional).
 - `PUT /api/v1/inventories/reviews/{reviewId}`: Cap nhat review cua chinh user da tao.
+  - Body: `rating` (`1..5`, bat buoc), `title` (toi da 160 ky tu), `content` (toi da 2000 ky tu, bat buoc).
 - `POST /api/v1/inventories/reviews/{reviewId}/comments`: Them comment vao review.
+  - Body: `content` (toi da 1500 ky tu, bat buoc).
 
 ## 11. Payment Endpoint Contract (Core Demo)
 
@@ -355,3 +360,31 @@ Success (`201`):
 - `GET /api/v1/notifications/{notificationCode}`: Lay chi tiet notification theo code.
 - `GET /api/v1/notifications?orderCode=&status=&channel=&createdFrom=&createdTo=&page=&size=`: Liet ke notification theo filter + pagination.
 - `PATCH /api/v1/notifications/{notificationCode}/status`: Cap nhat trang thai notification (`PENDING`, `SENT`, `FAILED`, `CANCELLED`).
+- `GET /api/v1/notifications/stream`: SSE stream theo user dang dang nhap.
+  - Event co the gap tren frontend: `payment.transaction.*`, `order.lifecycle.*`, `partner.request.*`, `product.review.*`, `chat.message.created`.
+
+## 13. Messaging Endpoint Contract (Realtime Chat)
+
+- `POST /api/v1/messages/conversations/open`
+  - Mo conversation theo cap `userId` - `partnerUserId`.
+  - Neu da ton tai thi tra lai conversation cu, khong tao duplicate.
+  - Body:
+    - `partnerUserId` (UUID, bat buoc)
+    - `partnerDisplayName` (optional)
+    - `productId`, `productName` (optional; implementation hien tai chat theo user-partner, khong tach theo tung product)
+- `GET /api/v1/messages/conversations?page=&size=`
+  - Tra danh sach conversation cua user dang login.
+  - `size` toi da `100`.
+- `GET /api/v1/messages/conversations/{conversationId}/messages?page=&size=&markAsRead=`
+  - Lay lich su tin nhan (sap xep thoi gian tang dan trong response content).
+  - `markAsRead=true` mac dinh.
+- `POST /api/v1/messages/conversations/{conversationId}/messages`
+  - Gui tin nhan moi.
+  - Body: `content` (bat buoc, toi da 2000 ky tu).
+- `PATCH /api/v1/messages/conversations/{conversationId}/read`
+  - Danh dau da doc toan bo message chua doc cua conversation.
+
+Rule nghiep vu quan trong:
+
+- Khong cho mo conversation voi chinh minh (`MSG_SELF_CONVERSATION_NOT_ALLOWED`).
+- Backend hien khong ho tro role `ADMIN` mo conversation moi (`MSG_ADMIN_NOT_SUPPORTED`).

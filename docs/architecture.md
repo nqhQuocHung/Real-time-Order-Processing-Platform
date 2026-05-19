@@ -70,7 +70,7 @@ flowchart LR
 | `order-service` | Tao don, state machine don hang, timeline, workflow reserve/payment timeout | `/api/v1/orders/**` | `/internal/v1/orders/{orderCode}/products` |
 | `inventory-service` | Catalog san pham, danh muc, ton kho, reserve/release/confirm deduct | `/api/v1/inventories/**` | `/internal/v1/inventories/reserve|release|confirm-deduct|product-owners` |
 | `payment-service` | Payment intent, xac nhan thanh toan, fail thanh toan, idempotency lock | `/api/v1/payments/**` | `/internal/v1/payments/intents|confirm|fail` |
-| `notification-service` | Notification log, consume Kafka events, fanout SSE realtime | `/api/v1/notifications/**` + `/stream` | Khong expose endpoint rieng, goi RPC sang order/inventory de resolve recipient |
+| `notification-service` | Notification log, consume Kafka events, fanout SSE realtime, message conversation hub | `/api/v1/notifications/**`, `/api/v1/messages/**`, `/stream` | Khong expose endpoint rieng, goi RPC sang order/inventory de resolve recipient |
 
 ## 5. Kieu giao tiep
 
@@ -79,6 +79,7 @@ flowchart LR
 - Client luon di qua `api-gateway`.
 - Public API theo prefix `/api/v1`.
 - Auth duoc bao ve bang JWT.
+- Message center (conversation/messages) cung di qua gateway va dung chung JWT context.
 
 ### 5.2 Internal sync (service-to-service)
 
@@ -104,8 +105,12 @@ Producer/consumer chinh:
 - `auth-service` publish:
   - `partner.request.created.v1`
   - `partner.request.decided.v1`
+- `inventory-service` publish:
+  - `product.review.created.v1`
+  - `product.review.updated.v1`
+  - `product.review.comment.created.v1`
 - `order-service` consume payment topics de cap nhat state don.
-- `notification-service` consume order/payment/partner topics de ghi log + day SSE.
+- `notification-service` consume order/payment/partner/review topics de ghi log + day SSE.
 
 ## 6. Du lieu va ownership
 
@@ -153,6 +158,7 @@ He thong dang theo huong orchestration + event:
 - Orchestration chinh o `order-service` cho create order -> reserve -> payment intent.
 - State payment cuoi cung duoc dong bo qua payment events.
 - Notification la diem fanout realtime cho user/admin/partner.
+- Messaging chat 1-1 duoc host tai `notification-service`, cap nhat thread qua SSE event `chat.message.created`.
 
 Gioi han hien tai:
 

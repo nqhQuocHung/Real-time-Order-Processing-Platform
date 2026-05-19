@@ -92,7 +92,55 @@ Khi `notification-service` nhan order/payment event:
    - partner owner theo `shopId`
 5. Push SSE event toi tung recipient.
 
-## 7. Sequence tong hop (order -> payment -> notification)
+## 7. Flow 6 - Review/comment realtime + deep-link notify
+
+Phat sinh tu:
+
+- `POST /api/v1/inventories/products/{productId}/reviews`
+- `PUT /api/v1/inventories/reviews/{reviewId}`
+- `POST /api/v1/inventories/reviews/{reviewId}/comments`
+
+Trinh tu:
+
+1. `inventory-service` validate actor + payload (rating/comment length).
+2. Persist review/comment, tinh lai stats neu can.
+3. Build danh sach `recipients` theo quan he:
+   - shop owner cua product
+   - owner cua review
+   - cac user da tham gia comment review
+4. Publish Kafka event:
+   - `product.review.created.v1`
+   - `product.review.updated.v1`
+   - `product.review.comment.created.v1`
+5. `notification-service` consume, ghi notification log.
+6. `notification-service` push SSE toi tung recipient voi `navigatePath` den dung product/review/comment context.
+7. Frontend nhan event, day vao bell va cho phep click dieu huong den vi tri comment/review can focus.
+
+## 8. Flow 7 - Mo chat tu product card va nhan tin realtime
+
+Phat sinh tu:
+
+- User bam nut `Message Shop` tren product card.
+- Hoac bam icon message tren top bar de tiep tuc conversation cu.
+
+Trinh tu:
+
+1. Product page dispatch browser event `app-open-message-conversation` voi `partnerUserId`.
+2. Role layout bat event:
+   - tim conversation ton tai theo cap user-partner
+   - neu chua co -> goi `POST /api/v1/messages/conversations/open`
+3. Mo thread widget va load message:
+   - `GET /api/v1/messages/conversations/{conversationId}/messages?markAsRead=true`
+4. Khi gui tin:
+   - `POST /api/v1/messages/conversations/{conversationId}/messages`
+5. `notification-service` push SSE `chat.message.created` den ca sender va recipient.
+6. Frontend cap nhat thread va unread count trong message dropdown theo realtime.
+
+Luu y:
+
+- Backend hien tai khong cho role `ADMIN` mo conversation moi (`MSG_ADMIN_NOT_SUPPORTED`).
+
+## 9. Sequence tong hop (order -> payment -> notification)
 
 ```mermaid
 sequenceDiagram

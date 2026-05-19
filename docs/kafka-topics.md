@@ -69,6 +69,7 @@ Moi service co group rieng de doc doc lap cung mot topic.
 
 - Payment action co idempotency lock truoc khi publish event.
 - Order/payment consumer co xu ly skip voi mot so state conflict/not-found.
+- Chat message realtime (`chat.message.created`) hien duoc push truc tiep qua SSE trong `notification-service`, khong dung Kafka topic rieng.
 - Khuyen nghi cho sprint tiep:
   - bo sung retry strategy co backoff
   - bo sung DLQ processor cho cac event loi khong phuc hoi.
