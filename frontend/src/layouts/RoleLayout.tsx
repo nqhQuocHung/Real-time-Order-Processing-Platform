@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { fetchMyProfile } from '../auth/authSession'
 import {
@@ -86,6 +86,7 @@ type MessageStreamPayload = {
 const APP_NOTIFICATION_EVENT = 'app-notification-event'
 const STREAM_EVENT_DEDUP_WINDOW_MS = 15000
 const MESSAGE_PAGE_SIZE = 30
+const MESSAGE_AVATAR_RETRY_COOLDOWN_MS = 30000
 
 function toNotificationPayload(payload: unknown): NotificationPayload {
   if (!payload || typeof payload !== 'object') {
@@ -434,6 +435,38 @@ function isCurrentPathActive(path?: string, pathname?: string) {
   return path === pathname
 }
 
+function findConversationIdByPartnerUserId(
+  conversations: MessageConversationItem[],
+  currentUserId: string,
+  partnerUserId: string,
+) {
+  const normalizedPartnerUserId = partnerUserId.trim()
+  if (!normalizedPartnerUserId) {
+    return ''
+  }
+
+  const normalizedCurrentUserId = currentUserId.trim()
+  const matchedConversation = conversations.find((conversation) => {
+    const conversationUserId = (conversation.userId || '').trim()
+    const conversationPartnerId = (conversation.partnerId || '').trim()
+
+    if (normalizedCurrentUserId && conversationUserId === normalizedCurrentUserId) {
+      return conversationPartnerId === normalizedPartnerUserId
+    }
+
+    if (normalizedCurrentUserId && conversationPartnerId === normalizedCurrentUserId) {
+      return conversationUserId === normalizedPartnerUserId
+    }
+
+    return (
+      conversationUserId === normalizedPartnerUserId ||
+      conversationPartnerId === normalizedPartnerUserId
+    )
+  })
+
+  return matchedConversation?.conversationId?.trim() || ''
+}
+
 function isMenuVisibleForRole(item: NavigationMenuItem, currentRole: AppRole) {
   if (item.showOnMenu === false) {
     return false
@@ -469,6 +502,7 @@ function RoleLayout() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [isMessageOpen, setIsMessageOpen] = useState(false)
+  const [isMessageThreadOpen, setIsMessageThreadOpen] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [openMenuGroups, setOpenMenuGroups] = useState<Record<string, boolean>>({})
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
@@ -483,6 +517,10 @@ function RoleLayout() {
   const [loadingMessageEntries, setLoadingMessageEntries] = useState(false)
   const [sendingMessage, setSendingMessage] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [messageCenterError, setMessageCenterError] = useState('')
+  const [messageAvatarByUserId, setMessageAvatarByUserId] = useState<Record<string, string>>({})
+  const messageAvatarLoadingRef = useRef<Set<string>>(new Set())
+  const messageAvatarRetryAtRef = useRef<Map<string, number>>(new Map())
 
   const [avatarUrl, setAvatarUrl] = useState('')
   const [useFallbackAvatar, setUseFallbackAvatar] = useState(false)
@@ -500,8 +538,7 @@ function RoleLayout() {
 
   const currentRole = session?.role || AppRole.USER
   const currentUserId = session?.userId?.trim() || ''
-  const isMessagingEnabled =
-    currentRole === AppRole.USER || currentRole === AppRole.SHOPEE_PARTNER
+  const isMessagingEnabled = Boolean(currentUserId)
   const dashboardPath = resolveDefaultPathByRole(currentRole, session?.backendMenus || [])
 
   const dynamicMenu: NavigationMenuItem[] = (session?.backendMenus || [])
@@ -606,6 +643,55 @@ function RoleLayout() {
     [activeMessageConversationId, conversationMessagesById],
   )
 
+  const resolveConversationPeerId = useCallback((conversation: MessageConversationItem) => {
+    const normalizedCurrentUserId = currentUserId.trim()
+    return normalizedCurrentUserId && conversation.userId === normalizedCurrentUserId
+      ? (conversation.partnerId || '').trim()
+      : (conversation.userId || '').trim()
+  }, [currentUserId])
+
+  const ensureMessageAvatarLoaded = useCallback(async (userId: string) => {
+    const normalizedUserId = userId.trim()
+    if (!normalizedUserId) {
+      return
+    }
+
+    const cachedAvatar = messageAvatarByUserId[normalizedUserId]?.trim() || ''
+    if (cachedAvatar) {
+      return
+    }
+    if (messageAvatarLoadingRef.current.has(normalizedUserId)) {
+      return
+    }
+
+    const currentTime = Date.now()
+    const lastAttemptAt = messageAvatarRetryAtRef.current.get(normalizedUserId) || 0
+    if (currentTime - lastAttemptAt < MESSAGE_AVATAR_RETRY_COOLDOWN_MS) {
+      return
+    }
+    messageAvatarRetryAtRef.current.set(normalizedUserId, currentTime)
+
+    messageAvatarLoadingRef.current.add(normalizedUserId)
+    try {
+      const response = await apis().get(endpoints.auth.getPublicUserById(normalizedUserId))
+      const data = extractApiData<{
+        avatar?: string
+        profile?: { avatar?: string }
+      }>(response)
+      const resolvedAvatar = data?.avatar?.trim() || data?.profile?.avatar?.trim() || ''
+      if (resolvedAvatar) {
+        setMessageAvatarByUserId((previous) => ({
+          ...previous,
+          [normalizedUserId]: resolvedAvatar,
+        }))
+      }
+    } catch {
+      // Keep fallback avatar for now and allow retry later.
+    } finally {
+      messageAvatarLoadingRef.current.delete(normalizedUserId)
+    }
+  }, [messageAvatarByUserId])
+
   function sortConversations(items: MessageConversationItem[]) {
     return [...items].sort((first, second) => {
       const firstDate = first.lastMessageAt ? new Date(first.lastMessageAt).getTime() : 0
@@ -642,11 +728,12 @@ function RoleLayout() {
 
   async function loadMessageConversations(preferredConversationId?: string) {
     if (!isMessagingEnabled) {
-      return
+      return [] as MessageConversationItem[]
     }
 
     try {
       setLoadingMessageConversations(true)
+      setMessageCenterError('')
       const response = await apis().get(endpoints.messages.conversations, {
         params: {
           page: 0,
@@ -655,16 +742,26 @@ function RoleLayout() {
       })
       const data = extractApiData<MessageConversationListResponse>(response)
       const content = Array.isArray(data.content) ? data.content : []
-      setMessageConversations(sortConversations(content))
+      const sortedContent = sortConversations(content)
+      setMessageConversations(sortedContent)
 
       const targetConversationId =
         preferredConversationId?.trim() ||
         activeMessageConversationId ||
-        content[0]?.conversationId ||
         ''
-      setActiveMessageConversationId(targetConversationId)
+      if (targetConversationId) {
+        const exists = sortedContent.some(
+          (conversation) => conversation.conversationId === targetConversationId,
+        )
+        setActiveMessageConversationId(exists ? targetConversationId : '')
+      }
+      return sortedContent
     } catch (error) {
+      setMessageCenterError(
+        extractApiErrorMessage(error, 'Cannot load conversations.'),
+      )
       console.error('Cannot load message conversations:', error)
+      return [] as MessageConversationItem[]
     } finally {
       setLoadingMessageConversations(false)
     }
@@ -693,6 +790,9 @@ function RoleLayout() {
         {},
       )
     } catch (error) {
+      setMessageCenterError(
+        extractApiErrorMessage(error, 'Cannot mark conversation as read.'),
+      )
       console.error('Cannot mark conversation as read:', error)
     }
   }
@@ -709,6 +809,7 @@ function RoleLayout() {
     const shouldMarkAsRead = options?.markAsRead !== false
     try {
       setLoadingMessageEntries(true)
+      setMessageCenterError('')
       const response = await apis().get(
         endpoints.messages.conversationMessages(normalizedConversationId),
         {
@@ -739,10 +840,31 @@ function RoleLayout() {
         )
       }
     } catch (error) {
+      setMessageCenterError(
+        extractApiErrorMessage(error, 'Cannot load messages.'),
+      )
       console.error('Cannot load conversation messages:', error)
     } finally {
       setLoadingMessageEntries(false)
     }
+  }
+
+  async function openMessageThread(
+    conversationId: string,
+    options?: { closeList?: boolean },
+  ) {
+    const normalizedConversationId = conversationId.trim()
+    if (!normalizedConversationId) {
+      return
+    }
+
+    setActiveMessageConversationId(normalizedConversationId)
+    setIsMessageThreadOpen(true)
+    setMessageDraft('')
+    if (options?.closeList !== false) {
+      setIsMessageOpen(false)
+    }
+    await loadMessageEntries(normalizedConversationId, { markAsRead: true })
   }
 
   async function openMessageConversationFromProduct(
@@ -757,12 +879,34 @@ function RoleLayout() {
       return
     }
 
+    setMessageCenterError('')
+    setIsNotificationOpen(false)
+    setIsUserMenuOpen(false)
+
+    let existingConversationId = findConversationIdByPartnerUserId(
+      messageConversations,
+      currentUserId,
+      partnerUserId,
+    )
+
+    if (!existingConversationId) {
+      const latestConversations = await loadMessageConversations()
+      existingConversationId = findConversationIdByPartnerUserId(
+        latestConversations,
+        currentUserId,
+        partnerUserId,
+      )
+    }
+
+    if (existingConversationId) {
+      await openMessageThread(existingConversationId)
+      return
+    }
+
     try {
       const response = await apis().post(endpoints.messages.openConversation, {
         partnerUserId,
         partnerDisplayName: detail.partnerDisplayName?.trim() || null,
-        productId: detail.productId?.trim() || null,
-        productName: detail.productName?.trim() || null,
       })
       const conversation = extractApiData<MessageConversationItem>(response)
       const conversationId = conversation.conversationId?.trim() || ''
@@ -770,19 +914,20 @@ function RoleLayout() {
         return
       }
 
-      setIsNotificationOpen(false)
-      setIsUserMenuOpen(false)
-      setIsMessageOpen(true)
+      setIsMessageOpen(false)
       setMessageConversations((previous) =>
         upsertConversationItem(previous, {
           ...conversation,
           unreadCount: 0,
         }),
       )
-      setActiveMessageConversationId(conversationId)
-      await loadMessageEntries(conversationId, { markAsRead: true })
+      await openMessageThread(conversationId)
       await loadMessageConversations(conversationId)
     } catch (error) {
+      setIsMessageOpen(true)
+      setMessageCenterError(
+        extractApiErrorMessage(error, 'Cannot open conversation with this shop.'),
+      )
       console.error('Cannot open message conversation:', error)
     }
   }
@@ -800,6 +945,7 @@ function RoleLayout() {
 
     try {
       setSendingMessage(true)
+      setMessageCenterError('')
       const response = await apis().post(
         endpoints.messages.conversationMessages(conversationId),
         { content },
@@ -838,6 +984,9 @@ function RoleLayout() {
         return upsertConversationItem(previous, nextConversation)
       })
     } catch (error) {
+      setMessageCenterError(
+        extractApiErrorMessage(error, 'Cannot send message.'),
+      )
       console.error('Cannot send message:', error)
     } finally {
       setSendingMessage(false)
@@ -877,7 +1026,7 @@ function RoleLayout() {
       incomingMessage.senderId &&
       incomingMessage.senderId !== currentUserId &&
       incomingMessage.recipientId === currentUserId &&
-      (!isMessageOpen || activeMessageConversationId !== conversationId)
+      (!isMessageThreadOpen || activeMessageConversationId !== conversationId)
         ? 1
         : 0
 
@@ -912,14 +1061,14 @@ function RoleLayout() {
         ),
       }
 
-      if (isMessageOpen && activeMessageConversationId === conversationId) {
+      if (isMessageThreadOpen && activeMessageConversationId === conversationId) {
         mergedConversation.unreadCount = 0
       }
 
       return upsertConversationItem(previous, mergedConversation)
     })
 
-    if (isMessageOpen && activeMessageConversationId === conversationId) {
+    if (isMessageThreadOpen && activeMessageConversationId === conversationId) {
       void markMessageConversationAsRead(conversationId)
     }
   }
@@ -1045,6 +1194,7 @@ function RoleLayout() {
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
     setIsMessageOpen(false)
+    setIsMessageThreadOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
@@ -1063,6 +1213,43 @@ function RoleLayout() {
   }, [messageConversations])
 
   useEffect(() => {
+    if (!isMessagingEnabled) {
+      return
+    }
+
+    const peerIds = Array.from(
+      new Set(
+        messageConversations
+          .map((conversation) => resolveConversationPeerId(conversation))
+          .filter((userId) => Boolean(userId)),
+      ),
+    )
+    peerIds.forEach((userId) => {
+      void ensureMessageAvatarLoaded(userId)
+    })
+  }, [ensureMessageAvatarLoaded, isMessagingEnabled, messageConversations, resolveConversationPeerId])
+
+  useEffect(() => {
+    if (!isMessagingEnabled || !activeConversationMessages.length) {
+      return
+    }
+
+    const senderIds = Array.from(
+      new Set(
+        activeConversationMessages
+          .map((message) => (message.senderId || '').trim())
+          .filter((userId) => Boolean(userId)),
+      ),
+    )
+    senderIds.forEach((userId) => {
+      if (userId === currentUserId) {
+        return
+      }
+      void ensureMessageAvatarLoaded(userId)
+    })
+  }, [activeConversationMessages, currentUserId, ensureMessageAvatarLoaded, isMessagingEnabled])
+
+  useEffect(() => {
     if (!isMessageOpen || !isMessagingEnabled) {
       return
     }
@@ -1070,7 +1257,7 @@ function RoleLayout() {
   }, [isMessageOpen, isMessagingEnabled])
 
   useEffect(() => {
-    if (!isMessageOpen || !isMessagingEnabled) {
+    if (!isMessageThreadOpen || !isMessagingEnabled) {
       return
     }
     const conversationId = activeMessageConversationId.trim()
@@ -1078,7 +1265,7 @@ function RoleLayout() {
       return
     }
     void loadMessageEntries(conversationId, { markAsRead: true })
-  }, [activeMessageConversationId, isMessageOpen, isMessagingEnabled])
+  }, [activeMessageConversationId, isMessageThreadOpen, isMessagingEnabled])
 
   useEffect(() => {
     function handleOpenConversationEvent(event: Event) {
@@ -1104,7 +1291,7 @@ function RoleLayout() {
         handleOpenConversationEvent as EventListener,
       )
     }
-  }, [isMessagingEnabled])
+  }, [isMessagingEnabled, openMessageConversationFromProduct])
 
   useEffect(() => {
     if (!activeMenuChainKey) {
@@ -1301,6 +1488,7 @@ function RoleLayout() {
     setIsUserMenuOpen(false)
     setIsNotificationOpen(false)
     setIsMessageOpen(false)
+    setIsMessageThreadOpen(false)
     setIsMobileMenuOpen(false)
     navigate(dashboardPath)
   }
@@ -1376,11 +1564,15 @@ function RoleLayout() {
             ref={messageMenuRef}
             compact={compact}
             isOpen={isMessageOpen}
+            isThreadOpen={isMessageThreadOpen}
+            error={messageCenterError}
             unreadCount={unreadMessageCount}
             conversations={messageConversations}
             activeConversationId={activeMessageConversationId}
             messages={activeConversationMessages}
             currentUserId={currentUserId}
+            currentUserAvatar={displayedAvatar}
+            avatarByUserId={messageAvatarByUserId}
             draft={messageDraft}
             sending={sendingMessage}
             loadingConversations={loadingMessageConversations}
@@ -1388,13 +1580,13 @@ function RoleLayout() {
             onToggle={() => {
               setIsUserMenuOpen(false)
               setIsNotificationOpen(false)
+              setMessageCenterError('')
               setIsMessageOpen((state) => !state)
             }}
             onSelectConversation={(conversationId) => {
-              setActiveMessageConversationId(conversationId)
-              setMessageDraft('')
-              void loadMessageEntries(conversationId, { markAsRead: true })
+              void openMessageThread(conversationId)
             }}
+            onCloseThread={() => setIsMessageThreadOpen(false)}
             onDraftChange={setMessageDraft}
             onSend={() => {
               void handleSendMessage()
@@ -1487,7 +1679,7 @@ function RoleLayout() {
   }
 
   return (
-    <div className="role-layout-shell">
+    <div className={`role-layout-shell ${isMessageThreadOpen ? 'role-chat-thread-open' : ''}`}>
       <aside className="role-sidebar">
         <div className="role-sidebar-top">
           <button

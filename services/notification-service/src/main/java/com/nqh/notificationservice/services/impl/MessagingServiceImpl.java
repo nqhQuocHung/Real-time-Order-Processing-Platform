@@ -91,12 +91,8 @@ public class MessagingServiceImpl implements MessagingService {
             conversation.setPartnerDisplayName(firstNonBlank(trimToNull(request.getPartnerDisplayName()), conversation.getPartnerDisplayName()));
         }
 
-        if (request.getProductId() != null) {
-            conversation.setProductId(request.getProductId());
-        }
-        if (trimToNull(request.getProductName()) != null) {
-            conversation.setProductName(trimToNull(request.getProductName()));
-        }
+        conversation.setProductId(null);
+        conversation.setProductName(null);
 
         MessageConversation savedConversation = messageConversationRepository.save(conversation);
         return mapConversation(savedConversation, currentUserId);

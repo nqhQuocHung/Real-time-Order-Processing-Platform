@@ -3,6 +3,4 @@ export const APP_OPEN_MESSAGE_CONVERSATION_EVENT = 'app-open-message-conversatio
 export type OpenMessageConversationDetail = {
   partnerUserId: string
   partnerDisplayName?: string
-  productId?: string
-  productName?: string
 }

@@ -691,8 +691,6 @@ function UserProductsPage() {
     const detail: OpenMessageConversationDetail = {
       partnerUserId,
       partnerDisplayName: product.shopName?.trim() || partnerUserId,
-      productId: product.productId?.trim() || '',
-      productName: product.name?.trim() || product.productName?.trim() || product.productId,
     }
 
     window.dispatchEvent(
@@ -951,7 +949,7 @@ function UserProductsPage() {
                 onViewDetail={setSelectedProduct}
                 actionSlot={
                   inCart ? (
-                    <div className="user-products-page-action-stack">
+                    <div className="user-products-page-action-row">
                       <div className="user-products-page-cart-controls">
                         <div className="user-products-page-cart-stepper">
                           <button
@@ -986,19 +984,30 @@ function UserProductsPage() {
                         onClick={() => handleOpenPartnerChat(item)}
                         disabled={!item.shopId?.trim()}
                       >
-                        Message Shop
+                        <span className="user-products-page-btn-label">
+                          <span className="user-products-page-btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16h-6.3l-3.7 3a1 1 0 0 1-1.6-.78V16.2A2.5 2.5 0 0 1 4 13.8v-8.3Z" />
+                            </svg>
+                          </span>
+                          <span>Message Shop</span>
+                        </span>
                       </button>
                     </div>
                   ) : (
-                    <div className="user-products-page-action-stack">
+                    <div className="user-products-page-action-row">
                       <button
                         type="button"
                         className="product-card-btn user-products-page-cart-toggle is-add"
                         onClick={() => handleAddToCart(item)}
                       >
                         <span className="user-products-page-cart-label">
+                          <span className="user-products-page-btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                              <path d="M7 6h14l-1.3 6.3a2 2 0 0 1-2 1.7H10a2 2 0 0 1-2-1.6L6.6 4H3V2h5l1 4Zm3 16a2 2 0 1 1 0-4 2 2 0 0 1 0 4Zm8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4Z" />
+                            </svg>
+                          </span>
                           <span className="user-products-page-cart-price">{displayPrice}</span>
-                          <span className="user-products-page-cart-plus" aria-hidden="true">+</span>
                         </span>
                       </button>
                       <button
@@ -1007,7 +1016,14 @@ function UserProductsPage() {
                         onClick={() => handleOpenPartnerChat(item)}
                         disabled={!item.shopId?.trim()}
                       >
-                        Message Shop
+                        <span className="user-products-page-btn-label">
+                          <span className="user-products-page-btn-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                              <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16h-6.3l-3.7 3a1 1 0 0 1-1.6-.78V16.2A2.5 2.5 0 0 1 4 13.8v-8.3Z" />
+                            </svg>
+                          </span>
+                          <span>Message Shop</span>
+                        </span>
                       </button>
                     </div>
                   )

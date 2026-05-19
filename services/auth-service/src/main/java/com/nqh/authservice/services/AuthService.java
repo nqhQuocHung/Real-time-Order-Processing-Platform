@@ -24,6 +24,7 @@ import com.nqh.authservice.dtos.PartnerUpgradeRequestDecisionRequest;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestListResponse;
 import com.nqh.authservice.dtos.PartnerUpgradeRequestResponse;
 import com.nqh.authservice.dtos.PermissionSummaryResponse;
+import com.nqh.authservice.dtos.PublicUserProfileResponse;
 import com.nqh.authservice.dtos.RefreshTokenRequest;
 import com.nqh.authservice.dtos.RefreshTokenResponse;
 import com.nqh.authservice.dtos.RegisterRequest;
@@ -59,6 +60,8 @@ public interface AuthService {
     UserProfileResponse me(String authorizationHeader);
 
     UserProfileResponse getUserById(UUID userId);
+
+    PublicUserProfileResponse getPublicUserById(UUID userId);
 
     PartnerUpgradeRequestResponse createPartnerUpgradeRequest(
             String authorizationHeader,
