@@ -538,8 +538,7 @@ function RoleLayout() {
 
   const currentRole = session?.role || AppRole.USER
   const currentUserId = session?.userId?.trim() || ''
-  const isMessagingEnabled =
-    currentRole === AppRole.USER || currentRole === AppRole.SHOPEE_PARTNER
+  const isMessagingEnabled = Boolean(currentUserId)
   const dashboardPath = resolveDefaultPathByRole(currentRole, session?.backendMenus || [])
 
   const dynamicMenu: NavigationMenuItem[] = (session?.backendMenus || [])
