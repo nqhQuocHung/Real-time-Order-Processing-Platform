@@ -14,6 +14,7 @@ import { menuConfig } from '../config/menuConfig'
 import { hasPermission, type PermissionKey } from '../config/permissionConfig'
 import { resolveDefaultPathByRole } from '../config/roleConfig'
 import defaultAvatar from '../assets/default-avatar.svg'
+import realtimeLogo from '../assets/logo/RealtimeLogo.png'
 import NotificationBell, {
   type NotificationItem,
 } from '../components/notifications/NotificationBell'
@@ -1687,7 +1688,7 @@ function RoleLayout() {
             className="role-brand role-brand-button"
             onClick={handleGoDashboard}
           >
-            <span className="role-brand-badge">RT</span>
+            <img src={realtimeLogo} alt="Realtime Logo" className="role-brand-logo" />
             <div>
               <h1>Order Platform</h1>
               <p>{getRoleLabel(currentRole)}</p>

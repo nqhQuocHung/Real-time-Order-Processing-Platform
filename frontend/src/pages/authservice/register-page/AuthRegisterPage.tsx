@@ -4,7 +4,7 @@ import Cropper, { type Area } from 'react-easy-crop'
 import { apis, endpoints } from '../../../config/apis'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import './AuthRegisterPage.css'
 
@@ -278,9 +278,9 @@ function AuthRegisterPage() {
                   <form onSubmit={handleRegister} className="register-form-card">
                     <div className="register-logo-wrap">
                       <img
-                        src={vnptLogo}
+                        src={realtimeLogo}
                         className="register-brand-image"
-                        alt="VNPT Logo"
+                        alt="Realtime Logo"
                       />
                     </div>
 

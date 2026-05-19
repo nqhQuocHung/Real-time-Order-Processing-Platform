@@ -199,20 +199,27 @@
   justify-content: center;
   align-items: center;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .login-brand-image {
-  width: 150px;
-  max-width: 70%;
-  height: auto;
-  object-fit: contain;
+  width: 138px;
+  height: 112px;
+  max-width: 100%;
+  object-fit: cover;
+  object-position: center 38%;
+  clip-path: inset(0 0 20% 0 round 12px);
   display: block;
   margin: 0 auto;
   filter:
-    drop-shadow(0 0 10px rgba(255, 255, 255, 1))
-    drop-shadow(0 0 22px rgba(255, 255, 255, 0.75))
-    drop-shadow(0 4px 12px rgba(0, 0, 0, 0.18));
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.85))
+    drop-shadow(0 0 18px rgba(120, 220, 255, 0.55))
+    drop-shadow(0 3px 10px rgba(0, 0, 0, 0.2));
+}
+
+.login-divider.login-my-4 {
+  margin-top: 0.6rem;
+  margin-bottom: 1.05rem;
 }
 
 .login-divider {
@@ -414,8 +421,8 @@
   }
 
   .login-brand-image {
-    width: 180px;
-    max-width: 100%;
+    width: 152px;
+    height: 122px;
   }
 
   .login-divider p {
@@ -440,7 +447,8 @@
   }
 
   .login-brand-image {
-    width: 210px;
+    width: 166px;
+    height: 132px;
   }
 
   .login-divider p {
@@ -481,8 +489,8 @@
   }
 
   .login-brand-image {
-    width: 130px;
-    max-width: 100%;
+    width: 118px;
+    height: 96px;
   }
 
   .login-divider p {

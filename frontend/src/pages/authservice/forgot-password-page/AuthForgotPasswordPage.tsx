@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apis, endpoints, extractApiData } from '../../../config/apis'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
@@ -265,9 +265,9 @@ function AuthForgotPasswordPage() {
                 >
                   <div className="forgot-password-logo-wrap">
                     <img
-                      src={vnptLogo}
+                      src={realtimeLogo}
                       className="forgot-password-brand-image"
-                      alt="VNPT Logo"
+                      alt="Realtime Logo"
                     />
                   </div>
 

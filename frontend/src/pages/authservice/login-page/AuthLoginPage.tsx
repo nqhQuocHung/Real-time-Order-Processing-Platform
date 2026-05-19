@@ -4,7 +4,7 @@ import { toast } from 'react-toastify'
 import { completeLoginSession, type LoginResponseData } from '../../../auth/authSession'
 import { getDefaultPathByRole } from '../../../config/roleConfig'
 import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../../config/apis'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
@@ -74,9 +74,9 @@ function AuthLoginPage() {
                 <form onSubmit={handleLogin} className="login-form-card">
                   <div className="login-logo-wrap">
                     <img
-                      src={vnptLogo}
+                      src={realtimeLogo}
                       className="login-brand-image"
-                      alt="VNPT Logo"
+                      alt="Realtime Logo"
                     />
                   </div>
 
