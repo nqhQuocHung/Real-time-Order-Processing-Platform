@@ -82,22 +82,22 @@ const REVENUE_STATUSES = new Set(['PAID', 'COMPLETED'])
 const PENDING_STATUSES = new Set(['CREATED', 'RESERVED', 'PAID'])
 
 const STATUS_LABEL_MAP: Record<string, string> = {
-  CREATED: 'Mới tạo',
-  RESERVED: 'Đang giữ hàng',
-  PAID: 'Đã thanh toán',
-  COMPLETED: 'Hoàn tất',
-  FAILED: 'Thất bại',
-  CANCELLED: 'Đã hủy',
+  CREATED: 'Created',
+  RESERVED: 'Reserved',
+  PAID: 'Paid',
+  COMPLETED: 'Completed',
+  FAILED: 'Failed',
+  CANCELLED: 'Cancelled',
 }
 
 const CHART_COLORS = ['#27c2ff', '#22e4c6', '#ffd166', '#ff9f6e', '#ff6f91', '#a78bfa']
 
 const TIME_RANGE_OPTIONS: Array<{ value: TimeRangeOption; label: string }> = [
-  { value: 'DAY', label: 'Ngày' },
-  { value: 'MONTH', label: 'Tháng' },
-  { value: 'QUARTER', label: 'Quý' },
-  { value: 'YEAR', label: 'Năm' },
-  { value: 'ALL', label: 'Tất cả' },
+  { value: 'DAY', label: 'Day' },
+  { value: 'MONTH', label: 'Month' },
+  { value: 'QUARTER', label: 'Quarter' },
+  { value: 'YEAR', label: 'Year' },
+  { value: 'ALL', label: 'All' },
 ]
 
 function shouldRefreshAdminDashboard(eventName: string): boolean {
@@ -117,7 +117,7 @@ function normalizeStatus(status: string | undefined): string {
 }
 
 function formatMoney(value: number, currency: string) {
-  return new Intl.NumberFormat('vi-VN', {
+  return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency || 'VND',
     maximumFractionDigits: 0,
@@ -125,7 +125,7 @@ function formatMoney(value: number, currency: string) {
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat('vi-VN').format(value || 0)
+  return new Intl.NumberFormat('en-US').format(value || 0)
 }
 
 function formatDateTime(value?: string) {
@@ -136,7 +136,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(parsed.getTime())) {
     return value
   }
-  return parsed.toLocaleString('vi-VN')
+  return parsed.toLocaleString('en-US')
 }
 
 function toLocalDateTimeString(value: Date): string {
@@ -212,7 +212,7 @@ function buildPartnerOptions(
 } {
   const optionMap = new Map<string, PartnerOption>()
   const partnerLabelMap: Record<string, string> = {
-    [UNMAPPED_PARTNER_KEY]: 'Chưa map shop',
+    [UNMAPPED_PARTNER_KEY]: 'Unmapped shop',
   }
   const productPartnerById: Record<string, string> = {}
 
@@ -245,7 +245,7 @@ function buildPartnerOptions(
   }
 
   const partnerOptions = Array.from(optionMap.values()).sort((first, second) =>
-    first.label.localeCompare(second.label, 'vi'),
+    first.label.localeCompare(second.label, 'en'),
   )
 
   return {
@@ -285,7 +285,7 @@ function StatusPieChart({
   let progressOffset = 0
 
   if (totalValue === 0) {
-    return <p className="role-muted">Chưa có dữ liệu để vẽ biểu đồ trạng thái.</p>
+    return <p className="role-muted">No order status data available for this scope.</p>
   }
 
   return (
@@ -314,7 +314,7 @@ function StatusPieChart({
           })}
         </g>
         <text x="100" y="96" textAnchor="middle" className="admin-dashboard-pie-center-title">
-          Tổng đơn
+          Total orders
         </text>
         <text x="100" y="122" textAnchor="middle" className="admin-dashboard-pie-center-value">
           {formatNumber(totalValue)}
@@ -360,7 +360,7 @@ function RevenueLineChart({ points }: { points: LineChartPoint[] }) {
   const polylinePath = graphPoints.map((point) => `${point.x},${point.y}`).join(' ')
 
   if (!points.length) {
-    return <p className="role-muted">Chưa có dữ liệu doanh thu trong phạm vi đã chọn.</p>
+    return <p className="role-muted">No revenue data available in the selected scope.</p>
   }
 
   return (
@@ -431,8 +431,8 @@ function CancelFanChart({ cancelRate, cancelledOrders }: { cancelRate: number; c
       </div>
       <div className="admin-dashboard-fan-meta">
         <strong>{limitedRate.toFixed(1)}%</strong>
-        <span>Tỷ lệ hủy đơn</span>
-        <small>{formatNumber(cancelledOrders)} đơn bị hủy</small>
+        <span>Order cancellation rate</span>
+        <small>{formatNumber(cancelledOrders)} cancelled orders</small>
       </div>
     </div>
   )
@@ -444,7 +444,7 @@ function HorizontalBarChart({
   items: Array<{ label: string; value: number }>
 }) {
   if (!items.length) {
-    return <p className="role-muted">Chưa có dữ liệu cột cho phạm vi đã chọn.</p>
+    return <p className="role-muted">No bar chart data available in the selected scope.</p>
   }
 
   const maxValue = Math.max(1, ...items.map((item) => item.value))
@@ -532,7 +532,7 @@ function buildRevenueLinePoints(
       const monthIndex = quarterStart + index
       return {
         key: `${monthIndex}`,
-        label: `Th${monthIndex + 1}`,
+        label: `M${monthIndex + 1}`,
       }
     })
     return aggregateByTemplate(template, (date) => `${date.getMonth()}`)
@@ -541,7 +541,7 @@ function buildRevenueLinePoints(
   if (range === 'YEAR') {
     const template = Array.from({ length: 12 }, (_, index) => ({
       key: `${index}`,
-      label: `Th${index + 1}`,
+      label: `M${index + 1}`,
     }))
     return aggregateByTemplate(template, (date) => `${date.getMonth()}`)
   }
@@ -565,7 +565,7 @@ function AdminDashboardPage() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRangeOption>('DAY')
   const [partnerOptions, setPartnerOptions] = useState<PartnerOption[]>([])
   const [partnerLabelMap, setPartnerLabelMap] = useState<Record<string, string>>({
-    [UNMAPPED_PARTNER_KEY]: 'Chưa map shop',
+    [UNMAPPED_PARTNER_KEY]: 'Unmapped shop',
   })
   const [orders, setOrders] = useState<DashboardOrderSummary[]>([])
   const [orderTotalInRange, setOrderTotalInRange] = useState(0)
@@ -708,7 +708,7 @@ function AdminDashboardPage() {
         setOrders([])
         setOrderTotalInRange(0)
         setOrdersTruncated(false)
-        setError(extractApiErrorMessage(err, 'Không tải được dữ liệu biểu đồ dashboard.'))
+        setError(extractApiErrorMessage(err, 'Unable to load dashboard chart data.'))
       } finally {
         if (showLoading) {
           setAnalyticsLoading(false)
@@ -762,7 +762,7 @@ function AdminDashboardPage() {
       await loadAnalytics(selectedTimeRangeRef.current, resolvedProductPartnerMap, true)
       setBaseLoaded(true)
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Không tải được dữ liệu tổng quan hệ thống.'))
+      setError(extractApiErrorMessage(err, 'Unable to load system overview data.'))
       setBaseLoaded(false)
     } finally {
       setLoading(false)
@@ -917,32 +917,32 @@ function AdminDashboardPage() {
   )
 
   const selectedPartnerLabel = selectedPartnerKey === ALL_PARTNERS_KEY
-    ? 'Tất cả partner'
+    ? 'All partners'
     : (partnerLabelMap[selectedPartnerKey] || selectedPartnerKey)
 
   const selectedTimeRangeLabel = TIME_RANGE_OPTIONS.find((option) => option.value === selectedTimeRange)?.label || selectedTimeRange
 
   if (loading) {
-    return <p className="role-muted">Đang tải Admin Dashboard...</p>
+    return <p className="role-muted">Loading Admin Dashboard...</p>
   }
 
   return (
     <section className="admin-dashboard-page role-page-stack">
       <article className="role-card">
-        <h2>Tổng quan hệ thống</h2>
+        <h2>System Overview</h2>
         <p className="role-muted">
-          Dashboard đa biểu đồ (quạt, tròn, cây, line) theo phạm vi partner và thời gian.
+          Multi-chart dashboard (fan, pie, bar, line) by partner scope and time range.
         </p>
 
         <div className="role-inline-form admin-dashboard-filter-form">
           <label>
-            Tên shop / partner
+            Shop / partner
             <select
               value={selectedPartnerKey}
               onChange={(event) => setSelectedPartnerKey(event.target.value)}
               disabled={analyticsLoading}
             >
-              <option value={ALL_PARTNERS_KEY}>Tất cả</option>
+              <option value={ALL_PARTNERS_KEY}>All</option>
               {partnerOptions.map((partner) => (
                 <option key={partner.key} value={partner.key}>
                   {partner.label}
@@ -952,7 +952,7 @@ function AdminDashboardPage() {
           </label>
 
           <label>
-            Range thống kê
+            Time range
             <select
               value={selectedTimeRange}
               onChange={(event) => setSelectedTimeRange(event.target.value as TimeRangeOption)}
@@ -974,24 +974,24 @@ function AdminDashboardPage() {
             onClick={() => void initializeDashboard()}
             disabled={analyticsLoading}
           >
-            {analyticsLoading ? 'Đang làm mới...' : 'Làm mới dashboard'}
+            {analyticsLoading ? 'Refreshing...' : 'Refresh dashboard'}
           </button>
         </div>
 
         <p className="admin-dashboard-filter-context">
-          Phạm vi: <strong>{selectedPartnerLabel}</strong> | Range: <strong>{selectedTimeRangeLabel}</strong> | Cập nhật:
+          Scope: <strong>{selectedPartnerLabel}</strong> | Range: <strong>{selectedTimeRangeLabel}</strong> | Updated:
           {' '}
           <strong>{formatDateTime(lastUpdatedAt)}</strong>
         </p>
 
         {ordersTruncated && (
           <p className="role-muted">
-            Dữ liệu biểu đồ đang hiển thị tối đa {formatNumber(MAX_ANALYTICS_ORDER_PAGES * ORDER_PAGE_SIZE)} đơn mới nhất trong range để đảm bảo hiệu năng.
+            Chart data currently shows up to {formatNumber(MAX_ANALYTICS_ORDER_PAGES * ORDER_PAGE_SIZE)} newest orders in range for performance.
           </p>
         )}
         {Boolean(unmappedOrderCount) && (
           <p className="role-muted">
-            Có {formatNumber(unmappedOrderCount)} đơn chưa map được shop từ catalog.
+            {formatNumber(unmappedOrderCount)} orders are not mapped to a shop from catalog data.
           </p>
         )}
         {error && <p className="role-error">{error}</p>}
@@ -1000,70 +1000,70 @@ function AdminDashboardPage() {
       <article className="role-card">
         <div className="admin-dashboard-metric-grid">
           <div className="role-metric-card">
-            <span>Tổng người dùng</span>
+            <span>Total users</span>
             <strong>{formatNumber(systemStats.totalUsers)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Tổng partner</span>
+            <span>Total partners</span>
             <strong>{formatNumber(systemStats.totalPartners)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Tổng sản phẩm</span>
+            <span>Total products</span>
             <strong>{formatNumber(systemStats.totalProducts)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Tổng đơn hàng</span>
+            <span>Total orders</span>
             <strong>{formatNumber(systemStats.totalOrders)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Doanh thu</span>
+            <span>Revenue</span>
             <strong>{formatMoney(totalRevenue, displayCurrency)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
           <div className="role-metric-card">
-            <span>Đơn chờ xử lý</span>
+            <span>Pending orders</span>
             <strong>{formatNumber(pendingOrders)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
           <div className="role-metric-card">
-            <span>Đơn bị hủy</span>
+            <span>Cancelled orders</span>
             <strong>{formatNumber(cancelledOrders)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
         </div>
 
         <p className="role-muted admin-dashboard-metric-footnote">
-          Tổng đơn trong range hiện tại: <strong>{formatNumber(orderTotalInRange)}</strong> |
-          Sau lọc partner: <strong>{formatNumber(filteredOrders.length)}</strong>
+          Orders in current range: <strong>{formatNumber(orderTotalInRange)}</strong> |
+          After partner filter: <strong>{formatNumber(filteredOrders.length)}</strong>
         </p>
       </article>
 
       <article className="role-card">
-        <h3>Biểu đồ phân tích</h3>
-        {analyticsLoading && <p className="role-muted">Đang tải dữ liệu biểu đồ...</p>}
+        <h3>Analytics charts</h3>
+        {analyticsLoading && <p className="role-muted">Loading chart data...</p>}
 
         <div className="admin-dashboard-chart-grid">
           <section className="admin-dashboard-chart-card">
-            <h4>Biểu đồ tròn: Trạng thái đơn hàng</h4>
+            <h4>Pie chart: Order status distribution</h4>
             <StatusPieChart items={pieChartItems} />
           </section>
 
           <section className="admin-dashboard-chart-card">
-            <h4>Biểu đồ quạt: Tỷ lệ hủy đơn</h4>
+            <h4>Fan chart: Order cancellation rate</h4>
             <CancelFanChart cancelRate={cancelRate} cancelledOrders={cancelledOrders} />
           </section>
 
           <section className="admin-dashboard-chart-card">
             <h4>
               {selectedPartnerKey === ALL_PARTNERS_KEY
-                ? 'Biểu đồ cây: Top shop theo doanh thu'
-                : 'Biểu đồ cây: Phân bố trạng thái của shop đã chọn'}
+                ? 'Bar chart: Top shops by revenue'
+                : 'Bar chart: Status distribution for selected shop'}
             </h4>
             <HorizontalBarChart items={barChartData} />
           </section>
 
           <section className="admin-dashboard-chart-card admin-dashboard-chart-card-wide">
-            <h4>Biểu đồ line: Xu hướng doanh thu</h4>
+            <h4>Line chart: Revenue trend</h4>
             <RevenueLineChart points={revenueLinePoints} />
           </section>
         </div>
