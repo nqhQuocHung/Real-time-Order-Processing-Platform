@@ -140,7 +140,37 @@ Luu y:
 
 - Backend hien tai khong cho role `ADMIN` mo conversation moi (`MSG_ADMIN_NOT_SUPPORTED`).
 
-## 9. Sequence tong hop (order -> payment -> notification)
+## 9. Flow 8 - Yeu cau hoan tien don hang (customer -> seller -> VNPay)
+
+Phat sinh tu:
+
+- `POST /api/v1/orders/{orderCode}/refunds` (customer)
+- `POST /api/v1/orders/{orderCode}/refunds/decision` (seller/admin)
+
+Trinh tu:
+
+1. Customer gui yeu cau refund, cung cap:
+   - thong tin tai khoan nhan tien hoan (`refundAccountName`, `refundAccountNumber`, `refundBankCode`)
+   - ly do refund (`refundReason`)
+2. `order-service` validate:
+   - don phai o trang thai `PAID` hoac `COMPLETED`
+   - requester la owner cua don (trong user flow)
+   - moi order chi co 1 refund request
+3. `order-service` luu `order_refunds.status=REQUESTED`, publish `order.refund.requested.v1`.
+4. `notification-service` consume event va push SSE cho seller owner cua product trong order.
+5. Seller review request trong partner UI, gui decision:
+   - `APPROVE` -> order-service publish `order.refund.approved.v1`, goi internal RPC:
+     - `POST /internal/v1/payments/refunds` sang `payment-service`
+   - `REJECT` -> update `REJECTED`, publish `order.refund.rejected.v1`
+6. `payment-service` refund VNPay (mock/demo call theo implementation hien tai):
+   - success -> `payment.refund.succeeded.v1`
+   - failure -> `payment.refund.failed.v1`
+7. `order-service` dua trang thai refund ve `REFUNDED` hoac `FAILED`, publish:
+   - `order.refund.completed.v1`
+   - hoac `order.refund.failed.v1`
+8. `notification-service` push update realtime cho customer va seller de dong bo man hinh don hang.
+
+## 10. Sequence tong hop (order -> payment -> notification)
 
 ```mermaid
 sequenceDiagram

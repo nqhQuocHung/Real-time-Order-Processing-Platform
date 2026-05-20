@@ -12,6 +12,13 @@ const ORDER_PAGE_SIZE_OPTIONS = [10, 20, 30]
 const DEFAULT_ORDER_PAGE_SIZE = 10
 const SOURCE_ORDER_FETCH_SIZE = 200
 const ORDER_STATUSES = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
+const REFUND_PAGE_SIZE = 50
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+
+type AppNotificationEventDetail = {
+  eventName?: string
+  payload?: unknown
+}
 
 type PartnerProductStock = {
   productId: string
@@ -48,12 +55,41 @@ type OrderDetailResponse = {
   }>
 }
 
-type PaymentTransactionResponse = {
-  status: string
-  paymentUrl?: string
-  providerTransactionId?: string
+type OrderRefundStatus =
+  | 'REQUESTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REFUNDED'
+  | 'FAILED'
+
+type OrderRefundResponse = {
+  refundId: string
+  orderCode: string
+  customerId: string
+  refundAmount: number
+  currency: string
+  refundAccountName: string
+  refundAccountNumberMasked?: string
+  refundBankCode: string
+  refundReason: string
+  status: OrderRefundStatus
+  sellerDecisionNote?: string
+  sellerDecisionBy?: string
+  providerRefundId?: string
+  providerRefundUrl?: string
+  providerNote?: string
+  processedAt?: string
+  createdAt?: string
   updatedAt?: string
-  note?: string
+}
+
+type OrderRefundListResponse = {
+  content: OrderRefundResponse[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  last: boolean
 }
 
 function formatMoney(value: number, currency: string) {
@@ -100,11 +136,16 @@ function PartnerOrdersPage() {
   const [orderPage, setOrderPage] = useState(0)
   const [orderPageSize, setOrderPageSize] = useState(DEFAULT_ORDER_PAGE_SIZE)
   const [loading, setLoading] = useState(false)
+  const [loadingRefundList, setLoadingRefundList] = useState(false)
   const [processingOrderCode, setProcessingOrderCode] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [refundDialogOrder, setRefundDialogOrder] = useState<OrderSummary | null>(null)
-  const [refundPaymentInfo, setRefundPaymentInfo] = useState<PaymentTransactionResponse | null>(null)
+  const [refundByOrder, setRefundByOrder] = useState<Record<string, OrderRefundResponse | null>>({})
+  const [refundRequests, setRefundRequests] = useState<OrderRefundResponse[]>([])
+  const [refundRequestsTotal, setRefundRequestsTotal] = useState(0)
+  const [refundDialogOrderCode, setRefundDialogOrderCode] = useState('')
+  const [refundDialogOrderDetail, setRefundDialogOrderDetail] = useState<OrderDetailResponse | null>(null)
+  const [refundDecisionNote, setRefundDecisionNote] = useState('')
   const [loadingRefundInfo, setLoadingRefundInfo] = useState(false)
 
   const partnerProductsRef = useRef<PartnerProductStock[]>([])
@@ -165,6 +206,10 @@ function PartnerOrdersPage() {
   const currentOrderPageStart = totalOrdersResult === 0 ? 0 : orderPage * orderPageSize + 1
   const currentOrderPageEnd =
     totalOrdersResult === 0 ? 0 : Math.min((orderPage + 1) * orderPageSize, totalOrdersResult)
+  const selectedRefund =
+    refundDialogOrderCode && refundByOrder[refundDialogOrderCode]
+      ? refundByOrder[refundDialogOrderCode]
+      : null
 
   const loadPartnerProducts = useCallback(async () => {
     const response = await apis().get(endpoints.inventories.myProducts)
@@ -204,6 +249,50 @@ function PartnerOrdersPage() {
     },
     [getOrderDetail],
   )
+
+  const loadRefundDetail = useCallback(async (orderCode: string) => {
+    const normalizedOrderCode = orderCode.trim()
+    if (!normalizedOrderCode) {
+      return null
+    }
+
+    const response = await apis().get(endpoints.orders.refundDetail(normalizedOrderCode))
+    const data = extractApiData<OrderRefundResponse>(response)
+    setRefundByOrder((previous) => ({
+      ...previous,
+      [normalizedOrderCode]: data || null,
+    }))
+    return data || null
+  }, [])
+
+  const loadRefundRequests = useCallback(async () => {
+    setLoadingRefundList(true)
+    try {
+      const response = await apis().get(endpoints.orders.refundList, {
+        params: {
+          page: 0,
+          size: REFUND_PAGE_SIZE,
+        },
+      })
+      const data = extractApiData<OrderRefundListResponse>(response)
+      const content = Array.isArray(data.content) ? data.content : []
+      setRefundRequests(content)
+      setRefundRequestsTotal(typeof data.totalElements === 'number' ? data.totalElements : content.length)
+      setRefundByOrder((previous) => {
+        const next = { ...previous }
+        content.forEach((refund) => {
+          next[refund.orderCode] = refund
+        })
+        return next
+      })
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Cannot load refund requests.'))
+      setRefundRequests([])
+      setRefundRequestsTotal(0)
+    } finally {
+      setLoadingRefundList(false)
+    }
+  }, [])
 
   const loadOrders = useCallback(
     async (productsOverride?: PartnerProductStock[]) => {
@@ -258,23 +347,48 @@ function PartnerOrdersPage() {
 
       try {
         const scopedProducts = await loadPartnerProducts()
-        await loadOrders(scopedProducts)
+        await Promise.all([loadOrders(scopedProducts), loadRefundRequests()])
       } catch (err) {
         setError(extractApiErrorMessage(err, 'Cannot initialize partner orders page.'))
       }
     }
 
     void initializePage()
-  }, [loadOrders, loadPartnerProducts, session?.userId])
+  }, [loadOrders, loadPartnerProducts, loadRefundRequests, session?.userId])
 
   useEffect(() => {
     setOrderPage(0)
   }, [orderPageSize, keywordFilter, statusFilter])
 
+  useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<AppNotificationEventDetail>
+      const eventName = (customEvent.detail?.eventName || '').trim()
+      if (
+        eventName !== 'order.refund.requested' &&
+        eventName !== 'order.refund.approved' &&
+        eventName !== 'order.refund.rejected' &&
+        eventName !== 'order.refund.completed' &&
+        eventName !== 'order.refund.failed' &&
+        eventName !== 'payment.refund.succeeded' &&
+        eventName !== 'payment.refund.failed'
+      ) {
+        return
+      }
+
+      void Promise.all([loadRefundRequests(), loadOrders()])
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    return () => {
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    }
+  }, [loadOrders, loadRefundRequests])
+
   async function handleRefreshOrders() {
     setSuccess('')
     const scopedProducts = await loadPartnerProducts()
-    await loadOrders(scopedProducts)
+    await Promise.all([loadOrders(scopedProducts), loadRefundRequests()])
   }
 
   async function handleApplyFilters() {
@@ -301,45 +415,62 @@ function PartnerOrdersPage() {
     }
   }
 
-  async function openRefundDialog(order: OrderSummary) {
-    setRefundDialogOrder(order)
-    setRefundPaymentInfo(null)
+  async function openRefundDialog(orderCode: string) {
+    setRefundDialogOrderCode(orderCode)
+    setRefundDecisionNote('')
     setLoadingRefundInfo(true)
     setError('')
 
     try {
-      const response = await apis().get(endpoints.payments.getByOrderCode(order.orderCode))
-      const data = extractApiData<PaymentTransactionResponse>(response)
-      setRefundPaymentInfo(data || null)
+      const [_, detail] = await Promise.all([loadRefundDetail(orderCode), getOrderDetail(orderCode)])
+      setRefundDialogOrderDetail(detail)
     } catch (err) {
-      setError(extractApiErrorMessage(err, `Cannot load payment transaction for ${order.orderCode}.`))
+      setError(extractApiErrorMessage(err, `Cannot load refund request for ${orderCode}.`))
     } finally {
       setLoadingRefundInfo(false)
     }
   }
 
   function closeRefundDialog() {
-    setRefundDialogOrder(null)
-    setRefundPaymentInfo(null)
+    setRefundDialogOrderCode('')
+    setRefundDialogOrderDetail(null)
+    setRefundDecisionNote('')
     setLoadingRefundInfo(false)
   }
 
-  async function handleConfirmRefund(orderCode: string) {
+  async function handleRefundDecision(orderCode: string, decision: 'APPROVE' | 'REJECT') {
     setError('')
     setSuccess('')
     setProcessingOrderCode(orderCode)
     try {
-      await apis().patch(endpoints.orders.updateStatus(orderCode), {
-        status: 'FAILED',
-        actor: 'SHOP_PARTNER',
-        note: 'Refund confirmed by partner via VNPay/manual',
+      const response = await apis().post(endpoints.orders.refundDecision(orderCode), {
+        decision,
+        note: refundDecisionNote.trim() || undefined,
+        actor: session?.userId || 'SHOP_PARTNER',
       })
+      const refundResult = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: refundResult || null,
+      }))
+      setRefundRequests((previous) =>
+        previous.map((refund) => (refund.orderCode === orderCode ? refundResult : refund)),
+      )
 
-      setSuccess(`Refund confirmed and order ${orderCode} moved to FAILED.`)
+      const decisionLabel = decision === 'APPROVE' ? 'approved' : 'rejected'
+      if (decision === 'APPROVE' && refundResult?.providerRefundUrl) {
+        window.open(refundResult.providerRefundUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      setSuccess(
+        decision === 'APPROVE' && refundResult?.providerRefundUrl
+          ? `Refund request for order ${orderCode} was ${decisionLabel}. VNPay refund URL has been opened.`
+          : `Refund request for order ${orderCode} was ${decisionLabel}.`,
+      )
       closeRefundDialog()
-      await loadOrders()
+      await Promise.all([loadOrders(), loadRefundRequests()])
     } catch (err) {
-      setError(extractApiErrorMessage(err, `Cannot confirm refund for order ${orderCode}.`))
+      setError(extractApiErrorMessage(err, `Cannot process refund decision for order ${orderCode}.`))
     } finally {
       setProcessingOrderCode('')
     }
@@ -405,6 +536,70 @@ function PartnerOrdersPage() {
 
       <article className="role-card">
         <div className="partner-orders-page-summary">
+          <span>Refund requests: {refundRequestsTotal}</span>
+          <span>Showing: {refundRequests.length}</span>
+        </div>
+
+        <div className="role-inline-actions">
+          <button
+            type="button"
+            className="role-btn-ghost"
+            onClick={() => void loadRefundRequests()}
+            disabled={loadingRefundList}
+          >
+            {loadingRefundList ? 'Loading...' : 'Reload Refund Requests'}
+          </button>
+        </div>
+
+        <div className="role-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order Code</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Reason</th>
+                <th>Requested At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {refundRequests.map((refund) => (
+                <tr key={refund.refundId}>
+                  <td>{refund.orderCode}</td>
+                  <td>
+                    <span className={`partner-orders-refund-badge status-${refund.status.toLowerCase()}`}>
+                      {refund.status}
+                    </span>
+                  </td>
+                  <td>{formatMoney(refund.refundAmount, refund.currency)}</td>
+                  <td className="partner-orders-refund-reason">{refund.refundReason}</td>
+                  <td>{formatDate(refund.createdAt)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="role-btn-primary"
+                      onClick={() => void openRefundDialog(refund.orderCode)}
+                    >
+                      Review
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!refundRequests.length && (
+                <tr>
+                  <td colSpan={6} className="role-empty-cell">
+                    No refund requests found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article className="role-card">
+        <div className="partner-orders-page-summary">
           <span>Total scoped orders: {totalOrdersResult}</span>
           <span>
             Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}
@@ -425,7 +620,6 @@ function PartnerOrdersPage() {
             <tbody>
               {pagedOrders.map((order) => {
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
-                const canRefund = order.status === 'PAID'
                 const isProcessing = processingOrderCode === order.orderCode
 
                 return (
@@ -446,17 +640,7 @@ function PartnerOrdersPage() {
                             {isProcessing ? 'Processing...' : 'Cancel'}
                           </button>
                         )}
-                        {canRefund && (
-                          <button
-                            type="button"
-                            className="role-btn-primary"
-                            onClick={() => void openRefundDialog(order)}
-                            disabled={isProcessing}
-                          >
-                            Refund
-                          </button>
-                        )}
-                        {!canCancel && !canRefund && <span className="role-muted">No actions</span>}
+                        {!canCancel && <span className="role-muted">No actions</span>}
                       </div>
                     </td>
                   </tr>
@@ -510,63 +694,124 @@ function PartnerOrdersPage() {
         )}
       </article>
 
-      {refundDialogOrder && (
+      {refundDialogOrderCode && (
         <div className="partner-orders-refund-overlay" onClick={closeRefundDialog}>
           <div className="partner-orders-refund-dialog" onClick={(event) => event.stopPropagation()}>
             <header className="partner-orders-refund-header">
-              <h3>Refund Order</h3>
+              <h3>Review Refund Request</h3>
               <button type="button" className="role-btn-ghost" onClick={closeRefundDialog}>
                 Close
               </button>
             </header>
 
             <p className="partner-orders-refund-message">
-              Order <strong>{refundDialogOrder.orderCode}</strong> is already PAID. Use VNPay link
-              below to process refund, then confirm refund in system.
+              Customer requested refund for order <strong>{refundDialogOrderCode}</strong>. Review
+              account information and choose to reject or create VNPay refund URL.
             </p>
 
-            {loadingRefundInfo && <p className="role-muted">Loading payment transaction...</p>}
+            {loadingRefundInfo && <p className="role-muted">Loading refund request...</p>}
 
-            {!loadingRefundInfo && (
+            {!loadingRefundInfo && selectedRefund && (
               <dl className="partner-orders-refund-meta">
                 <div>
-                  <dt>Payment Status</dt>
-                  <dd>{refundPaymentInfo?.status || 'UNKNOWN'}</dd>
+                  <dt>Status</dt>
+                  <dd>{selectedRefund.status}</dd>
                 </div>
                 <div>
-                  <dt>Provider Txn</dt>
-                  <dd>{refundPaymentInfo?.providerTransactionId || '-'}</dd>
+                  <dt>Order Status</dt>
+                  <dd>{refundDialogOrderDetail?.status || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Updated At</dt>
-                  <dd>{formatDate(refundPaymentInfo?.updatedAt)}</dd>
+                  <dt>Amount</dt>
+                  <dd>{formatMoney(selectedRefund.refundAmount, selectedRefund.currency)}</dd>
                 </div>
+                <div>
+                  <dt>Order Total</dt>
+                  <dd>
+                    {refundDialogOrderDetail
+                      ? formatMoney(refundDialogOrderDetail.totalAmount, refundDialogOrderDetail.currency)
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Requested At</dt>
+                  <dd>{formatDate(selectedRefund.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>Account Name</dt>
+                  <dd>{selectedRefund.refundAccountName}</dd>
+                </div>
+                <div>
+                  <dt>Account Number</dt>
+                  <dd>{selectedRefund.refundAccountNumberMasked || '-'}</dd>
+                </div>
+                <div>
+                  <dt>Bank Code</dt>
+                  <dd>{selectedRefund.refundBankCode}</dd>
+                </div>
+                <div className="partner-orders-refund-note-block">
+                  <dt>Reason</dt>
+                  <dd>{selectedRefund.refundReason}</dd>
+                </div>
+                {selectedRefund.providerRefundUrl && (
+                  <div className="partner-orders-refund-note-block">
+                    <dt>VNPay Refund URL</dt>
+                    <dd className="partner-orders-refund-url">{selectedRefund.providerRefundUrl}</dd>
+                  </div>
+                )}
               </dl>
             )}
 
+            {!loadingRefundInfo && !selectedRefund && (
+              <p className="role-muted">
+                Refund request was not found for this order.
+              </p>
+            )}
+
+            {selectedRefund?.status === 'REQUESTED' && (
+              <label className="partner-orders-refund-note-input">
+                Decision Note (optional)
+                <textarea
+                  value={refundDecisionNote}
+                  onChange={(event) => setRefundDecisionNote(event.target.value)}
+                  rows={3}
+                  placeholder="Add context for the customer"
+                />
+              </label>
+            )}
+
             <div className="partner-orders-refund-actions">
-              <button
-                type="button"
-                className="role-btn-primary"
-                onClick={() => {
-                  if (refundPaymentInfo?.paymentUrl) {
-                    window.open(refundPaymentInfo.paymentUrl, '_blank', 'noopener,noreferrer')
-                  }
-                }}
-                disabled={!refundPaymentInfo?.paymentUrl}
-              >
-                Open VNPay
-              </button>
-              <button
-                type="button"
-                className="role-btn-ghost"
-                onClick={() => void handleConfirmRefund(refundDialogOrder.orderCode)}
-                disabled={processingOrderCode === refundDialogOrder.orderCode}
-              >
-                {processingOrderCode === refundDialogOrder.orderCode
-                  ? 'Confirming...'
-                  : 'Confirm Refunded'}
-              </button>
+              {selectedRefund?.status === 'REQUESTED' && (
+                <>
+                  <button
+                    type="button"
+                    className="role-btn-primary"
+                    onClick={() => void handleRefundDecision(refundDialogOrderCode, 'APPROVE')}
+                    disabled={processingOrderCode === refundDialogOrderCode}
+                  >
+                    {processingOrderCode === refundDialogOrderCode
+                      ? 'Processing...'
+                      : 'Approve & Create VNPay URL'}
+                  </button>
+                  <button
+                    type="button"
+                    className="role-btn-ghost"
+                    onClick={() => void handleRefundDecision(refundDialogOrderCode, 'REJECT')}
+                    disabled={processingOrderCode === refundDialogOrderCode}
+                  >
+                    {processingOrderCode === refundDialogOrderCode ? 'Processing...' : 'Reject Request'}
+                  </button>
+                </>
+              )}
+              {selectedRefund?.providerRefundUrl && (
+                <button
+                  type="button"
+                  className="role-btn-ghost"
+                  onClick={() => window.open(selectedRefund.providerRefundUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  Open VNPay Refund URL
+                </button>
+              )}
             </div>
           </div>
         </div>

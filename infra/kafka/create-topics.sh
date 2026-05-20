@@ -14,6 +14,13 @@ TOPICS=(
   "order.lifecycle.completed.v1"
   "order.lifecycle.failed.v1"
   "order.lifecycle.paid.v1"
+  "order.refund.requested.v1"
+  "order.refund.approved.v1"
+  "order.refund.rejected.v1"
+  "order.refund.completed.v1"
+  "order.refund.failed.v1"
+  "payment.refund.succeeded.v1"
+  "payment.refund.failed.v1"
 
   "partner.request.created.v1"
   "partner.request.decided.v1"

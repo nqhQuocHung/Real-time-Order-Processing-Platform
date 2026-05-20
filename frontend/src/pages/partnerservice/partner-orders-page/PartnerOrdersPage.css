@@ -24,6 +24,44 @@
   gap: 8px;
 }
 
+.partner-orders-refund-reason {
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.partner-orders-refund-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 210, 255, 0.42);
+  padding: 4px 9px;
+  font-size: 0.74rem;
+  background: rgba(10, 33, 52, 0.82);
+}
+
+.partner-orders-refund-badge.status-requested {
+  border-color: rgba(255, 206, 112, 0.55);
+  color: #ffdca4;
+}
+
+.partner-orders-refund-badge.status-approved {
+  border-color: rgba(125, 214, 255, 0.55);
+  color: #bce7ff;
+}
+
+.partner-orders-refund-badge.status-rejected,
+.partner-orders-refund-badge.status-failed {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+}
+
+.partner-orders-refund-badge.status-refunded {
+  border-color: rgba(113, 226, 175, 0.55);
+  color: #b8f5d7;
+}
+
 .partner-orders-page-pagination {
   margin-top: 14px;
   display: flex;
@@ -120,6 +158,34 @@
   margin: 0;
   font-size: 0.9rem;
   color: var(--role-text);
+}
+
+.partner-orders-refund-url {
+  word-break: break-all;
+  font-size: 0.82rem;
+  color: #9dd2ff;
+}
+
+.partner-orders-refund-note-block {
+  grid-column: 1 / -1;
+}
+
+.partner-orders-refund-note-input {
+  display: grid;
+  gap: 6px;
+  color: var(--role-text-sub);
+  font-size: 0.86rem;
+}
+
+.partner-orders-refund-note-input textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(8, 23, 39, 0.86);
+  color: var(--role-text);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
 }
 
 .partner-orders-refund-actions {

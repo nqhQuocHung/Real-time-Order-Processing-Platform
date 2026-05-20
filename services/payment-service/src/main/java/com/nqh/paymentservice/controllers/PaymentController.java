@@ -6,6 +6,8 @@ import com.nqh.paymentservice.common.response.ApiResponseFactory;
 import com.nqh.paymentservice.common.response.BaseResponse;
 import com.nqh.paymentservice.dtos.CreatePaymentIntentRequest;
 import com.nqh.paymentservice.dtos.PaymentActionRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundResponse;
 import com.nqh.paymentservice.dtos.PaymentTransactionResponse;
 import com.nqh.paymentservice.enums.PaymentStatusEnum;
 import com.nqh.paymentservice.services.PaymentService;
@@ -36,8 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private static final Set<String> ELEVATED_ORDER_AUTHORITIES = Set.of(
-            "PERM_MANAGE_ALL_ORDERS",
-            "PERM_MANAGE_PARTNER_ORDERS"
+            "PERM_MANAGE_ALL_ORDERS"
     );
 
     private final PaymentService paymentService;
@@ -68,7 +69,7 @@ public class PaymentController {
             Authentication authentication,
             HttpServletRequest httpServletRequest
     ) {
-        validateCanMutatePayment(request, jwt, authentication);
+        validateCanMutatePayment(request.getOrderCode(), jwt, authentication);
         PaymentTransactionResponse response = paymentService.confirmPayment(request);
         MessageCode messageCode = response.getStatus() == PaymentStatusEnum.SUCCESS
                 ? MessageCode.PAYMENT_CONFIRM_SUCCESS
@@ -83,13 +84,25 @@ public class PaymentController {
             Authentication authentication,
             HttpServletRequest httpServletRequest
     ) {
-        validateCanMutatePayment(request, jwt, authentication);
+        validateCanMutatePayment(request.getOrderCode(), jwt, authentication);
         PaymentTransactionResponse response = paymentService.failPayment(request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.PAYMENT_FAIL_SUCCESS, response, httpServletRequest);
     }
 
+    @PostMapping("/refunds")
+    public ResponseEntity<BaseResponse<PaymentRefundResponse>> refundPayment(
+            @RequestBody @Valid PaymentRefundRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication,
+            HttpServletRequest httpServletRequest
+    ) {
+        validateCanMutatePayment(request.getOrderCode(), jwt, authentication);
+        PaymentRefundResponse response = paymentService.refundPayment(request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.PAYMENT_REFUND_SUCCESS, response, httpServletRequest);
+    }
+
     private void validateCanMutatePayment(
-            PaymentActionRequest request,
+            String orderCode,
             Jwt jwt,
             Authentication authentication
     ) {
@@ -102,7 +115,7 @@ public class PaymentController {
             throw new AppException(HttpStatus.FORBIDDEN, MessageCode.COMMON_UNAUTHORIZED);
         }
 
-        PaymentTransactionResponse payment = paymentService.getPaymentByOrderCode(request.getOrderCode());
+        PaymentTransactionResponse payment = paymentService.getPaymentByOrderCode(orderCode);
         if (payment.getCustomerId() == null || !authenticatedUserId.equals(payment.getCustomerId())) {
             throw new AppException(HttpStatus.FORBIDDEN, MessageCode.COMMON_UNAUTHORIZED);
         }

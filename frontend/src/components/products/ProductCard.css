@@ -67,6 +67,45 @@
   letter-spacing: 0.03em;
 }
 
+.product-card-image-message {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(87, 201, 255, 0.55);
+  background: rgba(4, 18, 33, 0.82);
+  color: #a4e6ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.product-card-image-message svg {
+  width: 19px;
+  height: 19px;
+  fill: currentColor;
+}
+
+.product-card-image-message:hover {
+  transform: translateY(-1px);
+  border-color: rgba(87, 201, 255, 0.9);
+  background: rgba(8, 31, 54, 0.9);
+  box-shadow: 0 8px 16px rgba(1, 10, 18, 0.38);
+}
+
+.product-card-image-message:focus-visible {
+  outline: 2px solid rgba(67, 196, 255, 0.82);
+  outline-offset: 2px;
+}
+
 .product-card-body {
   padding: 14px;
   display: flex;
@@ -207,20 +246,28 @@
   border-radius: 11px;
   background: rgba(6, 23, 39, 0.86);
   padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
 }
 
 .product-card-quantities small {
   display: block;
   color: rgba(158, 196, 227, 0.9);
   font-size: 0.74rem;
+  text-align: center;
 }
 
 .product-card-quantities strong {
   display: block;
-  margin-top: 5px;
+  margin-top: 0;
   font-size: 1.32rem;
   line-height: 1;
   color: #53bbff;
+  text-align: center;
 }
 
 .product-card-quantities > div:first-child strong {
@@ -291,23 +338,6 @@
   box-shadow: 0 10px 18px rgba(3, 12, 22, 0.25);
   filter: brightness(1.08);
 }
-.product-card-btn-message {
-  background: linear-gradient(135deg, #33d6ff 0%, #1cb3ff 100%);
-  color: #05263d;
-  border: none;
-  margin-bottom: 0;
-  margin-top: 0;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.product-card-btn-message:hover:not(:disabled) {
-  background: linear-gradient(135deg, #1cb3ff 0%, #33d6ff 100%);
-  color: #05263d;
-  filter: brightness(1.12);
-}
-
 .product-card-btn-edit:hover {
   border-color: rgba(120, 255, 216, 0.5);
 }
@@ -328,6 +358,18 @@
 
   .product-card-image-wrap {
     height: 170px;
+  }
+
+  .product-card-image-message {
+    width: 32px;
+    height: 32px;
+    top: 8px;
+    right: 8px;
+  }
+
+  .product-card-image-message svg {
+    width: 16px;
+    height: 16px;
   }
 
   .product-card-body {
@@ -374,8 +416,7 @@
     margin-top: 6px;
   }
 
-  .product-card-btn,
-  .product-card-btn-message {
+  .product-card-btn {
     height: 44px;
     border-radius: 12px;
     font-size: 0.86rem;

@@ -30,7 +30,7 @@ function formatOccurredAt(value: string) {
     return value
   }
 
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(parsed)
@@ -83,12 +83,6 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
             ) : (
               <ul className="role-notification-list">
                 {notifications.map((item) => {
-                  const eventType = (item.eventType || '').trim()
-                  const hasEventType = Boolean(eventType)
-                  const linkHint = typeof item.linkHint === 'string'
-                    ? item.linkHint.trim()
-                    : 'Open related record'
-
                   return (
                     <li
                       key={item.id}
@@ -109,15 +103,9 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
                     >
                       <p className="role-notification-title">{item.title}</p>
                       <p className="role-notification-message">{item.message}</p>
-                      <div
-                        className={`role-notification-meta ${hasEventType ? '' : 'role-notification-meta-time-only'}`.trim()}
-                      >
-                        {hasEventType && <span>{eventType}</span>}
+                      <div className="role-notification-meta role-notification-meta-time-only">
                         <time dateTime={item.occurredAt}>{formatOccurredAt(item.occurredAt)}</time>
                       </div>
-                      {item.link && linkHint && (
-                        <span className="role-notification-link-hint">{linkHint}</span>
-                      )}
                     </li>
                   )
                 })}

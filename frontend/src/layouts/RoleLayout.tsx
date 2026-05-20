@@ -180,9 +180,16 @@ function buildNotificationLink(
   if (
     eventName === 'payment.transaction.succeeded' ||
     eventName === 'payment.transaction.failed' ||
+    eventName === 'payment.refund.succeeded' ||
+    eventName === 'payment.refund.failed' ||
     eventName === 'order.lifecycle.paid' ||
     eventName === 'order.lifecycle.completed' ||
-    eventName === 'order.lifecycle.failed'
+    eventName === 'order.lifecycle.failed' ||
+    eventName === 'order.refund.requested' ||
+    eventName === 'order.refund.approved' ||
+    eventName === 'order.refund.rejected' ||
+    eventName === 'order.refund.completed' ||
+    eventName === 'order.refund.failed'
   ) {
     return '/user/orders'
   }
@@ -258,8 +265,12 @@ function buildNotificationMessage(
   const decision = normalizeText(data.decision).toUpperCase()
   const orderCode = normalizeText(data.orderCode)
   const amount = normalizeText(data.amount)
+  const refundAmount = normalizeText(data.refundAmount) || amount
   const currency = normalizeText(data.currency) || 'VND'
   const paymentStatus = normalizeText(data.status)
+  const refundReason = normalizeText(data.refundReason)
+  const sellerDecisionNote = normalizeText(data.sellerDecisionNote)
+  const providerNote = normalizeText(data.providerNote)
   const productId = normalizeText(data.productId)
   const actorUserName = normalizeText(data.actorUserName)
   const reviewPayload = toNotificationPayload(data.review)
@@ -300,6 +311,42 @@ function buildNotificationMessage(
   if (eventName === 'payment.transaction.failed') {
     title = 'Payment failed'
     message = `Order ${orderCode || '-'} payment failed.${paymentStatus ? ` Status: ${paymentStatus}.` : ''}`
+  }
+
+  if (eventName === 'order.refund.requested') {
+    title = 'Refund request submitted'
+    message =
+      `Order ${orderCode || '-'} has a new refund request.` +
+      (refundAmount ? ` Amount: ${refundAmount} ${currency}.` : '') +
+      (refundReason ? ` Reason: ${truncateText(refundReason, 120)}` : '')
+  }
+
+  if (eventName === 'order.refund.approved') {
+    title = 'Refund request approved'
+    message =
+      `Seller approved refund request for order ${orderCode || '-'}.` +
+      (sellerDecisionNote ? ` Note: ${truncateText(sellerDecisionNote, 120)}` : '')
+  }
+
+  if (eventName === 'order.refund.rejected') {
+    title = 'Refund request rejected'
+    message =
+      `Seller rejected refund request for order ${orderCode || '-'}.` +
+      (sellerDecisionNote ? ` Note: ${truncateText(sellerDecisionNote, 120)}` : '')
+  }
+
+  if (eventName === 'order.refund.completed' || eventName === 'payment.refund.succeeded') {
+    title = 'Refund completed'
+    message =
+      `Refund for order ${orderCode || '-'} completed successfully.` +
+      (refundAmount ? ` Amount: ${refundAmount} ${currency}.` : '')
+  }
+
+  if (eventName === 'order.refund.failed' || eventName === 'payment.refund.failed') {
+    title = 'Refund failed'
+    message =
+      `Refund for order ${orderCode || '-'} failed.` +
+      (providerNote ? ` Reason: ${truncateText(providerNote, 120)}` : '')
   }
 
   if (eventName === 'order.lifecycle.completed') {
@@ -1179,6 +1226,33 @@ function RoleLayout() {
           reviewUserId === currentUserId ||
           commentUserId === currentUserId
         if (isOwnReviewRealtimeNotification) {
+          return
+        }
+      }
+
+      if (eventName === 'order.refund.requested' && currentUserId) {
+        const notificationPayload = toNotificationPayload(payload)
+        const actor = normalizeText(notificationPayload.actor)
+        const customerId = normalizeText(notificationPayload.customerId)
+        if (actor === currentUserId || customerId === currentUserId) {
+          return
+        }
+      }
+
+      if (
+        (
+          eventName === 'order.refund.approved' ||
+          eventName === 'order.refund.rejected' ||
+          eventName === 'order.refund.completed' ||
+          eventName === 'order.refund.failed' ||
+          eventName === 'payment.refund.succeeded' ||
+          eventName === 'payment.refund.failed'
+        ) &&
+        currentUserId
+      ) {
+        const notificationPayload = toNotificationPayload(payload)
+        const actor = normalizeText(notificationPayload.actor)
+        if (actor === currentUserId) {
           return
         }
       }

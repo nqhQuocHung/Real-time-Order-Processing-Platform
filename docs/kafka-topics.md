@@ -24,8 +24,15 @@ Vi du:
 | `order.lifecycle.paid.v1` | `order-service` | `notification-service` | Don da thanh toan |
 | `order.lifecycle.completed.v1` | `order-service` | `notification-service` | Don hoan tat |
 | `order.lifecycle.failed.v1` | `order-service` | `notification-service` | Don that bai |
+| `order.refund.requested.v1` | `order-service` | `notification-service` | Khach hang gui yeu cau hoan tien |
+| `order.refund.approved.v1` | `order-service` | `notification-service` | Seller chap nhan yeu cau hoan tien |
+| `order.refund.rejected.v1` | `order-service` | `notification-service` | Seller tu choi yeu cau hoan tien |
+| `order.refund.completed.v1` | `order-service` | `notification-service` | Luong refund hoan tat o order domain |
+| `order.refund.failed.v1` | `order-service` | `notification-service` | Luong refund that bai o order domain |
 | `payment.transaction.succeeded.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan thanh cong |
 | `payment.transaction.failed.v1` | `payment-service` | `order-service`, `notification-service` | Thanh toan that bai |
+| `payment.refund.succeeded.v1` | `payment-service` | `notification-service` | VNPay refund thanh cong |
+| `payment.refund.failed.v1` | `payment-service` | `notification-service` | VNPay refund that bai |
 | `partner.request.created.v1` | `auth-service` | `notification-service` | Co yeu cau nang cap partner moi |
 | `partner.request.decided.v1` | `auth-service` | `notification-service` | Ket qua phe duyet tu admin |
 | `product.review.created.v1` | `inventory-service` | `notification-service` | Review moi duoc tao |
@@ -35,6 +42,7 @@ Vi du:
 ## 4. Message key strategy
 
 - Order/payment topics dung key theo `orderCode` de giu thu tu theo tung don.
+- Refund topics cung dung key theo `orderCode` de bo sung timeline su kien theo tung don.
 - Partner request:
   - created event key theo `requestId`
   - decided event key theo `userId`

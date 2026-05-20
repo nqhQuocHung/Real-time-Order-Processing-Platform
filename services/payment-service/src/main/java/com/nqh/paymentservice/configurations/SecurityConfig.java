@@ -66,6 +66,8 @@ public class SecurityConfig {
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(HttpMethod.POST, "/api/v1/payments/confirm", "/api/v1/payments/fail")
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/refunds")
+                        .hasAnyAuthority("PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt

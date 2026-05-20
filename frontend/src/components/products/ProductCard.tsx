@@ -111,6 +111,19 @@ function ProductCard({
         ) : (
           <div className="product-card-image-placeholder">No image</div>
         )}
+        {onOpenChat && (
+          <button
+            type="button"
+            className="product-card-image-message"
+            onClick={handleOpenChatClick}
+            aria-label={`Message shop ${displayShopName}`}
+            title="Message shop"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 6.5a2.5 2.5 0 0 1 2.5-2.5h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H9l-3.8 3.2A.7.7 0 0 1 4 18.7V16A2.5 2.5 0 0 1 1.5 13.5v-7A2.5 2.5 0 0 1 4 4zm2.5-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2.8c.2 0 .4.1.5.2l2.2 1.9V15a.8.8 0 0 1 .8-.8h4.7a1 1 0 0 0 1-1v-7a1 1 0 0 0-1-1h-11z" />
+            </svg>
+          </button>
+        )}
         <span className="product-card-image-sku">{product.sku?.trim() || 'No SKU'}</span>
       </div>
 
@@ -184,22 +197,13 @@ function ProductCard({
           </div>
         </div>
 
-        {(onEdit || onDelete || actionSlot || onOpenChat) && (
+        {(onEdit || onDelete || actionSlot) && (
           <div
             className="product-card-actions"
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => event.stopPropagation()}
           >
             {actionSlot}
-            {onOpenChat && (
-              <button
-                type="button"
-                className="product-card-btn product-card-btn-message"
-                onClick={handleOpenChatClick}
-              >
-                Message
-              </button>
-            )}
             {onEdit && (
               <button
                 type="button"

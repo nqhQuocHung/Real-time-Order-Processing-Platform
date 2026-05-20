@@ -169,9 +169,14 @@ const endpoints = {
   orders: {
     create: '/api/v1/orders',
     list: '/api/v1/orders',
+    refundList: '/api/v1/orders/refunds',
     detail: (orderCode: string) => `/api/v1/orders/${orderCode}`,
     timeline: (orderCode: string) => `/api/v1/orders/${orderCode}/timeline`,
     cancel: (orderCode: string) => `/api/v1/orders/${orderCode}/cancel`,
+    refundDetail: (orderCode: string) => `/api/v1/orders/${orderCode}/refunds`,
+    refundRequest: (orderCode: string) => `/api/v1/orders/${orderCode}/refunds`,
+    refundDecision: (orderCode: string) =>
+      `/api/v1/orders/${orderCode}/refunds/decision`,
     updateStatus: (orderCode: string) => `/api/v1/orders/${orderCode}/status`,
     paymentConfirm: (orderCode: string) =>
       `/api/v1/orders/${orderCode}/payment-confirm`,
@@ -209,6 +214,7 @@ const endpoints = {
     getByOrderCode: (orderCode: string) => `/api/v1/payments/${orderCode}`,
     confirm: '/api/v1/payments/confirm',
     fail: '/api/v1/payments/fail',
+    refund: '/api/v1/payments/refunds',
   },
   notifications: {
     create: '/api/v1/notifications',

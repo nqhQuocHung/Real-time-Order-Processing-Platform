@@ -75,6 +75,33 @@ type PaymentTransactionResponse = {
   updatedAt?: string
 }
 
+type OrderRefundStatus =
+  | 'REQUESTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REFUNDED'
+  | 'FAILED'
+
+type OrderRefundResponse = {
+  refundId: string
+  orderCode: string
+  customerId: string
+  refundAmount: number
+  currency: string
+  refundAccountName: string
+  refundAccountNumberMasked?: string
+  refundBankCode: string
+  refundReason: string
+  status: OrderRefundStatus
+  sellerDecisionNote?: string
+  sellerDecisionBy?: string
+  providerRefundId?: string
+  providerNote?: string
+  processedAt?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
 function formatDate(value?: string) {
   if (!value) {
     return '-'
@@ -184,6 +211,27 @@ function parseVnpOrderCode(orderInfo: string | null, txnRef: string | null): str
   }
 
   return undefined
+}
+
+function isRefundPaymentReturn(orderInfo: string | null, paymentContext: string | null): boolean {
+  const normalizedContext = (paymentContext || '').trim().toLowerCase()
+  if (normalizedContext === 'refund') {
+    return true
+  }
+
+  const normalizedOrderInfo = (orderInfo || '').trim().toLowerCase()
+  return normalizedOrderInfo.includes('hoan tien') || normalizedOrderInfo.includes('refund')
+}
+
+function resolvePaymentReturnTargetPath(
+  returnTargetPath: string | null,
+  isRefundReturn: boolean,
+): string {
+  const normalizedTargetPath = (returnTargetPath || '').trim()
+  if (normalizedTargetPath.startsWith('/')) {
+    return normalizedTargetPath
+  }
+  return isRefundReturn ? '/partner/orders' : '/user/orders'
 }
 
 function readPaymentFlash(): { type: PaymentFlashType; message: string } | null {
@@ -355,7 +403,16 @@ function UserOrdersPage() {
   const [checkoutSuccess, setCheckoutSuccess] = useState('')
   const [latestCreatedOrder, setLatestCreatedOrder] = useState<CreateOrderResponse | null>(null)
   const [paymentByOrder, setPaymentByOrder] = useState<Record<string, PaymentTransactionResponse>>({})
+  const [refundByOrder, setRefundByOrder] = useState<Record<string, OrderRefundResponse | null>>({})
   const [refreshingPaymentOrder, setRefreshingPaymentOrder] = useState('')
+  const [loadingRefundOrderCode, setLoadingRefundOrderCode] = useState('')
+  const [requestingRefundOrderCode, setRequestingRefundOrderCode] = useState('')
+  const [refundDialogOrderCode, setRefundDialogOrderCode] = useState('')
+  const [refundAccountName, setRefundAccountName] = useState('')
+  const [refundAccountNumber, setRefundAccountNumber] = useState('')
+  const [refundBankCode, setRefundBankCode] = useState('')
+  const [refundReason, setRefundReason] = useState('')
+  const [refundFormError, setRefundFormError] = useState('')
   const [nowTick, setNowTick] = useState(Date.now())
 
   const loadOrders = useCallback(async (targetPage = orderPage, targetPageSize = orderPageSize) => {
@@ -466,6 +523,20 @@ function UserOrdersPage() {
   }, [])
 
   useEffect(() => {
+    const refundableOrders = orders
+      .filter((order) => order.status === 'PAID' || order.status === 'COMPLETED')
+      .map((order) => order.orderCode)
+
+    if (!refundableOrders.length) {
+      return
+    }
+
+    refundableOrders.forEach((orderCode) => {
+      void loadRefundState(orderCode)
+    })
+  }, [orders])
+
+  useEffect(() => {
     const flash = readPaymentFlash()
     if (!flash) {
       return
@@ -498,6 +569,14 @@ function UserOrdersPage() {
       searchParams.get('vnp_OrderInfo'),
       searchParams.get('vnp_TxnRef'),
     )
+    const isRefundReturn = isRefundPaymentReturn(
+      searchParams.get('vnp_OrderInfo'),
+      searchParams.get('paymentContext'),
+    )
+    const targetPath = resolvePaymentReturnTargetPath(
+      searchParams.get('returnTargetPath'),
+      isRefundReturn,
+    )
     const txnRef = searchParams.get('vnp_TxnRef')?.trim() || ''
     const providerTransactionId =
       searchParams.get('vnp_TransactionNo')?.trim() || txnRef || undefined
@@ -510,9 +589,12 @@ function UserOrdersPage() {
       transactionStatus || 'unknown-status',
     ].join('|')
     const defaultMessage = isSuccess
-      ? `Payment successful${orderCodeLabel}. You can continue from your cart now.`
-      : `Payment failed${orderCodeLabel}. Please check order status and try again.`
-    const targetPath = '/user/orders'
+      ? isRefundReturn
+        ? `Refund payment successful${orderCodeLabel}.`
+        : `Payment successful${orderCodeLabel}. You can continue from your cart now.`
+      : isRefundReturn
+        ? `Refund payment failed${orderCodeLabel}. Please verify refund status.`
+        : `Payment failed${orderCodeLabel}. Please check order status and try again.`
 
     if (hasHandledPaymentReturn(paymentReturnSignature)) {
       if (location.pathname !== targetPath || location.search) {
@@ -527,7 +609,7 @@ function UserOrdersPage() {
       let flashType: PaymentFlashType = isSuccess ? 'success' : 'error'
       let flashMessage = defaultMessage
 
-      if (orderCode) {
+      if (orderCode && !isRefundReturn) {
         const payload = {
           orderCode,
           providerTransactionId,
@@ -561,7 +643,7 @@ function UserOrdersPage() {
             `Cannot reconcile payment status${orderCodeLabel}. Please refresh and check again.`,
           )
         }
-      } else {
+      } else if (!orderCode) {
         flashType = 'error'
         flashMessage =
           'Cannot identify order from payment return. Please refresh orders and verify status manually.'
@@ -799,6 +881,95 @@ function UserOrdersPage() {
     }
   }
 
+  async function loadRefundState(orderCode: string, force = false) {
+    if (!force && Object.prototype.hasOwnProperty.call(refundByOrder, orderCode)) {
+      return
+    }
+
+    setLoadingRefundOrderCode(orderCode)
+    try {
+      const response = await apis().get(endpoints.orders.refundDetail(orderCode))
+      const data = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: data || null,
+      }))
+    } catch (err) {
+      const typedError = err as { response?: { status?: number } }
+      if (typedError.response?.status === 404) {
+        setRefundByOrder((previous) => ({
+          ...previous,
+          [orderCode]: null,
+        }))
+        return
+      }
+      setError(extractApiErrorMessage(err, `Cannot load refund status for order ${orderCode}.`))
+    } finally {
+      setLoadingRefundOrderCode('')
+    }
+  }
+
+  function openRefundDialog(orderCode: string) {
+    setRefundDialogOrderCode(orderCode)
+    setRefundFormError('')
+    setRefundAccountName('')
+    setRefundAccountNumber('')
+    setRefundBankCode('')
+    setRefundReason('')
+  }
+
+  function closeRefundDialog() {
+    setRefundDialogOrderCode('')
+    setRefundFormError('')
+  }
+
+  async function handleSubmitRefundRequest() {
+    const orderCode = refundDialogOrderCode.trim()
+    if (!orderCode) {
+      return
+    }
+
+    const accountName = refundAccountName.trim()
+    const accountNumber = refundAccountNumber.trim()
+    const bankCode = refundBankCode.trim().toUpperCase()
+    const reason = refundReason.trim()
+
+    if (!accountName || !accountNumber || !bankCode || !reason) {
+      setRefundFormError('Please fill in account name, account number, bank code, and refund reason.')
+      return
+    }
+
+    setRefundFormError('')
+    setError('')
+    setCheckoutSuccess('')
+    setCheckoutError('')
+    setRequestingRefundOrderCode(orderCode)
+
+    try {
+      const response = await apis().post(endpoints.orders.refundRequest(orderCode), {
+        refundAccountName: accountName,
+        refundAccountNumber: accountNumber,
+        refundBankCode: bankCode,
+        refundReason: reason,
+        actor: session?.userId || 'CUSTOMER',
+      })
+      const data = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: data || null,
+      }))
+      setCheckoutSuccess(`Refund request for order ${orderCode} has been submitted.`)
+      closeRefundDialog()
+      await loadOrders(orderPage, orderPageSize)
+    } catch (err) {
+      setRefundFormError(
+        extractApiErrorMessage(err, `Cannot submit refund request for order ${orderCode}.`),
+      )
+    } finally {
+      setRequestingRefundOrderCode('')
+    }
+  }
+
   function openPaymentDialog(
     orderCode: string,
     paymentUrl: string,
@@ -836,6 +1007,7 @@ function UserOrdersPage() {
   const activeDialogExpired = activePaymentDialog
     ? isPaymentDeadlineExpired(activePaymentDialog.paymentDeadlineAt, nowTick)
     : false
+  const selectedRefund = refundDialogOrderCode ? refundByOrder[refundDialogOrderCode] : null
 
   return (
     <section className="user-orders-page role-page-stack">
@@ -1072,6 +1244,7 @@ function UserOrdersPage() {
               <tr>
                 <th>Order Code</th>
                 <th>Status</th>
+                <th>Refund</th>
                 <th>Total Amount</th>
                 <th>Pay Before</th>
                 <th>Created At</th>
@@ -1081,9 +1254,20 @@ function UserOrdersPage() {
             <tbody>
               {orders.map((order) => {
                 const paymentInfo = paymentByOrder[order.orderCode]
+                const hasRefundLookup = Object.prototype.hasOwnProperty.call(
+                  refundByOrder,
+                  order.orderCode,
+                )
+                const refundInfo = refundByOrder[order.orderCode]
+                const refundStatus = refundInfo?.status || ''
+                const isRefundLookupLoading = loadingRefundOrderCode === order.orderCode
                 const paymentUrl = paymentInfo?.paymentUrl || order.paymentUrl
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
                 const isReserved = order.status === 'RESERVED'
+                const canRequestRefundBase =
+                  order.status === 'PAID' || order.status === 'COMPLETED'
+                const canRequestRefund =
+                  canRequestRefundBase && hasRefundLookup && !refundInfo && !isRefundLookupLoading
                 const isPendingPayment = !paymentInfo?.status || paymentInfo.status === 'PENDING'
                 const isPaymentExpired = isReserved
                   && isPendingPayment
@@ -1101,6 +1285,22 @@ function UserOrdersPage() {
                     <td>
                       {order.status}
                       {paymentInfo?.status ? ` / Payment: ${paymentInfo.status}` : ''}
+                    </td>
+                    <td>
+                      {refundInfo && (
+                        <span
+                          className={`user-orders-refund-badge status-${refundStatus.toLowerCase()}`}
+                        >
+                          {refundStatus}
+                        </span>
+                      )}
+                      {!refundInfo && canRequestRefundBase && hasRefundLookup && (
+                        <span className="user-orders-refund-none">Not requested</span>
+                      )}
+                      {!refundInfo && canRequestRefundBase && !hasRefundLookup && (
+                        <span className="role-muted">Checking...</span>
+                      )}
+                      {!refundInfo && !canRequestRefundBase && <span className="role-muted">-</span>}
                     </td>
                     <td>{formatMoney(order.totalAmount, order.currency)}</td>
                     <td>
@@ -1148,6 +1348,25 @@ function UserOrdersPage() {
                             Cancel
                           </button>
                         )}
+                        {canRequestRefund && (
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => openRefundDialog(order.orderCode)}
+                          >
+                            Request Refund
+                          </button>
+                        )}
+                        {canRequestRefundBase && !hasRefundLookup && (
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => void loadRefundState(order.orderCode, true)}
+                            disabled={isRefundLookupLoading}
+                          >
+                            {isRefundLookupLoading ? 'Checking...' : 'Check Refund'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1155,7 +1374,7 @@ function UserOrdersPage() {
               })}
               {!orders.length && (
                 <tr>
-                  <td colSpan={6} className="role-empty-cell">
+                  <td colSpan={7} className="role-empty-cell">
                     No orders found.
                   </td>
                 </tr>
@@ -1200,6 +1419,99 @@ function UserOrdersPage() {
           </div>
         )}
       </article>
+
+      {refundDialogOrderCode && (
+        <div className="user-orders-refund-overlay" onClick={closeRefundDialog}>
+          <div
+            className="user-orders-refund-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="user-orders-refund-header">
+              <h3>Request Refund</h3>
+              <button
+                type="button"
+                className="role-btn-ghost"
+                onClick={closeRefundDialog}
+              >
+                Close
+              </button>
+            </header>
+
+            <p className="user-orders-refund-message">
+              Submit refund account details for order <strong>{refundDialogOrderCode}</strong>.
+              Seller will review your request. For VNPay sandbox, these receiver details are
+              demonstration data only.
+            </p>
+
+            {selectedRefund && (
+              <div className="user-orders-refund-existing">
+                <p>
+                  Existing refund status:{' '}
+                  <strong>{selectedRefund.status}</strong>
+                </p>
+                <p>
+                  Reason: {selectedRefund.refundReason || '-'}
+                </p>
+              </div>
+            )}
+
+            {!selectedRefund && (
+              <>
+                <div className="role-inline-form user-orders-refund-form">
+                  <label>
+                    Account Name
+                    <input
+                      value={refundAccountName}
+                      onChange={(event) => setRefundAccountName(event.target.value)}
+                      placeholder="Receiver full name"
+                    />
+                  </label>
+                  <label>
+                    Account Number
+                    <input
+                      value={refundAccountNumber}
+                      onChange={(event) => setRefundAccountNumber(event.target.value)}
+                      placeholder="Bank account number"
+                    />
+                  </label>
+                  <label>
+                    Bank Code
+                    <input
+                      value={refundBankCode}
+                      onChange={(event) => setRefundBankCode(event.target.value)}
+                      placeholder="Example: VNBANK"
+                    />
+                  </label>
+                  <label>
+                    Refund Reason
+                    <textarea
+                      value={refundReason}
+                      onChange={(event) => setRefundReason(event.target.value)}
+                      placeholder="Tell the seller why you need this refund"
+                      rows={4}
+                    />
+                  </label>
+                </div>
+
+                {refundFormError && <p className="role-error">{refundFormError}</p>}
+
+                <div className="user-orders-refund-actions">
+                  <button
+                    type="button"
+                    className="role-btn-primary"
+                    onClick={() => void handleSubmitRefundRequest()}
+                    disabled={requestingRefundOrderCode === refundDialogOrderCode}
+                  >
+                    {requestingRefundOrderCode === refundDialogOrderCode
+                      ? 'Submitting...'
+                      : 'Submit Refund Request'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   )
 }

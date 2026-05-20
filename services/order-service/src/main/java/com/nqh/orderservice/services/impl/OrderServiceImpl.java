@@ -5,18 +5,25 @@ import com.nqh.orderservice.common.messages.MessageCode;
 import com.nqh.orderservice.dtos.CreateOrderItemRequest;
 import com.nqh.orderservice.dtos.CreateOrderItemResponse;
 import com.nqh.orderservice.dtos.CreateOrderRequest;
+import com.nqh.orderservice.dtos.CreateOrderRefundRequest;
 import com.nqh.orderservice.dtos.CreateOrderResponse;
 import com.nqh.orderservice.dtos.OrderActionRequest;
 import com.nqh.orderservice.dtos.OrderDetailResponse;
 import com.nqh.orderservice.dtos.OrderListResponse;
+import com.nqh.orderservice.dtos.OrderRefundListResponse;
+import com.nqh.orderservice.dtos.OrderRefundDecisionRequest;
+import com.nqh.orderservice.dtos.OrderRefundResponse;
 import com.nqh.orderservice.dtos.OrderStatusHistoryResponse;
 import com.nqh.orderservice.dtos.OrderSummaryResponse;
 import com.nqh.orderservice.dtos.UpdateOrderStatusRequest;
+import com.nqh.orderservice.enums.OrderRefundStatusEnum;
 import com.nqh.orderservice.enums.OrderStatusEnum;
 import com.nqh.orderservice.pojos.CustomerOrder;
 import com.nqh.orderservice.pojos.OrderItem;
+import com.nqh.orderservice.pojos.OrderRefund;
 import com.nqh.orderservice.pojos.OrderStatusHistory;
 import com.nqh.orderservice.repositories.CustomerOrderRepository;
+import com.nqh.orderservice.repositories.OrderRefundRepository;
 import com.nqh.orderservice.repositories.OrderStatusHistoryRepository;
 import com.nqh.orderservice.services.OrderService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -71,6 +78,7 @@ public class OrderServiceImpl implements OrderService {
     private static final String ACTION_INVENTORY_RESERVE = "INVENTORY_RESERVE";
     private static final String ACTION_INVENTORY_COMMIT = "INVENTORY_COMMIT";
     private static final String ACTION_AUTO_WORKFLOW_FAIL = "AUTO_WORKFLOW_FAIL";
+    private static final String ACTION_REFUND_COMPLETE = "REFUND_COMPLETE";
     private static final String DEFAULT_SYSTEM_ACTOR = "SYSTEM";
     private static final String WORKFLOW_ACTOR = "ORDER_WORKFLOW";
     private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
@@ -87,6 +95,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final CustomerOrderRepository customerOrderRepository;
     private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+    private final OrderRefundRepository orderRefundRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final RestClient inventoryRpcClient;
@@ -100,10 +109,16 @@ public class OrderServiceImpl implements OrderService {
     private final String topicOrderPaid;
     private final String topicOrderCompleted;
     private final String topicOrderFailed;
+    private final String topicOrderRefundRequested;
+    private final String topicOrderRefundApproved;
+    private final String topicOrderRefundRejected;
+    private final String topicOrderRefundCompleted;
+    private final String topicOrderRefundFailed;
 
     public OrderServiceImpl(
             CustomerOrderRepository customerOrderRepository,
             OrderStatusHistoryRepository orderStatusHistoryRepository,
+            OrderRefundRepository orderRefundRepository,
             ObjectMapper objectMapper,
             KafkaTemplate<String, String> kafkaTemplate,
             @Value("${app.order.code-prefix:ORD}") String orderCodePrefix,
@@ -116,10 +131,16 @@ public class OrderServiceImpl implements OrderService {
             @Value("${app.order.topic.created:order.lifecycle.created.v1}") String topicOrderCreated,
             @Value("${app.order.topic.paid:order.lifecycle.paid.v1}") String topicOrderPaid,
             @Value("${app.order.topic.completed:order.lifecycle.completed.v1}") String topicOrderCompleted,
-            @Value("${app.order.topic.failed:order.lifecycle.failed.v1}") String topicOrderFailed
+            @Value("${app.order.topic.failed:order.lifecycle.failed.v1}") String topicOrderFailed,
+            @Value("${app.order.topic.refund-requested:order.refund.requested.v1}") String topicOrderRefundRequested,
+            @Value("${app.order.topic.refund-approved:order.refund.approved.v1}") String topicOrderRefundApproved,
+            @Value("${app.order.topic.refund-rejected:order.refund.rejected.v1}") String topicOrderRefundRejected,
+            @Value("${app.order.topic.refund-completed:order.refund.completed.v1}") String topicOrderRefundCompleted,
+            @Value("${app.order.topic.refund-failed:order.refund.failed.v1}") String topicOrderRefundFailed
     ) {
         this.customerOrderRepository = customerOrderRepository;
         this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+        this.orderRefundRepository = orderRefundRepository;
         this.objectMapper = objectMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.orderCodePrefix = orderCodePrefix;
@@ -131,6 +152,11 @@ public class OrderServiceImpl implements OrderService {
         this.topicOrderPaid = topicOrderPaid;
         this.topicOrderCompleted = topicOrderCompleted;
         this.topicOrderFailed = topicOrderFailed;
+        this.topicOrderRefundRequested = topicOrderRefundRequested;
+        this.topicOrderRefundApproved = topicOrderRefundApproved;
+        this.topicOrderRefundRejected = topicOrderRefundRejected;
+        this.topicOrderRefundCompleted = topicOrderRefundCompleted;
+        this.topicOrderRefundFailed = topicOrderRefundFailed;
         this.inventoryRpcClient = buildHttp2RestClient(inventoryBaseUrl);
         this.paymentRpcClient = buildHttp2RestClient(paymentBaseUrl);
     }
@@ -361,6 +387,240 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
     }
 
+    @Override
+    @Transactional
+    public OrderRefundResponse requestOrderRefund(
+            String orderCode,
+            CreateOrderRefundRequest request,
+            UUID requesterUserId,
+            boolean elevatedAuthority
+    ) {
+        CustomerOrder order = findByOrderCodeOrThrow(orderCode);
+        if (!EnumSet.of(OrderStatusEnum.PAID, OrderStatusEnum.COMPLETED).contains(order.getStatus())) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.ORDER_REFUND_NOT_ALLOWED);
+        }
+
+        if (!elevatedAuthority) {
+            if (requesterUserId == null || !requesterUserId.equals(order.getCustomerId())) {
+                throw new AppException(HttpStatus.FORBIDDEN, MessageCode.ORDER_REFUND_FORBIDDEN);
+            }
+        }
+
+        orderRefundRepository.findByOrder_OrderCode(order.getOrderCode()).ifPresent(existing -> {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.ORDER_REFUND_ALREADY_EXISTS);
+        });
+
+        validateRefundRequest(request);
+
+        String actor = resolveActor(
+                request.getActor(),
+                requesterUserId != null ? requesterUserId.toString() : DEFAULT_SYSTEM_ACTOR
+        );
+
+        OrderRefund refund = OrderRefund.builder()
+                .order(order)
+                .customerId(order.getCustomerId())
+                .refundAmount(order.getTotalAmount())
+                .currency(order.getCurrency())
+                .refundAccountName(request.getRefundAccountName().trim())
+                .refundAccountNumber(request.getRefundAccountNumber().trim())
+                .refundBankCode(request.getRefundBankCode().trim().toUpperCase(Locale.ROOT))
+                .refundReason(request.getRefundReason().trim())
+                .status(OrderRefundStatusEnum.REQUESTED)
+                .sellerDecisionBy(null)
+                .sellerDecisionNote(null)
+                .providerRefundId(null)
+                .providerRefundUrl(null)
+                .providerNote(null)
+                .processedAt(null)
+                .build();
+
+        OrderRefund savedRefund = orderRefundRepository.save(refund);
+        publishOrderRefundEvent(
+                topicOrderRefundRequested,
+                "OrderRefundRequested",
+                savedRefund,
+                actor
+        );
+        return mapToOrderRefundResponse(savedRefund);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderRefundResponse getOrderRefundByOrderCode(
+            String orderCode,
+            UUID requesterUserId,
+            boolean elevatedAuthority
+    ) {
+        OrderRefund refund = findOrderRefundByOrderCodeOrThrow(orderCode);
+        if (!elevatedAuthority) {
+            if (requesterUserId == null) {
+                throw new AppException(HttpStatus.FORBIDDEN, MessageCode.ORDER_REFUND_FORBIDDEN);
+            }
+
+            boolean isCustomer = requesterUserId.equals(refund.getCustomerId());
+            boolean isPartnerOwner = isOrderOwnedByPartner(refund.getOrder(), requesterUserId);
+            if (!isCustomer && !isPartnerOwner) {
+                throw new AppException(HttpStatus.FORBIDDEN, MessageCode.ORDER_REFUND_FORBIDDEN);
+            }
+        }
+        return mapToOrderRefundResponse(refund);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderRefundListResponse getOrderRefunds(
+            OrderRefundStatusEnum status,
+            int page,
+            int size,
+            UUID requesterUserId,
+            boolean elevatedAuthority
+    ) {
+        List<OrderRefund> sourceRefunds = status != null
+                ? orderRefundRepository.findAllByStatusOrderByCreatedAtDesc(status)
+                : orderRefundRepository.findAllByOrderByCreatedAtDesc();
+
+        List<OrderRefund> scopedRefunds;
+        if (elevatedAuthority) {
+            scopedRefunds = sourceRefunds;
+        } else {
+            if (requesterUserId == null) {
+                throw new AppException(HttpStatus.FORBIDDEN, MessageCode.ORDER_REFUND_FORBIDDEN);
+            }
+
+            scopedRefunds = sourceRefunds.stream()
+                    .filter(refund -> requesterUserId.equals(refund.getCustomerId())
+                            || isOrderOwnedByPartner(refund.getOrder(), requesterUserId))
+                    .toList();
+        }
+
+        long totalElements = scopedRefunds.size();
+        int safeSize = Math.max(size, 1);
+        int totalPages = totalElements == 0
+                ? 0
+                : (int) Math.ceil((double) totalElements / safeSize);
+        int safePage = Math.max(page, 0);
+
+        List<OrderRefundResponse> pageContent;
+        if (totalElements == 0 || safePage >= totalPages) {
+            pageContent = List.of();
+        } else {
+            int start = safePage * safeSize;
+            int end = Math.min(start + safeSize, scopedRefunds.size());
+            pageContent = scopedRefunds.subList(start, end).stream()
+                    .map(this::mapToOrderRefundResponse)
+                    .toList();
+        }
+
+        boolean last = totalPages == 0 || safePage >= totalPages - 1;
+        return OrderRefundListResponse.builder()
+                .content(pageContent)
+                .page(safePage)
+                .size(safeSize)
+                .totalElements(totalElements)
+                .totalPages(totalPages)
+                .last(last)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public OrderRefundResponse decideOrderRefund(
+            String orderCode,
+            OrderRefundDecisionRequest request,
+            UUID approverUserId,
+            boolean elevatedAuthority
+    ) {
+        CustomerOrder order = findByOrderCodeOrThrow(orderCode);
+        OrderRefund refund = findOrderRefundByOrderCodeOrThrow(orderCode);
+
+        if (!elevatedAuthority) {
+            if (approverUserId == null || !isOrderOwnedByPartner(order, approverUserId)) {
+                throw new AppException(HttpStatus.FORBIDDEN, MessageCode.ORDER_REFUND_FORBIDDEN);
+            }
+        }
+
+        if (refund.getStatus() != OrderRefundStatusEnum.REQUESTED) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.ORDER_REFUND_DECISION_NOT_ALLOWED);
+        }
+
+        String actor = resolveActor(
+                request.getActor(),
+                approverUserId != null ? approverUserId.toString() : DEFAULT_SYSTEM_ACTOR
+        );
+        String decision = normalizeRefundDecision(request.getDecision());
+        String sellerDecisionNote = trimToMaxLength(request.getNote(), 255);
+
+        if ("REJECT".equals(decision)) {
+            refund.setStatus(OrderRefundStatusEnum.REJECTED);
+            refund.setSellerDecisionBy(actor);
+            refund.setSellerDecisionNote(sellerDecisionNote);
+            refund.setProviderRefundUrl(null);
+            refund.setProcessedAt(LocalDateTime.now());
+            OrderRefund rejected = orderRefundRepository.save(refund);
+            publishOrderRefundEvent(topicOrderRefundRejected, "OrderRefundRejected", rejected, actor);
+            return mapToOrderRefundResponse(rejected);
+        }
+
+        refund.setStatus(OrderRefundStatusEnum.APPROVED);
+        refund.setSellerDecisionBy(actor);
+        refund.setSellerDecisionNote(sellerDecisionNote);
+        refund.setProviderRefundUrl(null);
+        refund.setProcessedAt(null);
+        OrderRefund approved = orderRefundRepository.save(refund);
+        publishOrderRefundEvent(topicOrderRefundApproved, "OrderRefundApproved", approved, actor);
+
+        try {
+            PaymentRefundResult paymentRefundResult = callPaymentRefund(order, approved, actor);
+            if (!"REFUNDED".equalsIgnoreCase(paymentRefundResult.status())) {
+                approved.setStatus(OrderRefundStatusEnum.FAILED);
+                approved.setProviderNote(trimToMaxLength(
+                        "Refund payment returned status: " + paymentRefundResult.status(),
+                        255
+                ));
+                approved.setProcessedAt(LocalDateTime.now());
+                OrderRefund failed = orderRefundRepository.save(approved);
+                publishOrderRefundEvent(topicOrderRefundFailed, "OrderRefundFailed", failed, actor);
+                throw new AppException(HttpStatus.BAD_GATEWAY, MessageCode.ORDER_REFUND_PAYMENT_FAILED);
+            }
+
+            approved.setStatus(OrderRefundStatusEnum.REFUNDED);
+            approved.setProviderRefundId(paymentRefundResult.providerRefundId());
+            approved.setProviderRefundUrl(paymentRefundResult.refundUrl());
+            approved.setProviderNote(trimToMaxLength(paymentRefundResult.note(), 255));
+            approved.setProcessedAt(LocalDateTime.now());
+            OrderRefund refunded = orderRefundRepository.save(approved);
+
+            recordStatusHistory(
+                    order,
+                    order.getStatus(),
+                    order.getStatus(),
+                    ACTION_REFUND_COMPLETE,
+                    actor,
+                    "Refund completed successfully."
+            );
+            publishOrderRefundEvent(topicOrderRefundCompleted, "OrderRefundCompleted", refunded, actor);
+            return mapToOrderRefundResponse(refunded);
+        } catch (AppException ex) {
+            if (ex.getMessageCode() == MessageCode.ORDER_REFUND_PAYMENT_FAILED) {
+                throw ex;
+            }
+            approved.setStatus(OrderRefundStatusEnum.FAILED);
+            approved.setProviderNote(trimToMaxLength(sanitizeErrorMessage(ex), 255));
+            approved.setProcessedAt(LocalDateTime.now());
+            OrderRefund failed = orderRefundRepository.save(approved);
+            publishOrderRefundEvent(topicOrderRefundFailed, "OrderRefundFailed", failed, actor);
+            throw new AppException(HttpStatus.BAD_GATEWAY, MessageCode.ORDER_REFUND_PAYMENT_FAILED);
+        } catch (Exception ex) {
+            approved.setStatus(OrderRefundStatusEnum.FAILED);
+            approved.setProviderNote(trimToMaxLength(sanitizeErrorMessage(ex), 255));
+            approved.setProcessedAt(LocalDateTime.now());
+            OrderRefund failed = orderRefundRepository.save(approved);
+            publishOrderRefundEvent(topicOrderRefundFailed, "OrderRefundFailed", failed, actor);
+            throw new AppException(HttpStatus.BAD_GATEWAY, MessageCode.ORDER_REFUND_PAYMENT_FAILED);
+        }
+    }
+
     @Scheduled(fixedDelayString = "${app.order.payment-expiry-scan-delay-ms:10000}")
     public void releaseExpiredReservedOrders() {
         List<CustomerOrder> expiredOrders = customerOrderRepository
@@ -504,6 +764,134 @@ public class OrderServiceImpl implements OrderService {
         }
         String paymentUrl = trimToNull(dataNode.path("paymentUrl").asText(null));
         return new PaymentIntentResult(paymentUrl);
+    }
+
+    private PaymentRefundResult callPaymentRefund(CustomerOrder order, OrderRefund refund, String actor) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("orderCode", order.getOrderCode());
+        body.put("refundAmount", refund.getRefundAmount());
+        body.put("currency", refund.getCurrency());
+        body.put("refundAccountName", refund.getRefundAccountName());
+        body.put("refundAccountNumber", refund.getRefundAccountNumber());
+        body.put("refundBankCode", refund.getRefundBankCode());
+        body.put("refundReason", refund.getRefundReason());
+        body.put("actor", actor);
+        body.put("idempotencyKey", "refund-" + order.getOrderCode() + "-" + refund.getId());
+        body.put("referenceId", refund.getId().toString());
+        body.put("note", "Refund approved by seller.");
+
+        JsonNode responseNode = callInternalPost(paymentRpcClient, "/internal/v1/payments/refunds", body);
+        JsonNode dataNode = responseNode.path("data");
+
+        String status = dataNode.path("status").asText("");
+        String providerRefundId = trimToNull(dataNode.path("providerRefundId").asText(null));
+        String refundUrl = trimToNull(dataNode.path("refundUrl").asText(null));
+        String note = trimToNull(dataNode.path("note").asText(null));
+        return new PaymentRefundResult(status, providerRefundId, refundUrl, note);
+    }
+
+    private void validateRefundRequest(CreateOrderRefundRequest request) {
+        if (!StringUtils.hasText(request.getRefundAccountName())
+                || !StringUtils.hasText(request.getRefundAccountNumber())
+                || !StringUtils.hasText(request.getRefundBankCode())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.ORDER_REFUND_ACCOUNT_INFO_REQUIRED);
+        }
+        if (!StringUtils.hasText(request.getRefundReason())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.ORDER_REFUND_REASON_REQUIRED);
+        }
+    }
+
+    private String normalizeRefundDecision(String decision) {
+        if (!StringUtils.hasText(decision)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.ORDER_REFUND_DECISION_INVALID);
+        }
+
+        String normalized = decision.trim().toUpperCase(Locale.ROOT);
+        if ("APPROVE".equals(normalized) || "APPROVED".equals(normalized) || "ACCEPT".equals(normalized)) {
+            return "APPROVE";
+        }
+        if ("REJECT".equals(normalized) || "REJECTED".equals(normalized) || "DECLINE".equals(normalized)) {
+            return "REJECT";
+        }
+        throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.ORDER_REFUND_DECISION_INVALID);
+    }
+
+    private boolean isOrderOwnedByPartner(CustomerOrder order, UUID partnerUserId) {
+        if (partnerUserId == null) {
+            return false;
+        }
+
+        List<UUID> productIds = order.getItems().stream()
+                .map(OrderItem::getProductId)
+                .filter(productId -> productId != null)
+                .distinct()
+                .toList();
+        if (productIds.isEmpty()) {
+            return false;
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("productIds", productIds);
+        JsonNode responseNode = callInternalPost(inventoryRpcClient, "/internal/v1/inventories/product-owners", body);
+        JsonNode dataNode = responseNode.path("data");
+        if (!dataNode.isArray()) {
+            return false;
+        }
+
+        String normalizedPartnerUserId = partnerUserId.toString();
+        for (JsonNode ownerNode : dataNode) {
+            String shopId = trimToNull(ownerNode.path("shopId").asText(null));
+            if (normalizedPartnerUserId.equals(shopId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private OrderRefund findOrderRefundByOrderCodeOrThrow(String orderCode) {
+        String normalized = trimToNull(orderCode);
+        if (!StringUtils.hasText(normalized)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+        return orderRefundRepository.findByOrder_OrderCode(normalized)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.ORDER_REFUND_NOT_FOUND));
+    }
+
+    private void publishOrderRefundEvent(String topic, String eventType, OrderRefund refund, String actor) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("refundId", refund.getId());
+        payload.put("refundUuid", refund.getUuid());
+        payload.put("orderCode", refund.getOrder().getOrderCode());
+        payload.put("customerId", refund.getCustomerId());
+        payload.put("refundAmount", refund.getRefundAmount());
+        payload.put("currency", refund.getCurrency());
+        payload.put("refundAccountName", refund.getRefundAccountName());
+        payload.put("refundAccountNumberMasked", maskAccountNumber(refund.getRefundAccountNumber()));
+        payload.put("refundBankCode", refund.getRefundBankCode());
+        payload.put("refundReason", refund.getRefundReason());
+        payload.put("status", refund.getStatus().name());
+        payload.put("sellerDecisionNote", refund.getSellerDecisionNote());
+        payload.put("sellerDecisionBy", refund.getSellerDecisionBy());
+        payload.put("providerRefundId", refund.getProviderRefundId());
+        payload.put("providerRefundUrl", refund.getProviderRefundUrl());
+        payload.put("providerNote", refund.getProviderNote());
+        payload.put("actor", actor);
+        payload.put("processedAt", refund.getProcessedAt());
+        payload.put("createdAt", refund.getCreatedAt());
+        payload.put("updatedAt", refund.getUpdatedAt());
+
+        publishEvent(topic, refund.getOrder().getOrderCode(), eventType, payload);
+    }
+
+    private String maskAccountNumber(String accountNumber) {
+        String normalized = trimToNull(accountNumber);
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        if (normalized.length() <= 4) {
+            return "***" + normalized;
+        }
+        return "***" + normalized.substring(normalized.length() - 4);
     }
 
     private LocalDateTime resolvePaymentDeadline(LocalDateTime baseTime) {
@@ -868,6 +1256,33 @@ public class OrderServiceImpl implements OrderService {
                 .toList();
     }
 
+    private OrderRefundResponse mapToOrderRefundResponse(OrderRefund refund) {
+        return OrderRefundResponse.builder()
+                .refundId(refund.getId())
+                .refundUuid(refund.getUuid())
+                .orderCode(refund.getOrder().getOrderCode())
+                .customerId(refund.getCustomerId())
+                .refundAmount(refund.getRefundAmount())
+                .currency(refund.getCurrency())
+                .refundAccountName(refund.getRefundAccountName())
+                .refundAccountNumberMasked(maskAccountNumber(refund.getRefundAccountNumber()))
+                .refundBankCode(refund.getRefundBankCode())
+                .refundReason(refund.getRefundReason())
+                .status(refund.getStatus())
+                .sellerDecisionNote(refund.getSellerDecisionNote())
+                .sellerDecisionBy(refund.getSellerDecisionBy())
+                .providerRefundId(refund.getProviderRefundId())
+                .providerRefundUrl(refund.getProviderRefundUrl())
+                .providerNote(refund.getProviderNote())
+                .processedAt(refund.getProcessedAt())
+                .createdAt(refund.getCreatedAt())
+                .updatedAt(refund.getUpdatedAt())
+                .build();
+    }
+
     private record PaymentIntentResult(String paymentUrl) {
+    }
+
+    private record PaymentRefundResult(String status, String providerRefundId, String refundUrl, String note) {
     }
 }
