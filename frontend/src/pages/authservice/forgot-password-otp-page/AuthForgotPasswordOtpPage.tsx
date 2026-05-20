@@ -28,7 +28,7 @@ function AuthForgotPasswordOtpPage() {
     setSuccess('')
 
     if (!usernameOrEmail.trim()) {
-      setError('Vui lòng nhập tài khoản hoặc email')
+      setError('Please enter your username or email.')
       return
     }
 
@@ -41,7 +41,7 @@ function AuthForgotPasswordOtpPage() {
 
       const data = extractApiData<AuthForgotPasswordOtpData>(response)
 
-      setSuccess(data.message || 'OTP đã được gửi thành công')
+      setSuccess(data.message || 'OTP has been sent successfully.')
 
       localStorage.setItem('forgotPasswordUsername', usernameOrEmail.trim())
       localStorage.setItem('forgotPasswordOtpInfo', JSON.stringify(data))
@@ -49,7 +49,7 @@ function AuthForgotPasswordOtpPage() {
       navigate('/forgot-password')
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || 'Không thể gửi OTP, vui lòng thử lại',
+        err?.response?.data?.message || 'Failed to send OTP. Please try again.',
       )
     } finally {
       setLoading(false)
@@ -58,7 +58,7 @@ function AuthForgotPasswordOtpPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang gửi OTP..." />}
+      {loading && <Loading fullScreen text="Sending OTP..." />}
 
       <section
         className="auth-forgot-password-otp-page forgot-password-otp-vh-100 forgot-password-otp-page-bg"
@@ -82,12 +82,12 @@ function AuthForgotPasswordOtpPage() {
 
                   <div className="forgot-password-otp-divider forgot-password-otp-d-flex forgot-password-otp-align-items-center forgot-password-otp-my-4">
                     <p className="forgot-password-otp-text-center forgot-password-otp-fw-bold forgot-password-otp-mx-3 forgot-password-otp-mb-0">
-                      Quên mật khẩu
+                      Forgot password
                     </p>
                   </div>
 
                   <p className="forgot-password-otp-text-center forgot-password-otp-mb-4">
-                    Nhập tài khoản hoặc email để nhận mã OTP đặt lại mật khẩu
+                    Enter your username or email to receive a password reset OTP.
                   </p>
 
                   {error && (
@@ -106,13 +106,13 @@ function AuthForgotPasswordOtpPage() {
                       className="forgot-password-otp-form-label"
                       htmlFor="forgotUsernameOrEmail"
                     >
-                      Tài khoản hoặc email
+                      Username or Email
                     </label>
                     <input
                       type="text"
                       id="forgotUsernameOrEmail"
                       className="forgot-password-otp-form-control forgot-password-otp-form-control-lg"
-                      placeholder="Nhập tài khoản hoặc email"
+                      placeholder="Enter your username or email"
                       value={usernameOrEmail}
                       onChange={(e) => {
                         setUsernameOrEmail(e.target.value)
@@ -129,7 +129,7 @@ function AuthForgotPasswordOtpPage() {
                         className="forgot-password-otp-link-action"
                         onClick={() => navigate('/login')}
                       >
-                        Quay lại đăng nhập
+                        Back to sign in
                       </button>
                     </div>
                   </div>
@@ -140,7 +140,7 @@ function AuthForgotPasswordOtpPage() {
                       className="forgot-password-otp-btn forgot-password-otp-btn-primary forgot-password-otp-btn-lg"
                       disabled={loading}
                     >
-                      {loading ? 'Đang gửi OTP...' : 'Gửi OTP'}
+                      {loading ? 'Sending OTP...' : 'Send OTP'}
                     </button>
                   </div>
                 </form>

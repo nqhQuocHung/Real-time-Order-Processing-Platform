@@ -3,6 +3,7 @@ import AuthLoginPage from '../pages/authservice/login-page/AuthLoginPage'
 import AuthRegisterPage from '../pages/authservice/register-page/AuthRegisterPage'
 import AuthForgotPasswordOtpPage from '../pages/authservice/forgot-password-otp-page/AuthForgotPasswordOtpPage'
 import AuthForgotPasswordPage from '../pages/authservice/forgot-password-page/AuthForgotPasswordPage'
+import AboutPage from '../pages/commonservice/about-page/AboutPage'
 import SessionRedirect from '../components/auth/SessionRedirect'
 import PublicOnlyRoute from '../components/auth/PublicOnlyRoute'
 import ProtectedRoute from '../components/auth/ProtectedRoute'
@@ -30,6 +31,7 @@ function AppRoutes() {
 
       <Route element={<PublicOnlyRoute />}>
         <Route path="/login" element={<AuthLoginPage />} />
+        <Route path="/about" element={<AboutPage />} />
         <Route path="/register" element={<AuthRegisterPage />} />
         <Route path="/forgot-password-otp" element={<AuthForgotPasswordOtpPage />} />
         <Route path="/forgot-password" element={<AuthForgotPasswordPage />} />

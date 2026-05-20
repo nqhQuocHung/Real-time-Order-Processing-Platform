@@ -110,10 +110,47 @@ function truncateText(value: string, maxLength = 220) {
   return `${value.slice(0, maxLength)}...`
 }
 
+function resolveNavigatePathFromRecipients(
+  payload: NotificationPayload,
+  currentUserId: string,
+) {
+  const recipients = payload.recipients
+  if (!Array.isArray(recipients) || recipients.length === 0) {
+    return ''
+  }
+
+  const normalizedCurrentUserId = normalizeText(currentUserId)
+  let fallbackPath = ''
+
+  for (const recipient of recipients) {
+    if (!recipient || typeof recipient !== 'object') {
+      continue
+    }
+
+    const recipientPayload = toNotificationPayload(recipient)
+    const candidatePath = normalizeText(recipientPayload.navigatePath)
+    if (!candidatePath.startsWith('/')) {
+      continue
+    }
+
+    if (!fallbackPath) {
+      fallbackPath = candidatePath
+    }
+
+    const recipientUserId = normalizeText(recipientPayload.userId || recipientPayload.recipientUserId)
+    if (normalizedCurrentUserId && recipientUserId === normalizedCurrentUserId) {
+      return candidatePath
+    }
+  }
+
+  return fallbackPath
+}
+
 function buildNotificationLink(
   eventName: string,
   requestId: string,
   payload: NotificationPayload,
+  currentUserId: string,
 ) {
   const navigatePath =
     typeof payload.navigatePath === 'string'
@@ -121,6 +158,13 @@ function buildNotificationLink(
       : ''
   if (navigatePath.startsWith('/')) {
     return navigatePath
+  }
+
+  if (eventName.startsWith('product.review.')) {
+    const recipientPath = resolveNavigatePathFromRecipients(payload, currentUserId)
+    if (recipientPath) {
+      return recipientPath
+    }
   }
 
   if (eventName === 'partner.request.created' && requestId) {
@@ -189,7 +233,11 @@ function buildStreamEventDedupKey(eventName: string, payload: unknown): string {
   return `${eventName}|payload:${payloadSignature}`
 }
 
-function buildNotificationMessage(eventName: string, payload: unknown): NotificationItem | null {
+function buildNotificationMessage(
+  eventName: string,
+  payload: unknown,
+  currentUserId: string,
+): NotificationItem | null {
   if (eventName === 'connected') {
     return null
   }
@@ -223,6 +271,8 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
 
   let title = 'New notification'
   let message = truncateText(fallbackMessage || 'You have a new notification from the system.')
+  let eventTypeLabel = eventName
+  let linkHint: string | undefined
 
   if (eventName === 'partner.request.created') {
     const actor = username || email || 'user'
@@ -277,26 +327,33 @@ function buildNotificationMessage(eventName: string, payload: unknown): Notifica
 
   if (eventName === 'product.review.comment.created') {
     const actor = actorUserName || normalizeText(commentPayload.userName) || 'A user'
-    const shortComment = truncateText(normalizeText(commentPayload.content), 90)
-    title = 'New review comment'
-    message = `${actor} added a comment${productId ? ` for product ${productId}` : ''}.${shortComment ? ` "${shortComment}"` : ''}`
+    const shortComment = truncateText(normalizeText(commentPayload.content), 140)
+    title = actor
+    message = shortComment || 'Added a new review comment.'
+    eventTypeLabel = ''
+    linkHint = ''
   }
 
-  const occurredAt =
+  let occurredAt =
     normalizeText(data.occurredAt) ||
     normalizeText(data.reviewedAt) ||
     new Date().toISOString()
 
+  if (eventName === 'product.review.comment.created') {
+    occurredAt = normalizeText(commentPayload.createdAt) || occurredAt
+  }
+
   const notificationId = eventId || requestId || `${eventName}-${Date.now()}-${Math.random()}`
-  const link = buildNotificationLink(eventName, requestId, data)
+  const link = buildNotificationLink(eventName, requestId, data, currentUserId)
 
   return {
     id: notificationId,
     title,
     message,
-    eventType: eventName,
+    eventType: eventTypeLabel,
     occurredAt,
     link,
+    linkHint,
   }
 }
 
@@ -1110,7 +1167,23 @@ function RoleLayout() {
         return
       }
 
-      const notification = buildNotificationMessage(eventName, payload)
+      if (eventName.startsWith('product.review.') && currentUserId) {
+        const notificationPayload = toNotificationPayload(payload)
+        const actorUserId = normalizeText(notificationPayload.actorUserId)
+        const reviewPayload = toNotificationPayload(notificationPayload.review)
+        const commentPayload = toNotificationPayload(notificationPayload.comment)
+        const reviewUserId = normalizeText(reviewPayload.userId)
+        const commentUserId = normalizeText(commentPayload.userId)
+        const isOwnReviewRealtimeNotification =
+          actorUserId === currentUserId ||
+          reviewUserId === currentUserId ||
+          commentUserId === currentUserId
+        if (isOwnReviewRealtimeNotification) {
+          return
+        }
+      }
+
+      const notification = buildNotificationMessage(eventName, payload, currentUserId)
       if (!notification) {
         return
       }

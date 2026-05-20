@@ -37,7 +37,7 @@ function AuthLoginPage() {
     setError('')
 
     if (!username.trim() || !password.trim()) {
-      setError('Vui lòng nhập đầy đủ tài khoản và mật khẩu.')
+      setError('Please enter both username and password.')
       return
     }
 
@@ -53,7 +53,7 @@ function AuthLoginPage() {
 
       navigate(getDefaultPathByRole(role), { replace: true })
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Tài khoản hoặc mật khẩu không đúng.'))
+      setError(extractApiErrorMessage(err, 'Invalid username or password.'))
     } finally {
       setLoading(false)
     }
@@ -61,12 +61,19 @@ function AuthLoginPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang đăng nhập..." />}
+      {loading && <Loading fullScreen text="Signing in..." />}
 
       <section
         className="auth-login-page login-vh-100 login-page-bg"
         style={{ backgroundImage: `url(${vnptBackground})` }}
       >
+        <button
+          type="button"
+          className="login-about-corner-link"
+          onClick={() => navigate('/about')}
+        >
+          About Platform
+        </button>
         <div className="login-bg-overlay">
           <div className="login-container-fluid login-h-custom">
             <div className="login-row login-d-flex login-justify-content-center login-align-items-center login-h-100">
@@ -82,7 +89,7 @@ function AuthLoginPage() {
 
                   <div className="login-divider login-d-flex login-align-items-center login-my-4">
                     <p className="login-text-center login-fw-bold login-mx-3 login-mb-0">
-                      Đăng nhập hệ thống
+                      Sign in to your account
                     </p>
                   </div>
 
@@ -90,13 +97,13 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-4">
                     <label className="login-form-label" htmlFor="loginUsername">
-                      Tài khoản
+                      Username or Email
                     </label>
                     <input
                       type="text"
                       id="loginUsername"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Nhập tài khoản"
+                      placeholder="Enter your username or email"
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value)
@@ -107,13 +114,13 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-3">
                     <label className="login-form-label" htmlFor="loginPassword">
-                      Mật khẩu
+                      Password
                     </label>
                     <input
                       type="password"
                       id="loginPassword"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Nhập mật khẩu"
+                      placeholder="Enter your password"
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -129,7 +136,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/register')}
                       >
-                        Đăng ký tài khoản
+                        Create account
                       </button>
                     </div>
 
@@ -139,7 +146,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/forgot-password-otp')}
                       >
-                        Quên mật khẩu?
+                        Forgot password?
                       </button>
                     </div>
                   </div>
@@ -150,7 +157,7 @@ function AuthLoginPage() {
                       className="login-btn login-btn-primary login-btn-lg"
                       disabled={loading}
                     >
-                      {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                      {loading ? 'Signing in...' : 'Sign in'}
                     </button>
                   </div>
                 </form>

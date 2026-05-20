@@ -152,6 +152,10 @@
   font-size: 0.7rem;
 }
 
+.role-notification-meta-time-only {
+  justify-content: flex-end;
+}
+
 .role-notification-meta span {
   overflow-wrap: anywhere;
 }

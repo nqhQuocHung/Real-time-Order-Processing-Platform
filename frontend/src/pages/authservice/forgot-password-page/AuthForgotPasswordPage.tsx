@@ -115,17 +115,17 @@ function AuthForgotPasswordPage() {
 
   const validatePasswordForm = () => {
     if (!newPassword.trim()) {
-      setError('Vui lòng nhập mật khẩu mới')
+      setError('Please enter your new password.')
       return false
     }
 
     if (!confirmPassword.trim()) {
-      setError('Vui lòng nhập xác nhận mật khẩu')
+      setError('Please confirm your new password.')
       return false
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp')
+      setError('Password confirmation does not match.')
       return false
     }
 
@@ -146,13 +146,13 @@ function AuthForgotPasswordPage() {
   const handleSubmitForgotPassword = async () => {
     if (!forgotPasswordUsername.trim()) {
       setPopupError(
-        'Không tìm thấy tài khoản để xác thực. Vui lòng quay lại bước gửi OTP.',
+        'Account information is missing. Please go back and request OTP again.',
       )
       return
     }
 
     if (!otp.trim()) {
-      setPopupError('Vui lòng nhập mã OTP')
+      setPopupError('Please enter the OTP code.')
       return
     }
 
@@ -169,7 +169,7 @@ function AuthForgotPasswordPage() {
     navigate('/login', {
       replace: true,
       state: {
-        toastMessage: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.',
+        toastMessage: 'Password changed successfully. Please sign in again.',
       },
     })
   }
@@ -177,7 +177,7 @@ function AuthForgotPasswordPage() {
   const handleRenewOtp = async () => {
     if (!forgotPasswordUsername.trim()) {
       setPopupError(
-        'Không tìm thấy username/email để gửi lại OTP. Vui lòng quay lại bước trước.',
+        'Username/email is missing. Please return to the previous step.',
       )
       return
     }
@@ -190,7 +190,7 @@ function AuthForgotPasswordPage() {
 
     setOtpInfo(data)
     setOtp('')
-    setPopupSuccess(data?.message || 'OTP đã được cấp lại thành công')
+    setPopupSuccess(data?.message || 'OTP has been reissued successfully.')
 
     localStorage.setItem('forgotPasswordUsername', forgotPasswordUsername.trim())
     localStorage.setItem('forgotPasswordOtpInfo', JSON.stringify(data))
@@ -214,8 +214,8 @@ function AuthForgotPasswordPage() {
       setPopupError(
         err?.response?.data?.message ||
           (isOtpExpired
-            ? 'Không thể cấp lại OTP, vui lòng thử lại'
-            : 'Đặt lại mật khẩu thất bại, vui lòng kiểm tra lại OTP'),
+            ? 'Unable to reissue OTP. Please try again.'
+            : 'Password reset failed. Please verify your OTP.'),
       )
     } finally {
       setLoading(false)
@@ -232,14 +232,14 @@ function AuthForgotPasswordPage() {
 
   const otpButtonText = useMemo(() => {
     if (loading) {
-      return isOtpExpired ? 'Đang cấp lại OTP...' : 'Đang xác nhận OTP...'
+      return isOtpExpired ? 'Reissuing OTP...' : 'Verifying OTP...'
     }
 
     if (isOtpExpired) {
-      return 'OTP đã hết hạn - Cấp lại OTP'
+      return 'OTP expired - Reissue OTP'
     }
 
-    return `Xác nhận OTP (${countdownText || '00:00'})`
+    return `Confirm OTP (${countdownText || '00:00'})`
   }, [loading, isOtpExpired, countdownText])
 
   return (
@@ -247,7 +247,7 @@ function AuthForgotPasswordPage() {
       {loading && (
         <Loading
           fullScreen
-          text={isOtpExpired ? 'Đang cấp lại mã OTP...' : 'Đang cập nhật mật khẩu...'}
+          text={isOtpExpired ? 'Reissuing OTP...' : 'Updating password...'}
         />
       )}
 
@@ -273,12 +273,12 @@ function AuthForgotPasswordPage() {
 
                   <div className="forgot-password-divider forgot-password-d-flex forgot-password-align-items-center forgot-password-my-4">
                     <p className="forgot-password-text-center forgot-password-fw-bold forgot-password-mx-3 forgot-password-mb-0">
-                      Đặt lại mật khẩu
+                      Reset password
                     </p>
                   </div>
 
                   <p className="forgot-password-text-center forgot-password-mb-4 forgot-password-helper-text">
-                    Nhập mật khẩu mới, sau đó xác nhận bằng OTP đã gửi về email.
+                    Enter a new password, then confirm using the OTP sent to your email.
                   </p>
 
                   {error && (
@@ -294,13 +294,13 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-form-label"
                       htmlFor="forgotPasswordNew"
                     >
-                      Mật khẩu mới
+                      New password
                     </label>
                     <input
                       type="password"
                       id="forgotPasswordNew"
                       className="forgot-password-form-control forgot-password-form-control-lg"
-                      placeholder="Nhập mật khẩu mới"
+                      placeholder="Enter new password"
                       value={newPassword}
                       onChange={(e) => {
                         setNewPassword(e.target.value)
@@ -315,13 +315,13 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-form-label"
                       htmlFor="forgotPasswordConfirm"
                     >
-                      Xác nhận mật khẩu
+                      Confirm password
                     </label>
                     <input
                       type="password"
                       id="forgotPasswordConfirm"
                       className="forgot-password-form-control forgot-password-form-control-lg"
-                      placeholder="Nhập lại mật khẩu mới"
+                      placeholder="Re-enter new password"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value)
@@ -337,7 +337,7 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-link-action"
                       onClick={() => navigate('/forgot-password-otp')}
                     >
-                      Quay lại bước gửi OTP
+                      Back to OTP request
                     </button>
                   </div>
 
@@ -347,7 +347,7 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-btn forgot-password-btn-primary forgot-password-btn-lg"
                       disabled={loading}
                     >
-                      Tiếp tục
+                      Continue
                     </button>
                   </div>
                 </form>
@@ -366,19 +366,19 @@ function AuthForgotPasswordPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="forgot-password-modal-header">
-                <h3 className="forgot-password-modal-title">Xác nhận OTP</h3>
+                <h3 className="forgot-password-modal-title">Confirm OTP</h3>
               </div>
 
               <div className="forgot-password-modal-body">
                 {otpInfo?.email && (
                   <p className="forgot-password-modal-subtext forgot-password-modal-email">
-                    Email nhận OTP: <strong>{maskedEmail}</strong>
+                    OTP destination: <strong>{maskedEmail}</strong>
                   </p>
                 )}
 
                 {!forgotPasswordUsername && (
                   <div className="forgot-password-alert-danger">
-                    Không tìm thấy thông tin tài khoản. Vui lòng quay lại bước gửi OTP.
+                    Account information is missing. Please return to OTP request step.
                   </div>
                 )}
 
@@ -397,13 +397,13 @@ function AuthForgotPasswordPage() {
                     className="forgot-password-form-label"
                     htmlFor="forgotPasswordOtp"
                   >
-                    Mã OTP
+                    OTP Code
                   </label>
                   <input
                     type="text"
                     id="forgotPasswordOtp"
                     className="forgot-password-form-control forgot-password-form-control-lg"
-                    placeholder="Nhập mã OTP"
+                    placeholder="Enter OTP code"
                     value={otp}
                     onChange={(e) => {
                       setOtp(e.target.value)
@@ -430,7 +430,7 @@ function AuthForgotPasswordPage() {
                   onClick={handleClosePopup}
                   disabled={loading}
                 >
-                  Hủy
+                  Cancel
                 </button>
               </div>
             </div>

@@ -5,9 +5,10 @@ type NotificationItem = {
   id: string
   title: string
   message: string
-  eventType: string
+  eventType?: string
   occurredAt: string
   link?: string
+  linkHint?: string
 }
 
 type NotificationBellProps = {
@@ -81,35 +82,45 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
               <p className="role-notification-empty">No notifications yet.</p>
             ) : (
               <ul className="role-notification-list">
-                {notifications.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`role-notification-item ${item.link ? 'is-clickable' : ''}`}
-                    onClick={() => item.link && onItemClick(item)}
-                    onKeyDown={(event) => {
-                      if (!item.link) {
-                        return
-                      }
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        onItemClick(item)
-                      }
-                    }}
-                    tabIndex={item.link ? 0 : -1}
-                    role={item.link ? 'button' : undefined}
-                    aria-label={item.link ? `Open notification: ${item.title}` : undefined}
-                  >
-                    <p className="role-notification-title">{item.title}</p>
-                    <p className="role-notification-message">{item.message}</p>
-                    <div className="role-notification-meta">
-                      <span>{item.eventType}</span>
-                      <time dateTime={item.occurredAt}>{formatOccurredAt(item.occurredAt)}</time>
-                    </div>
-                    {item.link && (
-                      <span className="role-notification-link-hint">Open related record</span>
-                    )}
-                  </li>
-                ))}
+                {notifications.map((item) => {
+                  const eventType = (item.eventType || '').trim()
+                  const hasEventType = Boolean(eventType)
+                  const linkHint = typeof item.linkHint === 'string'
+                    ? item.linkHint.trim()
+                    : 'Open related record'
+
+                  return (
+                    <li
+                      key={item.id}
+                      className={`role-notification-item ${item.link ? 'is-clickable' : ''}`}
+                      onClick={() => item.link && onItemClick(item)}
+                      onKeyDown={(event) => {
+                        if (!item.link) {
+                          return
+                        }
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          onItemClick(item)
+                        }
+                      }}
+                      tabIndex={item.link ? 0 : -1}
+                      role={item.link ? 'button' : undefined}
+                      aria-label={item.link ? `Open notification: ${item.title}` : undefined}
+                    >
+                      <p className="role-notification-title">{item.title}</p>
+                      <p className="role-notification-message">{item.message}</p>
+                      <div
+                        className={`role-notification-meta ${hasEventType ? '' : 'role-notification-meta-time-only'}`.trim()}
+                      >
+                        {hasEventType && <span>{eventType}</span>}
+                        <time dateTime={item.occurredAt}>{formatOccurredAt(item.occurredAt)}</time>
+                      </div>
+                      {item.link && linkHint && (
+                        <span className="role-notification-link-hint">{linkHint}</span>
+                      )}
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>

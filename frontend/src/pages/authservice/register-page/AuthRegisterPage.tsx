@@ -23,7 +23,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
   const ctx = canvas.getContext('2d')
 
   if (!ctx) {
-    throw new Error('Không thể khởi tạo canvas')
+    throw new Error('Unable to initialize canvas')
   }
 
   canvas.width = pixelCrop.width
@@ -45,7 +45,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Không thể cắt ảnh'))
+          reject(new Error('Unable to crop image'))
           return
         }
 
@@ -105,7 +105,7 @@ function AuthRegisterPage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setError('Vui lòng chọn file ảnh hợp lệ')
+      setError('Please choose a valid image file.')
       return
     }
 
@@ -143,7 +143,7 @@ function AuthRegisterPage() {
   const handleCropSave = async () => {
     try {
       if (!cropImageSrc || !croppedAreaPixels) {
-        setError('Không có vùng ảnh để cắt')
+        setError('No crop area was detected.')
         return
       }
 
@@ -162,7 +162,7 @@ function AuthRegisterPage() {
       setCrop({ x: 0, y: 0 })
       setCroppedAreaPixels(null)
     } catch {
-      setError('Không thể cắt ảnh, vui lòng thử lại')
+      setError('Unable to crop image. Please try again.')
     }
   }
 
@@ -176,42 +176,42 @@ function AuthRegisterPage() {
 
   const validateForm = () => {
     if (!formData.username.trim()) {
-      setError('Vui lòng nhập tài khoản')
+      setError('Please enter a username.')
       return false
     }
 
     if (!formData.password.trim()) {
-      setError('Vui lòng nhập mật khẩu')
+      setError('Please enter a password.')
       return false
     }
 
     if (!formData.confirmPassword.trim()) {
-      setError('Vui lòng nhập xác nhận mật khẩu')
+      setError('Please confirm your password.')
       return false
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp')
+      setError('Password confirmation does not match.')
       return false
     }
 
     if (!formData.lastName.trim()) {
-      setError('Vui lòng nhập họ')
+      setError('Please enter your last name.')
       return false
     }
 
     if (!formData.firstName.trim()) {
-      setError('Vui lòng nhập tên')
+      setError('Please enter your first name.')
       return false
     }
 
     if (!formData.email.trim()) {
-      setError('Vui lòng nhập email')
+      setError('Please enter your email.')
       return false
     }
 
     if (!formData.phone.trim()) {
-      setError('Vui lòng nhập số điện thoại')
+      setError('Please enter your phone number.')
       return false
     }
 
@@ -250,12 +250,12 @@ function AuthRegisterPage() {
       navigate('/login', {
         replace: true,
         state: {
-          toastMessage: 'Đăng ký tài khoản thành công. Vui lòng đăng nhập.',
+          toastMessage: 'Account created successfully. Please sign in.',
         },
       })
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại',
+        err?.response?.data?.message || 'Registration failed. Please try again.',
       )
     } finally {
       setLoading(false)
@@ -264,7 +264,7 @@ function AuthRegisterPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang đăng ký tài khoản..." />}
+      {loading && <Loading fullScreen text="Creating your account..." />}
 
       <section
         className="auth-register-page register-page-bg register-page-shell"
@@ -286,7 +286,7 @@ function AuthRegisterPage() {
 
                     <div className="register-divider register-d-flex register-align-items-center register-my-4">
                       <p className="register-text-center register-fw-bold register-mx-3 register-mb-0">
-                        Đăng ký tài khoản
+                        Create your account
                       </p>
                     </div>
 
@@ -302,14 +302,14 @@ function AuthRegisterPage() {
                         className="register-form-label"
                         htmlFor="registerUsername"
                       >
-                        Tài khoản
+                        Username
                       </label>
                       <input
                         type="text"
                         id="registerUsername"
                         name="username"
                         className="register-form-control register-form-control-lg"
-                        placeholder="Nhập tài khoản"
+                        placeholder="Enter username"
                         value={formData.username}
                         onChange={handleChange}
                       />
@@ -321,14 +321,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerPassword"
                         >
-                          Mật khẩu
+                          Password
                         </label>
                         <input
                           type="password"
                           id="registerPassword"
                           name="password"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập mật khẩu"
+                          placeholder="Enter password"
                           value={formData.password}
                           onChange={handleChange}
                         />
@@ -339,14 +339,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerConfirmPassword"
                         >
-                          Xác nhận mật khẩu
+                          Confirm password
                         </label>
                         <input
                           type="password"
                           id="registerConfirmPassword"
                           name="confirmPassword"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập lại mật khẩu"
+                          placeholder="Re-enter password"
                           value={formData.confirmPassword}
                           onChange={handleChange}
                         />
@@ -359,14 +359,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerLastName"
                         >
-                          Họ
+                          Last name
                         </label>
                         <input
                           type="text"
                           id="registerLastName"
                           name="lastName"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập họ"
+                          placeholder="Enter last name"
                           value={formData.lastName}
                           onChange={handleChange}
                         />
@@ -377,14 +377,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerFirstName"
                         >
-                          Tên
+                          First name
                         </label>
                         <input
                           type="text"
                           id="registerFirstName"
                           name="firstName"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập tên"
+                          placeholder="Enter first name"
                           value={formData.firstName}
                           onChange={handleChange}
                         />
@@ -403,7 +403,7 @@ function AuthRegisterPage() {
                         id="registerEmail"
                         name="email"
                         className="register-form-control register-form-control-lg"
-                        placeholder="Nhập email"
+                        placeholder="Enter email"
                         value={formData.email}
                         onChange={handleChange}
                       />
@@ -415,7 +415,7 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerGender"
                         >
-                          Giới tính
+                          Gender
                         </label>
                         <select
                           id="registerGender"
@@ -424,10 +424,10 @@ function AuthRegisterPage() {
                           value={formData.gender}
                           onChange={handleChange}
                         >
-                          <option value="MALE">Nam</option>
-                          <option value="FEMALE">Nữ</option>
-                          <option value="OTHER">Khác</option>
-                          <option value="UNKNOWN">Không xác định</option>
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                          <option value="UNKNOWN">Prefer not to say</option>
                         </select>
                       </div>
 
@@ -436,14 +436,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerPhone"
                         >
-                          Số điện thoại
+                          Phone number
                         </label>
                         <input
                           type="text"
                           id="registerPhone"
                           name="phone"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập số điện thoại"
+                          placeholder="Enter phone number"
                           value={formData.phone}
                           onChange={handleChange}
                         />
@@ -455,7 +455,7 @@ function AuthRegisterPage() {
     className="register-form-label"
     htmlFor="registerAvatar"
   >
-    Ảnh đại diện
+    Profile picture
   </label>
 
   <div className="register-avatar-row">
@@ -479,14 +479,14 @@ function AuthRegisterPage() {
         />
 
         <div className="register-avatar-actions">
-          <span className="register-avatar-crop-text">Cắt ảnh</span>
+          <span className="register-avatar-crop-text">Cropped image</span>
 
           <button
             type="button"
             className="register-avatar-remove"
             onClick={removeAvatar}
           >
-            Xóa ảnh
+            Remove
           </button>
         </div>
       </div>
@@ -500,7 +500,7 @@ function AuthRegisterPage() {
                         className="register-link-action"
                         onClick={() => navigate('/login')}
                       >
-                        Quay lại đăng nhập
+                        Back to sign in
                       </button>
                     </div>
 
@@ -510,7 +510,7 @@ function AuthRegisterPage() {
                         className="register-btn register-btn-primary register-btn-lg"
                         disabled={loading}
                       >
-                        {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+                        {loading ? 'Creating account...' : 'Create account'}
                       </button>
                     </div>
                   </form>
@@ -530,7 +530,7 @@ function AuthRegisterPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="register-crop-header">
-                <h3 className="register-crop-title">Cắt ảnh đại diện</h3>
+                <h3 className="register-crop-title">Crop profile picture</h3>
               </div>
 
               <div className="register-crop-container">
@@ -548,7 +548,7 @@ function AuthRegisterPage() {
               </div>
 
               <div className="register-crop-zoom">
-                <label htmlFor="registerCropZoom">Phóng to</label>
+                <label htmlFor="registerCropZoom">Zoom</label>
                 <input
                   id="registerCropZoom"
                   type="range"
@@ -566,14 +566,14 @@ function AuthRegisterPage() {
                   className="register-btn register-btn-secondary"
                   onClick={handleCloseCropModal}
                 >
-                  Hủy
+                  Cancel
                 </button>
                 <button
                   type="button"
                   className="register-btn register-btn-primary"
                   onClick={handleCropSave}
                 >
-                  Xác nhận
+                  Confirm
                 </button>
               </div>
             </div>
