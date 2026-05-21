@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerInventoryPage.css'
 
 type InventoryStock = {
@@ -25,6 +26,7 @@ type InventoryStock = {
 }
 
 function PartnerInventoryPage() {
+  const { t } = useI18n()
   const [productId, setProductId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -32,7 +34,7 @@ function PartnerInventoryPage() {
 
   async function lookupStock() {
     if (!productId.trim()) {
-      setError('Please enter productId.')
+      setError(t('pages.partnerInventory.errors.missingProductId', 'Please enter productId.'))
       return
     }
 
@@ -44,7 +46,12 @@ function PartnerInventoryPage() {
       const data = extractApiData<InventoryStock>(response)
       setStock(data)
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot look up inventory.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('pages.partnerInventory.errors.lookupFailed', 'Cannot look up inventory.'),
+        ),
+      )
     } finally {
       setLoading(false)
     }
@@ -53,32 +60,37 @@ function PartnerInventoryPage() {
   return (
     <section className="partner-inventory-page role-page-stack">
       <article className="role-card">
-        <h2>Inventory</h2>
+        <h2>{t('pages.partnerInventory.title', 'Partner inventory')}</h2>
         <p className="role-muted">
-          Partner can look up inventory by productId within their scope.
+          {t(
+            'pages.partnerInventory.subtitle',
+            'Track stock changes and keep inventory healthy.',
+          )}
         </p>
         <div className="role-inline-form">
           <label>
-            Product ID
+            {t('pages.partnerInventory.productId', 'Product ID')}
             <input
               value={productId}
               onChange={(event) => setProductId(event.target.value)}
-              placeholder="Product UUID"
+              placeholder={t('pages.partnerInventory.placeholders.productId', 'Product UUID')}
             />
           </label>
           <button type="button" className="role-btn-primary" onClick={() => void lookupStock()}>
-            {loading ? 'Looking up...' : 'Lookup Inventory'}
+            {loading
+              ? t('pages.partnerInventory.actions.lookingUp', 'Looking up...')
+              : t('pages.partnerInventory.actions.lookup', 'Lookup Inventory')}
           </button>
         </div>
         {error && <p className="role-error">{error}</p>}
       </article>
 
       <article className="role-card">
-        <h3>Result</h3>
+        <h3>{t('pages.partnerInventory.resultTitle', 'Result')}</h3>
         {stock ? (
           <div className="role-kv-grid">
             <div>
-              <span>Product ID</span>
+              <span>{t('pages.partnerInventory.productId', 'Product ID')}</span>
               <strong>{stock.productId}</strong>
             </div>
             <div>
@@ -86,24 +98,26 @@ function PartnerInventoryPage() {
               <strong>{stock.sku || '-'}</strong>
             </div>
             <div>
-              <span>Product Name</span>
+              <span>{t('pages.partnerInventory.productName', 'Product Name')}</span>
               <strong>{stock.name || stock.productName || '-'}</strong>
             </div>
             <div>
-              <span>Available</span>
+              <span>{t('pages.partnerInventory.available', 'Available')}</span>
               <strong>{stock.availableQuantity}</strong>
             </div>
             <div>
-              <span>Reserved</span>
+              <span>{t('pages.partnerInventory.reserved', 'Reserved')}</span>
               <strong>{stock.reservedQuantity}</strong>
             </div>
             <div>
-              <span>Total</span>
+              <span>{t('pages.partnerInventory.total', 'Total')}</span>
               <strong>{stock.totalQuantity}</strong>
             </div>
           </div>
         ) : (
-          <p className="role-muted">No inventory data yet.</p>
+          <p className="role-muted">
+            {t('pages.partnerInventory.empty', 'No inventory data yet.')}
+          </p>
         )}
       </article>
     </section>

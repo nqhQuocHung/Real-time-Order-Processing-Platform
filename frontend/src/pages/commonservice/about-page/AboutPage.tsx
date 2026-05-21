@@ -7,6 +7,7 @@ import architectureModel1 from '../../../assets/illustrations/architecture-model
 import architectureModel2 from '../../../assets/illustrations/architecture-model-2.png'
 import architectureModel3 from '../../../assets/illustrations/architecture-model-3.png'
 import architectureModel4 from '../../../assets/illustrations/architecture-model-4.png'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AboutPage.css'
 
 type ServiceCard = {
@@ -34,6 +35,7 @@ type DiagramItem = {
 }
 
 function AboutPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [selectedService, setSelectedService] = useState<ServiceCard | null>(null)
 
@@ -220,18 +222,17 @@ function AboutPage() {
               <img src={realtimeLogo} alt="Realtime Logo" className="about-page-logo" />
               <div>
                 <p className="about-page-kicker">Real-time Order Platform</p>
-                <h1>System Overview</h1>
+                <h1>{t('pages.commonAbout.title')}</h1>
                 <p className="about-page-subtitle">
-                  A microservice-based commerce platform combining event-driven processing and realtime
-                  streaming to synchronize orders, payments, inventory, product feedback, and notifications.
+                  {t('pages.commonAbout.subtitle')}
                 </p>
               </div>
             </header>
 
             <section className="about-page-section">
               <div className="about-page-section-header">
-                <h2>Validated System Diagrams</h2>
-                <span>Architecture, Domain, Sequence, and Kafka Topics</span>
+                <h2>{t('pages.commonAbout.sections.diagrams.title')}</h2>
+                <span>{t('pages.commonAbout.sections.diagrams.subtitle')}</span>
               </div>
               <div className="about-page-diagram-grid">
                 {diagrams.map((diagram) => (
@@ -255,8 +256,8 @@ function AboutPage() {
 
             <section className="about-page-section">
               <div className="about-page-section-header">
-                <h2>Core Services</h2>
-                <span>Domain Responsibilities</span>
+                <h2>{t('pages.commonAbout.sections.coreServices.title')}</h2>
+                <span>{t('pages.commonAbout.sections.coreServices.subtitle')}</span>
               </div>
               <div className="about-page-service-grid">
                 {services.map((service) => (
@@ -268,7 +269,7 @@ function AboutPage() {
                   >
                     <h3>{service.name}</h3>
                     <p>{service.responsibility}</p>
-                    <span className="about-page-service-hint">Click to view service overview</span>
+                    <span className="about-page-service-hint">{t('pages.commonAbout.sections.coreServices.hint')}</span>
                   </button>
                 ))}
               </div>
@@ -276,8 +277,8 @@ function AboutPage() {
 
             <section className="about-page-section">
               <div className="about-page-section-header">
-                <h2>Featured Flows</h2>
-                <span>Business-Critical Paths</span>
+                <h2>{t('pages.commonAbout.sections.featuredFlows.title')}</h2>
+                <span>{t('pages.commonAbout.sections.featuredFlows.subtitle')}</span>
               </div>
               <ol className="about-page-flow-list">
                 {featuredFlows.map((step) => (
@@ -291,8 +292,8 @@ function AboutPage() {
 
             <section className="about-page-section about-page-technology">
               <div className="about-page-section-header">
-                <h2>Technology Stack</h2>
-                <span>Current Implementation</span>
+                <h2>{t('pages.commonAbout.sections.technology.title')}</h2>
+                <span>{t('pages.commonAbout.sections.technology.subtitle')}</span>
               </div>
               <div className="about-page-tech-grid">
                 {technologies.map((technology) => (
@@ -306,8 +307,8 @@ function AboutPage() {
 
             <section className="about-page-section">
               <div className="about-page-section-header">
-                <h2>Specification Files In Repository</h2>
-                <span>Source of Truth For Flows and Architecture</span>
+                <h2>{t('pages.commonAbout.sections.specs.title')}</h2>
+                <span>{t('pages.commonAbout.sections.specs.subtitle')}</span>
               </div>
               <ul className="about-page-reference-list">
                 <li><code>docs/architecture.md</code> - service boundaries, sync/async communication, storage, reliability.</li>
@@ -323,14 +324,14 @@ function AboutPage() {
                 className="about-page-btn about-page-btn-secondary"
                 onClick={() => navigate('/register')}
               >
-                Create account
+                {t('pages.commonAbout.actions.createAccount')}
               </button>
               <button
                 type="button"
                 className="about-page-btn about-page-btn-primary"
                 onClick={() => navigate('/login')}
               >
-                Back to login
+                {t('pages.commonAbout.actions.backToLogin')}
               </button>
             </footer>
           </div>
@@ -354,7 +355,7 @@ function AboutPage() {
                 <button
                   type="button"
                   className="about-page-modal-close"
-                  aria-label="Close service overview popup"
+                  aria-label={t('pages.commonAbout.actions.closeServiceOverview')}
                   onClick={() => setSelectedService(null)}
                 >
                   x

@@ -1,6 +1,12 @@
 import { forwardRef } from 'react'
 import './NotificationBell.css'
 
+type TranslateFn = (
+  key: string,
+  fallback?: string,
+  params?: Record<string, string | number>,
+) => string
+
 type NotificationItem = {
   id: string
   title: string
@@ -14,13 +20,15 @@ type NotificationItem = {
 type NotificationBellProps = {
   compact?: boolean
   isOpen: boolean
+  language: 'en' | 'vi'
   notifications: NotificationItem[]
   onItemClick: (item: NotificationItem) => void
   onToggle: () => void
+  t: TranslateFn
   unreadCount: number
 }
 
-function formatOccurredAt(value: string) {
+function formatOccurredAt(value: string, language: 'en' | 'vi') {
   if (!value) {
     return '-'
   }
@@ -30,7 +38,8 @@ function formatOccurredAt(value: string) {
     return value
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  const locale = language === 'vi' ? 'vi-VN' : 'en-US'
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(parsed)
@@ -41,9 +50,11 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
     {
       compact = false,
       isOpen,
+      language,
       notifications,
       onItemClick,
       onToggle,
+      t,
       unreadCount,
     },
     ref,
@@ -58,7 +69,7 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
           className={`role-notification-trigger ${isOpen ? 'open' : ''}`}
           onClick={onToggle}
           aria-expanded={isOpen}
-          aria-label="Open notification list"
+          aria-label={t('notificationBell.openAria', 'Open notification list')}
         >
           <span className="role-notification-bell" aria-hidden="true">
             <svg viewBox="0 0 24 24" focusable="false">
@@ -75,11 +86,13 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
         {isOpen && (
           <div className="role-notification-dropdown">
             <div className="role-notification-dropdown-header">
-              <strong>Notifications</strong>
+              <strong>{t('notificationBell.header', 'Notifications')}</strong>
               <span>{notifications.length}</span>
             </div>
             {notifications.length === 0 ? (
-              <p className="role-notification-empty">No notifications yet.</p>
+              <p className="role-notification-empty">
+                {t('notificationBell.empty', 'No notifications yet.')}
+              </p>
             ) : (
               <ul className="role-notification-list">
                 {notifications.map((item) => {
@@ -99,12 +112,20 @@ const NotificationBell = forwardRef<HTMLDivElement, NotificationBellProps>(
                       }}
                       tabIndex={item.link ? 0 : -1}
                       role={item.link ? 'button' : undefined}
-                      aria-label={item.link ? `Open notification: ${item.title}` : undefined}
+                      aria-label={
+                        item.link
+                          ? t('notificationBell.openItemAria', 'Open notification: {title}', {
+                              title: item.title,
+                            })
+                          : undefined
+                      }
                     >
                       <p className="role-notification-title">{item.title}</p>
                       <p className="role-notification-message">{item.message}</p>
                       <div className="role-notification-meta role-notification-meta-time-only">
-                        <time dateTime={item.occurredAt}>{formatOccurredAt(item.occurredAt)}</time>
+                        <time dateTime={item.occurredAt}>
+                          {formatOccurredAt(item.occurredAt, language)}
+                        </time>
                       </div>
                     </li>
                   )

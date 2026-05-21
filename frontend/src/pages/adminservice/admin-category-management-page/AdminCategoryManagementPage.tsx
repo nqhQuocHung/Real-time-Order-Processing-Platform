@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminCategoryManagementPage.css'
 
 type ProductCategory = {
@@ -50,6 +51,7 @@ function formatDate(value?: string | null): string {
 }
 
 function AdminCategoryManagementPage() {
+  const { t } = useI18n()
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -118,7 +120,7 @@ function AdminCategoryManagementPage() {
       setCategories(Array.isArray(data) ? data : [])
       setPage(0)
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot load categories.'))
+      setError(extractApiErrorMessage(err, t('pages.adminCategoryManagement.errors.loadFailed')))
       setCategories([])
     } finally {
       setLoading(false)
@@ -127,7 +129,7 @@ function AdminCategoryManagementPage() {
 
   async function handleSaveCategory() {
     if (!categoryName.trim()) {
-      setError('Category name is required.')
+      setError(t('pages.adminCategoryManagement.errors.categoryNameRequired'))
       return
     }
 
@@ -146,14 +148,18 @@ function AdminCategoryManagementPage() {
         await apis().post(endpoints.inventories.createCategory, payload)
       }
 
-      setSuccess(editingCategoryId ? 'Category updated successfully.' : 'Category created successfully.')
+      setSuccess(editingCategoryId
+        ? t('pages.adminCategoryManagement.success.updated')
+        : t('pages.adminCategoryManagement.success.created'))
       resetCategoryForm()
       await loadCategories()
     } catch (err) {
       setError(
         extractApiErrorMessage(
           err,
-          editingCategoryId ? 'Cannot update category.' : 'Cannot create category.',
+          editingCategoryId
+            ? t('pages.adminCategoryManagement.errors.updateFailed')
+            : t('pages.adminCategoryManagement.errors.createFailed'),
         ),
       )
     } finally {
@@ -162,7 +168,9 @@ function AdminCategoryManagementPage() {
   }
 
   async function handleDeleteCategory(category: ProductCategory) {
-    const confirmed = window.confirm(`Delete category "${category.categoryName}"?`)
+    const confirmed = window.confirm(
+      t('pages.adminCategoryManagement.confirmDelete', undefined, { name: category.categoryName }),
+    )
     if (!confirmed) {
       return
     }
@@ -172,13 +180,13 @@ function AdminCategoryManagementPage() {
     setSuccess('')
     try {
       await apis().delete(endpoints.inventories.deleteCategory(category.categoryId))
-      setSuccess('Category deleted successfully.')
+      setSuccess(t('pages.adminCategoryManagement.success.deleted'))
       if (editingCategoryId === category.categoryId) {
         resetCategoryForm()
       }
       await loadCategories()
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot delete category.'))
+      setError(extractApiErrorMessage(err, t('pages.adminCategoryManagement.errors.deleteFailed')))
     } finally {
       setDeletingCategoryId('')
     }
@@ -196,42 +204,48 @@ function AdminCategoryManagementPage() {
   return (
     <section className="admin-category-page role-page-stack">
       <article className="role-card">
-        <h2>Category Management</h2>
+        <h2>{t('pages.adminCategoryManagement.title')}</h2>
         <p className="role-muted">
-          Product categories are global across the system. Partners can only assign products to these existing categories.
+          {t('pages.adminCategoryManagement.subtitle')}
         </p>
 
         <div className="role-inline-form admin-category-page-form">
           <label>
-            Category Name
+            {t('pages.adminCategoryManagement.categoryName')}
             <input
               value={categoryName}
               onChange={(event) => setCategoryName(event.target.value)}
-              placeholder="Category name"
+              placeholder={t('pages.adminCategoryManagement.placeholders.categoryName')}
             />
           </label>
           <label className="admin-category-page-full-width">
-            Description
+            {t('pages.adminCategoryManagement.description')}
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
-              placeholder="Description (optional)"
+              placeholder={t('pages.adminCategoryManagement.placeholders.descriptionOptional')}
             />
           </label>
         </div>
 
         <div className="role-inline-actions">
           <button type="button" className="role-btn-primary" onClick={() => void handleSaveCategory()}>
-            {submitting ? (editingCategoryId ? 'Updating...' : 'Creating...') : editingCategoryId ? 'Update Category' : 'Create Category'}
+            {submitting
+              ? (editingCategoryId
+                ? t('pages.adminCategoryManagement.updating')
+                : t('pages.adminCategoryManagement.creating'))
+              : editingCategoryId
+                ? t('pages.adminCategoryManagement.updateCategory')
+                : t('pages.adminCategoryManagement.createCategory')}
           </button>
           {editingCategoryId && (
             <button type="button" className="role-btn-ghost" onClick={resetCategoryForm}>
-              Cancel Edit
+              {t('pages.adminCategoryManagement.cancelEdit')}
             </button>
           )}
           <button type="button" className="role-btn-ghost" onClick={() => void loadCategories()}>
-            {loading ? 'Loading...' : 'Reload Categories'}
+            {loading ? t('pages.adminCategoryManagement.loading') : t('pages.adminCategoryManagement.reloadCategories')}
           </button>
         </div>
 
@@ -241,22 +255,22 @@ function AdminCategoryManagementPage() {
 
       <article className="role-card">
         <div className="admin-category-page-header">
-          <h3>Category Catalog</h3>
+          <h3>{t('pages.adminCategoryManagement.categoryCatalog')}</h3>
           <p className="role-muted">
-            Total categories: {filteredCategories.length}
+            {t('pages.adminCategoryManagement.totalCategories', undefined, { count: filteredCategories.length })}
           </p>
         </div>
 
         <div className="role-inline-form admin-category-page-filter">
           <label className="admin-category-page-full-width">
-            Search category
+            {t('pages.adminCategoryManagement.searchCategory')}
             <input
               value={keyword}
               onChange={(event) => {
                 setKeyword(event.target.value)
                 setPage(0)
               }}
-              placeholder="Search by name, description, or category ID"
+              placeholder={t('pages.adminCategoryManagement.placeholders.searchCategory')}
             />
           </label>
         </div>
@@ -265,11 +279,11 @@ function AdminCategoryManagementPage() {
           <table>
             <thead>
               <tr>
-                <th>Category Name</th>
-                <th>Description</th>
-                <th>Category ID</th>
-                <th>Updated At</th>
-                <th>Actions</th>
+                <th>{t('pages.adminCategoryManagement.table.categoryName')}</th>
+                <th>{t('pages.adminCategoryManagement.table.description')}</th>
+                <th>{t('pages.adminCategoryManagement.table.categoryId')}</th>
+                <th>{t('pages.adminCategoryManagement.table.updatedAt')}</th>
+                <th>{t('pages.adminCategoryManagement.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -283,18 +297,20 @@ function AdminCategoryManagementPage() {
                     <div className="admin-category-page-row-actions">
                       <button
                         type="button"
-                        className="role-btn-ghost"
+                        className="role-btn-ghost admin-category-page-btn-edit"
                         onClick={() => handleEditCategory(category)}
                       >
-                        Edit
+                        {t('pages.adminCategoryManagement.table.edit')}
                       </button>
                       <button
                         type="button"
-                        className="role-btn-ghost"
+                        className="role-btn-ghost admin-category-page-btn-delete"
                         onClick={() => void handleDeleteCategory(category)}
                         disabled={deletingCategoryId === category.categoryId}
                       >
-                        {deletingCategoryId === category.categoryId ? 'Deleting...' : 'Delete'}
+                        {deletingCategoryId === category.categoryId
+                          ? t('pages.adminCategoryManagement.deleting')
+                          : t('pages.adminCategoryManagement.table.delete')}
                       </button>
                     </div>
                   </td>
@@ -303,7 +319,7 @@ function AdminCategoryManagementPage() {
               {!filteredCategories.length && (
                 <tr>
                   <td colSpan={5} className="role-empty-cell">
-                    No category found for current filter.
+                    {t('pages.adminCategoryManagement.table.empty')}
                   </td>
                 </tr>
               )}
@@ -314,9 +330,11 @@ function AdminCategoryManagementPage() {
         {totalPages > 0 && (
           <div className="admin-category-page-pagination">
             <p className="admin-category-page-pagination-summary">
-              Showing {Math.min(page * CATEGORY_PAGE_SIZE + 1, filteredCategories.length)}-
-              {Math.min((page + 1) * CATEGORY_PAGE_SIZE, filteredCategories.length)} of{' '}
-              {filteredCategories.length}
+              {t('pages.adminCategoryManagement.pagination.summary', undefined, {
+                start: Math.min(page * CATEGORY_PAGE_SIZE + 1, filteredCategories.length),
+                end: Math.min((page + 1) * CATEGORY_PAGE_SIZE, filteredCategories.length),
+                total: filteredCategories.length,
+              })}
             </p>
             <div className="admin-category-page-pagination-controls">
               <button
@@ -325,7 +343,7 @@ function AdminCategoryManagementPage() {
                 onClick={() => setPage((prev) => Math.max(0, prev - 1))}
                 disabled={page <= 0}
               >
-                Prev
+                {t('pages.adminCategoryManagement.pagination.prev')}
               </button>
               {paginationPages.map((pageNumber) => (
                 <button
@@ -343,7 +361,7 @@ function AdminCategoryManagementPage() {
                 onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
                 disabled={page >= totalPages - 1}
               >
-                Next
+                {t('pages.adminCategoryManagement.pagination.next')}
               </button>
             </div>
           </div>

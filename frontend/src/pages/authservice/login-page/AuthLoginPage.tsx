@@ -8,6 +8,7 @@ import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AuthLoginPage.css'
 
 type LoginLocationState = {
@@ -15,6 +16,7 @@ type LoginLocationState = {
 }
 
 function AuthLoginPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,7 +39,12 @@ function AuthLoginPage() {
     setError('')
 
     if (!username.trim() || !password.trim()) {
-      setError('Please enter both username and password.')
+      setError(
+        t(
+          'pages.authLogin.errors.missingCredentials',
+          'Please enter both username and password.',
+        ),
+      )
       return
     }
 
@@ -53,7 +60,12 @@ function AuthLoginPage() {
 
       navigate(getDefaultPathByRole(role), { replace: true })
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Invalid username or password.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('pages.authLogin.errors.invalidCredentials', 'Invalid username or password.'),
+        ),
+      )
     } finally {
       setLoading(false)
     }
@@ -61,7 +73,7 @@ function AuthLoginPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Signing in..." />}
+      {loading && <Loading fullScreen text={t('pages.authLogin.submitting', 'Signing in...')} />}
 
       <section
         className="auth-login-page login-vh-100 login-page-bg"
@@ -72,7 +84,7 @@ function AuthLoginPage() {
           className="login-about-corner-link"
           onClick={() => navigate('/about')}
         >
-          About Platform
+          {t('pages.commonHome.about', 'About')}
         </button>
         <div className="login-bg-overlay">
           <div className="login-container-fluid login-h-custom">
@@ -89,7 +101,7 @@ function AuthLoginPage() {
 
                   <div className="login-divider login-d-flex login-align-items-center login-my-4">
                     <p className="login-text-center login-fw-bold login-mx-3 login-mb-0">
-                      Sign in to your account
+                      {t('pages.authLogin.title', 'Login')}
                     </p>
                   </div>
 
@@ -97,13 +109,16 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-4">
                     <label className="login-form-label" htmlFor="loginUsername">
-                      Username or Email
+                      {t('pages.authLogin.usernameOrEmail', 'Username or Email')}
                     </label>
                     <input
                       type="text"
                       id="loginUsername"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Enter your username or email"
+                      placeholder={t(
+                        'pages.authLogin.placeholders.usernameOrEmail',
+                        'Enter your username or email',
+                      )}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value)
@@ -114,13 +129,13 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-3">
                     <label className="login-form-label" htmlFor="loginPassword">
-                      Password
+                      {t('pages.authLogin.password', 'Password')}
                     </label>
                     <input
                       type="password"
                       id="loginPassword"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Enter your password"
+                      placeholder={t('pages.authLogin.placeholders.password', 'Enter your password')}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -136,7 +151,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/register')}
                       >
-                        Create account
+                        {t('pages.authLogin.createAccount', 'Create account')}
                       </button>
                     </div>
 
@@ -146,7 +161,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/forgot-password-otp')}
                       >
-                        Forgot password?
+                        {t('pages.authLogin.forgotPassword', 'Forgot password?')}
                       </button>
                     </div>
                   </div>
@@ -157,7 +172,9 @@ function AuthLoginPage() {
                       className="login-btn login-btn-primary login-btn-lg"
                       disabled={loading}
                     >
-                      {loading ? 'Signing in...' : 'Sign in'}
+                      {loading
+                        ? t('pages.authLogin.submitting', 'Signing in...')
+                        : t('pages.authLogin.submit', 'Sign in')}
                     </button>
                   </div>
                 </form>

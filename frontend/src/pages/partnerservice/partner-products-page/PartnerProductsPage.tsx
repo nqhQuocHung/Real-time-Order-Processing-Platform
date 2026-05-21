@@ -9,6 +9,7 @@ import {
   getAuthSession,
 } from '../../../config/apis'
 import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerProductsPage.css'
 
 type UpsertPartnerProductRequest = {
@@ -234,6 +235,7 @@ async function getCroppedImageFile(
 }
 
 function PartnerProductsPage() {
+  const { t } = useI18n()
   const location = useLocation()
   const navigate = useNavigate()
   const session = getAuthSession()
@@ -958,36 +960,35 @@ function PartnerProductsPage() {
 
   const editImagePreviewUrl = selectedImagePreviewUrl || editingProductImageUrl
   const canCropSelectedImage = Boolean(selectedImageFile && selectedImagePreviewUrl)
-  const editDialogTitle = name.trim() || 'Edit Product'
+  const editDialogTitle = name.trim() || t('pages.partnerProducts.editProduct')
 
   return (
     <section className="partner-products-page role-page-stack">
       <article className="role-card">
-        <h2>My Products</h2>
+        <h2>{t('pages.partnerProducts.title')}</h2>
         <p className="role-muted">
-          Partner can create and manage products in their own shop scope.
+          {t('pages.partnerProducts.subtitle')}
         </p>
 
         <div className="partner-products-page-category-box">
-          <h3>Category Catalog</h3>
+          <h3>{t('pages.partnerProducts.categoryCatalog')}</h3>
           <p className="role-muted">
-            Product categories are managed by system admins. Partner accounts can view categories
-            and assign them to products.
+            {t('pages.partnerProducts.categoryCatalogSubtitle')}
           </p>
           <div className="role-inline-actions">
             <button type="button" className="role-btn-ghost" onClick={() => void loadCategories()}>
-              {loadingCategories ? 'Loading Categories...' : 'Refresh Categories'}
+              {loadingCategories ? t('pages.partnerProducts.loadingCategories') : t('pages.partnerProducts.refreshCategories')}
             </button>
           </div>
           {categoryError && <p className="role-error">{categoryError}</p>}
 
           <div className="partner-products-page-filter role-inline-form">
             <label className="partner-products-page-full-width">
-              Search category
+              {t('pages.partnerProducts.searchCategory')}
               <input
                 value={categoryKeyword}
                 onChange={(event) => setCategoryKeyword(event.target.value)}
-                placeholder="Search by name, description, or ID"
+                placeholder={t('pages.partnerProducts.placeholders.searchCategory')}
               />
             </label>
           </div>
@@ -1004,7 +1005,7 @@ function PartnerProductsPage() {
             ))}
             {!filteredCategories.length && (
               <p className="role-empty-cell partner-products-page-empty">
-                No category matched the current filter.
+                {t('pages.partnerProducts.emptyCategory')}
               </p>
             )}
           </div>
@@ -1012,9 +1013,12 @@ function PartnerProductsPage() {
           {totalCategoryPages > 0 && (
             <div className="partner-products-page-pagination">
               <p className="partner-products-page-pagination-summary">
-                Showing {Math.min(categoryPage * CATEGORY_PAGE_SIZE + 1, filteredCategories.length)}-
-                {Math.min((categoryPage + 1) * CATEGORY_PAGE_SIZE, filteredCategories.length)} of{' '}
-                {filteredCategories.length} categories
+                {t('pages.partnerProducts.pagination.summaryWithUnit', undefined, {
+                  start: Math.min(categoryPage * CATEGORY_PAGE_SIZE + 1, filteredCategories.length),
+                  end: Math.min((categoryPage + 1) * CATEGORY_PAGE_SIZE, filteredCategories.length),
+                  total: filteredCategories.length,
+                  unit: t('pages.partnerProducts.units.categories'),
+                })}
               </p>
               <div className="partner-products-page-pagination-controls">
                 <button
@@ -1023,7 +1027,7 @@ function PartnerProductsPage() {
                   onClick={() => setCategoryPage((prev) => Math.max(0, prev - 1))}
                   disabled={categoryPage <= 0}
                 >
-                  Prev
+                  {t('pages.partnerProducts.pagination.prev')}
                 </button>
                 {categoryPaginationPages.map((pageNumber) => (
                   <button
@@ -1043,33 +1047,33 @@ function PartnerProductsPage() {
                   }
                   disabled={categoryPage >= totalCategoryPages - 1}
                 >
-                  Next
+                  {t('pages.partnerProducts.pagination.next')}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <h3>{editingProductId ? 'Edit Product' : 'Create Product'}</h3>
+        <h3>{editingProductId ? t('pages.partnerProducts.editProduct') : t('pages.partnerProducts.createProduct')}</h3>
        
 
         <div className="role-inline-actions">
           <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
             {submitting || uploadingImage
               ? editingProductId
-                ? 'Updating...'
-                : 'Creating...'
+                ? t('pages.partnerProducts.updating')
+                : t('pages.partnerProducts.creating')
               : editingProductId
-                ? 'Update Product'
-                : 'Create Product'}
+                ? t('pages.partnerProducts.updateProduct')
+                : t('pages.partnerProducts.createProduct')}
           </button>
           {editingProductId && (
             <button type="button" className="role-btn-ghost" onClick={resetProductForm}>
-              Cancel Edit
+              {t('pages.partnerProducts.cancelEdit')}
             </button>
           )}
           <button type="button" className="role-btn-ghost" onClick={() => void loadProducts()}>
-            {loading ? 'Loading...' : 'Refresh My Products'}
+            {loading ? t('pages.partnerProducts.loading') : t('pages.partnerProducts.refreshMyProducts')}
           </button>
         </div>
 
@@ -1081,20 +1085,20 @@ function PartnerProductsPage() {
       <article className="role-card">
         <div className="partner-products-page-filter role-inline-form">
           <label>
-            Search product
+            {t('pages.partnerProducts.searchProduct')}
             <input
               value={productKeyword}
               onChange={(event) => setProductKeyword(event.target.value)}
-              placeholder="Search by name, SKU, brand, ID..."
+              placeholder={t('pages.partnerProducts.placeholders.searchProduct')}
             />
           </label>
           <label>
-            Filter by category
+            {t('pages.partnerProducts.filterByCategory')}
             <select
               value={productCategoryFilter}
               onChange={(event) => setProductCategoryFilter(event.target.value)}
             >
-              <option value="">All categories</option>
+              <option value="">{t('pages.partnerProducts.allCategories')}</option>
               {filterableCategoryIds.map((categoryValue) => (
                 <option key={categoryValue} value={categoryValue}>
                   {categoryNameById.get(categoryValue) || categoryValue}
@@ -1117,7 +1121,7 @@ function PartnerProductsPage() {
                     void openReviewCenter(item)
                   }}
                 >
-                  Review Hub
+                  {t('pages.partnerProducts.reviewHub')}
                 </button>
               )}
               onEdit={handleEditProduct}
@@ -1127,7 +1131,7 @@ function PartnerProductsPage() {
           ))}
           {!filteredProducts.length && (
             <p className="role-empty-cell partner-products-page-empty">
-              No products matched the current filter.
+              {t('pages.partnerProducts.emptyProduct')}
             </p>
           )}
         </div>
@@ -1135,9 +1139,12 @@ function PartnerProductsPage() {
         {totalProductPages > 0 && (
           <div className="partner-products-page-pagination">
             <p className="partner-products-page-pagination-summary">
-              Showing {Math.min(productPage * PRODUCT_PAGE_SIZE + 1, filteredProducts.length)}-
-              {Math.min((productPage + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length)} of{' '}
-              {filteredProducts.length} products
+              {t('pages.partnerProducts.pagination.summaryWithUnit', undefined, {
+                start: Math.min(productPage * PRODUCT_PAGE_SIZE + 1, filteredProducts.length),
+                end: Math.min((productPage + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length),
+                total: filteredProducts.length,
+                unit: t('pages.partnerProducts.units.products'),
+              })}
             </p>
             <div className="partner-products-page-pagination-controls">
               <button
@@ -1146,7 +1153,7 @@ function PartnerProductsPage() {
                 onClick={() => setProductPage((prev) => Math.max(0, prev - 1))}
                 disabled={productPage <= 0}
               >
-                Prev
+                {t('pages.partnerProducts.pagination.prev')}
               </button>
               {productPaginationPages.map((pageNumber) => (
                 <button
@@ -1164,7 +1171,7 @@ function PartnerProductsPage() {
                 onClick={() => setProductPage((prev) => Math.min(totalProductPages - 1, prev + 1))}
                 disabled={productPage >= totalProductPages - 1}
               >
-                Next
+                {t('pages.partnerProducts.pagination.next')}
               </button>
             </div>
           </div>
@@ -1178,52 +1185,52 @@ function PartnerProductsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <header>
-              <h3>{selectedReviewProduct.name?.trim() || selectedReviewProduct.productName?.trim() || 'Product Reviews'}</h3>
+              <h3>{selectedReviewProduct.name?.trim() || selectedReviewProduct.productName?.trim() || t('pages.partnerProducts.productReviews')}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeReviewCenter}>
-                Close
+                {t('pages.partnerProducts.common.close')}
               </button>
             </header>
 
             <p className="role-muted">
-              Product ID: {selectedReviewProduct.productId}
+              {t('pages.partnerProducts.productId', undefined, { value: selectedReviewProduct.productId })}
             </p>
 
             {reviewError && <p className="role-error">{reviewError}</p>}
 
             <div className="partner-products-page-review-toolbar">
               <label>
-                Sort
+                {t('pages.partnerProducts.sort')}
                 <select
                   value={reviewSort}
                   onChange={(event) => handleChangeReviewSort(event.target.value)}
                   disabled={reviewLoading}
                 >
-                  <option value="latest">Latest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="rating_desc">Rating High to Low</option>
-                  <option value="rating_asc">Rating Low to High</option>
+                  <option value="latest">{t('pages.partnerProducts.sortOptions.latest')}</option>
+                  <option value="oldest">{t('pages.partnerProducts.sortOptions.oldest')}</option>
+                  <option value="rating_desc">{t('pages.partnerProducts.sortOptions.ratingDesc')}</option>
+                  <option value="rating_asc">{t('pages.partnerProducts.sortOptions.ratingAsc')}</option>
                 </select>
               </label>
               <div className="partner-products-page-review-meta-row">
-                <span>{reviewTotalElements} review(s)</span>
+                <span>{t('pages.partnerProducts.reviewCount', undefined, { count: reviewTotalElements })}</span>
                 <button
                   type="button"
                   className="role-btn-ghost"
                   onClick={() => void loadProductReviews(selectedReviewProduct.productId, reviewPage, reviewSort)}
                   disabled={reviewLoading}
                 >
-                  {reviewLoading ? 'Loading...' : 'Refresh'}
+                  {reviewLoading ? t('pages.partnerProducts.loading') : t('pages.partnerProducts.refresh')}
                 </button>
               </div>
             </div>
 
             {reviewLoading ? (
-              <p className="role-muted">Loading reviews...</p>
+              <p className="role-muted">{t('pages.partnerProducts.loadingReviews')}</p>
             ) : (
               <div className="partner-products-page-review-list">
                 {!reviewList.length && (
                   <p className="role-empty-cell partner-products-page-empty">
-                    No reviews yet for this product.
+                    {t('pages.partnerProducts.emptyReviews')}
                   </p>
                 )}
 
@@ -1263,9 +1270,9 @@ function PartnerProductsPage() {
                           className="role-btn-ghost"
                           onClick={() => setActiveCommentReviewId(review.reviewId)}
                         >
-                          View comments
+                          {t('pages.partnerProducts.viewComments')}
                         </button>
-                        <span>{comments.length} comment(s)</span>
+                        <span>{t('pages.partnerProducts.commentCount', undefined, { count: comments.length })}</span>
                       </div>
                     </article>
                   )
@@ -1281,7 +1288,7 @@ function PartnerProductsPage() {
                   onClick={() => handleGoToReviewPage(Math.max(0, reviewPage - 1))}
                   disabled={reviewPage <= 0 || reviewLoading}
                 >
-                  Prev
+                  {t('pages.partnerProducts.pagination.prev')}
                 </button>
                 {reviewPaginationPages.map((pageNumber) => (
                   <button
@@ -1300,7 +1307,7 @@ function PartnerProductsPage() {
                   onClick={() => handleGoToReviewPage(Math.min(reviewTotalPages - 1, reviewPage + 1))}
                   disabled={reviewPage >= reviewTotalPages - 1 || reviewLoading}
                 >
-                  Next
+                  {t('pages.partnerProducts.pagination.next')}
                 </button>
               </div>
             )}
@@ -1318,13 +1325,13 @@ function PartnerProductsPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <header>
-              <h4>Review Comments</h4>
+              <h4>{t('pages.partnerProducts.reviewComments')}</h4>
               <button
                 type="button"
                 className="role-btn-ghost"
                 onClick={() => setActiveCommentReviewId('')}
               >
-                Close
+                {t('pages.partnerProducts.common.close')}
               </button>
             </header>
 
@@ -1362,7 +1369,7 @@ function PartnerProductsPage() {
                   </div>
                 ))
               ) : (
-                <p className="role-muted">No comments yet.</p>
+                <p className="role-muted">{t('pages.partnerProducts.emptyComments')}</p>
               )}
             </div>
 
@@ -1377,14 +1384,14 @@ function PartnerProductsPage() {
               }}
             >
               <label>
-                Reply
+                {t('pages.partnerProducts.reply')}
                 <textarea
                   value={activeCommentDraft}
                   onChange={(event) => setCommentDraftByReviewId((previous) => ({
                     ...previous,
                     [activeCommentReview.reviewId]: event.target.value,
                   }))}
-                  placeholder="Write your reply..."
+                  placeholder={t('pages.partnerProducts.placeholders.reply')}
                   maxLength={1500}
                   disabled={activeCommentSubmitting}
                 />
@@ -1397,14 +1404,14 @@ function PartnerProductsPage() {
                   onClick={() => setActiveCommentReviewId('')}
                   disabled={activeCommentSubmitting}
                 >
-                  Cancel
+                  {t('pages.partnerProducts.common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="role-btn-primary"
                   disabled={activeCommentSubmitting || !normalizeReviewText(activeCommentDraft)}
                 >
-                  {activeCommentSubmitting ? 'Sending...' : 'Send Reply'}
+                  {activeCommentSubmitting ? t('pages.partnerProducts.sending') : t('pages.partnerProducts.sendReply')}
                 </button>
               </div>
             </form>
@@ -1418,7 +1425,7 @@ function PartnerProductsPage() {
             <header>
               <h3>{editDialogTitle}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeEditDialog}>
-                Close
+                {t('pages.partnerProducts.common.close')}
               </button>
             </header>
 
@@ -1447,7 +1454,7 @@ function PartnerProductsPage() {
                       </div>
                     </>
                   ) : (
-                    <span>No image</span>
+                    <span>{t('pages.partnerProducts.noImage')}</span>
                   )}
                 </div>
 
@@ -1461,11 +1468,11 @@ function PartnerProductsPage() {
 
                 <div className="partner-products-page-modal-image-description">
                   <label>
-                    Description
+                    {t('pages.partnerProducts.description')}
                     <textarea
                       value={description}
                       onChange={(event) => setDescription(event.target.value)}
-                      placeholder="Product description"
+                      placeholder={t('pages.partnerProducts.placeholders.productDescription')}
                       rows={5}
                     />
                   </label>
@@ -1474,20 +1481,20 @@ function PartnerProductsPage() {
 
               <dl className="partner-products-page-modal-fields">
                 <div>
-                  <dt>Product Name</dt>
+                  <dt>{t('pages.partnerProducts.productName')}</dt>
                   <dd>
                     <input
                       value={name}
                       onChange={(event) => setName(event.target.value)}
-                      placeholder="Product name"
+                      placeholder={t('pages.partnerProducts.placeholders.productName')}
                     />
                   </dd>
                 </div>
                 <div>
-                  <dt>Category</dt>
+                  <dt>{t('pages.partnerProducts.category')}</dt>
                   <dd>
                     <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                      <option value="">Select category</option>
+                      <option value="">{t('pages.partnerProducts.selectCategory')}</option>
                       {categories.map((category) => (
                         <option key={category.categoryUid || category.categoryId} value={category.categoryId}>
                           {category.categoryName}
@@ -1497,33 +1504,33 @@ function PartnerProductsPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Shop Name</dt>
+                  <dt>{t('pages.partnerProducts.shopName')}</dt>
                   <dd>
                     <input value={partnerShopName || '-'} readOnly />
                   </dd>
                 </div>
                 <div>
-                  <dt>Brand</dt>
+                  <dt>{t('pages.partnerProducts.brand')}</dt>
                   <dd>
                     <input
                       value={brand}
                       onChange={(event) => setBrand(event.target.value)}
-                      placeholder="Brand"
+                      placeholder={t('pages.partnerProducts.placeholders.brand')}
                     />
                   </dd>
                 </div>
                 <div>
-                  <dt>SKU</dt>
+                  <dt>{t('pages.partnerProducts.sku')}</dt>
                   <dd>
                     <input
                       value={sku}
                       onChange={(event) => setSku(event.target.value)}
-                      placeholder="SKU"
+                      placeholder={t('pages.partnerProducts.placeholders.sku')}
                     />
                   </dd>
                 </div>
                 <div>
-                  <dt>Price (VND)</dt>
+                  <dt>{t('pages.partnerProducts.priceVnd')}</dt>
                   <dd>
                     <input
                       type="number"
@@ -1531,12 +1538,12 @@ function PartnerProductsPage() {
                       step="1000"
                       value={price}
                       onChange={(event) => setPrice(event.target.value)}
-                      placeholder="Ex: 1500000"
+                      placeholder={t('pages.partnerProducts.placeholders.price')}
                     />
                   </dd>
                 </div>
                 <div>
-                  <dt>Product Status</dt>
+                  <dt>{t('pages.partnerProducts.productStatus')}</dt>
                   <dd>
                     <select value={status} onChange={(event) => setStatus(event.target.value)}>
                       <option value="ACTIVE">ACTIVE</option>
@@ -1546,14 +1553,14 @@ function PartnerProductsPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Available</dt>
+                  <dt>{t('pages.partnerProducts.available')}</dt>
                   <dd>
                     <input
                       type="number"
                       min={0}
                       value={availableQuantity}
                       onChange={(event) => setAvailableQuantity(event.target.value)}
-                      placeholder="0"
+                      placeholder={t('pages.partnerProducts.placeholders.available')}
                     />
                   </dd>
                 </div>
@@ -1562,10 +1569,10 @@ function PartnerProductsPage() {
 
             <div className="role-inline-actions partner-products-page-modal-actions">
               <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
-                {submitting || uploadingImage ? 'Updating...' : 'Update Product'}
+                {submitting || uploadingImage ? t('pages.partnerProducts.updating') : t('pages.partnerProducts.updateProduct')}
               </button>
               <button type="button" className="role-btn-ghost" onClick={closeEditDialog}>
-                Cancel
+                {t('pages.partnerProducts.common.cancel')}
               </button>
             </div>
           </div>
@@ -1576,7 +1583,7 @@ function PartnerProductsPage() {
         <div className="partner-products-page-crop-backdrop" onClick={closeCropEditor}>
           <div className="partner-products-page-crop-modal" onClick={(event) => event.stopPropagation()}>
             <header>
-              <h3>Crop Product Image</h3>
+              <h3>{t('pages.partnerProducts.cropProductImage')}</h3>
             </header>
             <div className="partner-products-page-crop-container">
               <Cropper
@@ -1592,7 +1599,7 @@ function PartnerProductsPage() {
               />
             </div>
             <div className="partner-products-page-crop-zoom">
-              <label htmlFor="partnerProductCropZoom">Zoom</label>
+              <label htmlFor="partnerProductCropZoom">{t('pages.partnerProducts.zoom')}</label>
               <input
                 id="partnerProductCropZoom"
                 type="range"
@@ -1610,7 +1617,7 @@ function PartnerProductsPage() {
                 onClick={() => void handleApplyImageCrop()}
                 disabled={applyingImageCrop}
               >
-                {applyingImageCrop ? 'Applying...' : 'Apply Crop'}
+                {applyingImageCrop ? t('pages.partnerProducts.applying') : t('pages.partnerProducts.applyCrop')}
               </button>
               <button
                 type="button"
@@ -1618,7 +1625,7 @@ function PartnerProductsPage() {
                 onClick={closeCropEditor}
                 disabled={applyingImageCrop}
               >
-                Cancel
+                {t('pages.partnerProducts.common.cancel')}
               </button>
             </div>
           </div>

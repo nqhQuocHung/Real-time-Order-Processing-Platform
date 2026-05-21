@@ -5,7 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
-import { ORDER_STATUSES } from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminDashboardPage.css'
 
 type NotificationStreamEventDetail = {
@@ -82,21 +82,7 @@ const UNMAPPED_PARTNER_KEY = '__UNMAPPED_PARTNER__'
 const REVENUE_STATUSES = new Set(['PAID', 'COMPLETED'])
 const PENDING_STATUSES = new Set(['CREATED', 'RESERVED', 'PAID'])
 
-const STATUS_LABEL_MAP: Record<string, string> = ORDER_STATUSES.reduce((acc, status) => {
-  const normalized = status.toLowerCase()
-  acc[status] = normalized.charAt(0).toUpperCase() + normalized.slice(1)
-  return acc
-}, {} as Record<string, string>)
-
 const CHART_COLORS = ['#27c2ff', '#22e4c6', '#ffd166', '#ff9f6e', '#ff6f91', '#a78bfa']
-
-const TIME_RANGE_OPTIONS: Array<{ value: TimeRangeOption; label: string }> = [
-  { value: 'DAY', label: 'Day' },
-  { value: 'MONTH', label: 'Month' },
-  { value: 'QUARTER', label: 'Quarter' },
-  { value: 'YEAR', label: 'Year' },
-  { value: 'ALL', label: 'All' },
-]
 
 function shouldRefreshAdminDashboard(eventName: string): boolean {
   if (!eventName || eventName === 'connected') {
@@ -114,19 +100,19 @@ function normalizeStatus(status: string | undefined): string {
   return (status || 'UNKNOWN').trim().toUpperCase()
 }
 
-function formatMoney(value: number, currency: string) {
-  return new Intl.NumberFormat('en-US', {
+function formatMoney(value: number, currency: string, locale = 'en-US') {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency || 'VND',
     maximumFractionDigits: 0,
   }).format(value || 0)
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('en-US').format(value || 0)
+function formatNumber(value: number, locale = 'en-US') {
+  return new Intl.NumberFormat(locale).format(value || 0)
 }
 
-function formatDateTime(value?: string) {
+function formatDateTime(value?: string, locale = 'en-US') {
   if (!value) {
     return '-'
   }
@@ -134,7 +120,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(parsed.getTime())) {
     return value
   }
-  return parsed.toLocaleString('en-US')
+  return parsed.toLocaleString(locale)
 }
 
 function toLocalDateTimeString(value: Date): string {
@@ -274,8 +260,14 @@ async function runWithConcurrency<T>(
 
 function StatusPieChart({
   items,
+  ariaLabel,
+  emptyLabel,
+  totalOrdersLabel,
 }: {
   items: Array<{ label: string; value: number; color: string }>
+  ariaLabel: string
+  emptyLabel: string
+  totalOrdersLabel: string
 }) {
   const totalValue = items.reduce((sum, item) => sum + item.value, 0)
   const radius = 72
@@ -283,12 +275,12 @@ function StatusPieChart({
   let progressOffset = 0
 
   if (totalValue === 0) {
-    return <p className="role-muted">No order status data available for this scope.</p>
+    return <p className="role-muted">{emptyLabel}</p>
   }
 
   return (
     <div className="admin-dashboard-pie-layout">
-      <svg viewBox="0 0 200 200" className="admin-dashboard-pie-chart" aria-label="Order status pie chart">
+      <svg viewBox="0 0 200 200" className="admin-dashboard-pie-chart" aria-label={ariaLabel}>
         <g transform="rotate(-90 100 100)">
           {items.map((item) => {
             const ratio = item.value / totalValue
@@ -312,7 +304,7 @@ function StatusPieChart({
           })}
         </g>
         <text x="100" y="96" textAnchor="middle" className="admin-dashboard-pie-center-title">
-          Total orders
+          {totalOrdersLabel}
         </text>
         <text x="100" y="122" textAnchor="middle" className="admin-dashboard-pie-center-value">
           {formatNumber(totalValue)}
@@ -335,7 +327,15 @@ function StatusPieChart({
   )
 }
 
-function RevenueLineChart({ points }: { points: LineChartPoint[] }) {
+function RevenueLineChart({
+  points,
+  ariaLabel,
+  emptyLabel,
+}: {
+  points: LineChartPoint[]
+  ariaLabel: string
+  emptyLabel: string
+}) {
   const width = 640
   const height = 260
   const paddingX = 38
@@ -358,12 +358,12 @@ function RevenueLineChart({ points }: { points: LineChartPoint[] }) {
   const polylinePath = graphPoints.map((point) => `${point.x},${point.y}`).join(' ')
 
   if (!points.length) {
-    return <p className="role-muted">No revenue data available in the selected scope.</p>
+    return <p className="role-muted">{emptyLabel}</p>
   }
 
   return (
     <div className="admin-dashboard-line-chart-wrap">
-      <svg viewBox={`0 0 ${width} ${height}`} className="admin-dashboard-line-chart" aria-label="Revenue trend line chart">
+      <svg viewBox={`0 0 ${width} ${height}`} className="admin-dashboard-line-chart" aria-label={ariaLabel}>
         <polyline
           points={`${paddingX},${height - paddingBottom} ${polylinePath} ${width - paddingX},${height - paddingBottom}`}
           fill="rgba(39, 194, 255, 0.12)"
@@ -411,7 +411,15 @@ function RevenueLineChart({ points }: { points: LineChartPoint[] }) {
   )
 }
 
-function CancelFanChart({ cancelRate, cancelledOrders }: { cancelRate: number; cancelledOrders: number }) {
+function CancelFanChart({
+  cancelRate,
+  cancelRateLabel,
+  cancelledOrdersLabel,
+}: {
+  cancelRate: number
+  cancelRateLabel: string
+  cancelledOrdersLabel: string
+}) {
   const limitedRate = Math.max(0, Math.min(100, cancelRate))
   const cancelAngle = 180 * (limitedRate / 100)
 
@@ -429,8 +437,8 @@ function CancelFanChart({ cancelRate, cancelledOrders }: { cancelRate: number; c
       </div>
       <div className="admin-dashboard-fan-meta">
         <strong>{limitedRate.toFixed(1)}%</strong>
-        <span>Order cancellation rate</span>
-        <small>{formatNumber(cancelledOrders)} cancelled orders</small>
+        <span>{cancelRateLabel}</span>
+        <small>{cancelledOrdersLabel}</small>
       </div>
     </div>
   )
@@ -438,11 +446,13 @@ function CancelFanChart({ cancelRate, cancelledOrders }: { cancelRate: number; c
 
 function HorizontalBarChart({
   items,
+  emptyLabel,
 }: {
   items: Array<{ label: string; value: number }>
+  emptyLabel: string
 }) {
   if (!items.length) {
-    return <p className="role-muted">No bar chart data available in the selected scope.</p>
+    return <p className="role-muted">{emptyLabel}</p>
   }
 
   const maxValue = Math.max(1, ...items.map((item) => item.value))
@@ -555,6 +565,23 @@ function buildRevenueLinePoints(
 }
 
 function AdminDashboardPage() {
+  const { language, t } = useI18n()
+  const locale = language === 'vi' ? 'vi-VN' : 'en-US'
+
+  const timeRangeOptions = useMemo(
+    () => [
+      { value: 'DAY' as TimeRangeOption, label: t('adminDashboard.timeRange.day', 'Day') },
+      { value: 'MONTH' as TimeRangeOption, label: t('adminDashboard.timeRange.month', 'Month') },
+      {
+        value: 'QUARTER' as TimeRangeOption,
+        label: t('adminDashboard.timeRange.quarter', 'Quarter'),
+      },
+      { value: 'YEAR' as TimeRangeOption, label: t('adminDashboard.timeRange.year', 'Year') },
+      { value: 'ALL' as TimeRangeOption, label: t('adminDashboard.timeRange.all', 'All') },
+    ],
+    [t],
+  )
+
   const [loading, setLoading] = useState(true)
   const [analyticsLoading, setAnalyticsLoading] = useState(false)
   const [baseLoaded, setBaseLoaded] = useState(false)
@@ -587,6 +614,13 @@ function AdminDashboardPage() {
   useEffect(() => {
     selectedTimeRangeRef.current = selectedTimeRange
   }, [selectedTimeRange])
+
+  useEffect(() => {
+    setPartnerLabelMap((previous) => ({
+      ...previous,
+      [UNMAPPED_PARTNER_KEY]: t('adminDashboard.unmappedShop', 'Unmapped shop'),
+    }))
+  }, [t])
 
   const enrichOrderPartnerKeys = useCallback(
     async (
@@ -706,14 +740,19 @@ function AdminDashboardPage() {
         setOrders([])
         setOrderTotalInRange(0)
         setOrdersTruncated(false)
-        setError(extractApiErrorMessage(err, 'Unable to load dashboard chart data.'))
+        setError(
+          extractApiErrorMessage(
+            err,
+            t('adminDashboard.errors.loadChartData', 'Unable to load dashboard chart data.'),
+          ),
+        )
       } finally {
         if (showLoading) {
           setAnalyticsLoading(false)
         }
       }
     },
-    [enrichOrderPartnerKeys],
+    [enrichOrderPartnerKeys, t],
   )
 
   const initializeDashboard = useCallback(async () => {
@@ -760,12 +799,17 @@ function AdminDashboardPage() {
       await loadAnalytics(selectedTimeRangeRef.current, resolvedProductPartnerMap, true)
       setBaseLoaded(true)
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Unable to load system overview data.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('adminDashboard.errors.loadOverviewData', 'Unable to load system overview data.'),
+        ),
+      )
       setBaseLoaded(false)
     } finally {
       setLoading(false)
     }
-  }, [loadAnalytics])
+  }, [loadAnalytics, t])
 
   useEffect(() => {
     void initializeDashboard()
@@ -847,6 +891,30 @@ function AdminDashboardPage() {
 
   const displayCurrency = filteredOrders.find((order) => order.currency)?.currency || 'VND'
 
+  const resolvePartnerDisplayLabel = useCallback(
+    (partnerKey: string) => {
+      if (partnerKey === UNMAPPED_PARTNER_KEY) {
+        return t('adminDashboard.unmappedShop', 'Unmapped shop')
+      }
+      const raw = (partnerLabelMap[partnerKey] || partnerKey || '').trim()
+      if (!raw || raw === 'Unknown shop') {
+        return t('adminDashboard.unknownShop', 'Unknown shop')
+      }
+      return raw
+    },
+    [partnerLabelMap, t],
+  )
+
+  const translateStatusLabel = useCallback(
+    (status: string) => {
+      const normalized = normalizeStatus(status)
+      const lower = normalized.toLowerCase()
+      const fallback = lower.charAt(0).toUpperCase() + lower.slice(1)
+      return t(`statuses.order.${lower}`, fallback)
+    },
+    [t],
+  )
+
   const statusDistribution = useMemo(() => {
     const statusCountMap: Record<string, number> = {}
     for (const order of filteredOrders) {
@@ -856,11 +924,11 @@ function AdminDashboardPage() {
     return Object.entries(statusCountMap)
       .map(([status, value]) => ({
         status,
-        label: STATUS_LABEL_MAP[status] || status,
+        label: translateStatusLabel(status),
         value,
       }))
       .sort((first, second) => second.value - first.value)
-  }, [filteredOrders])
+  }, [filteredOrders, translateStatusLabel])
 
   const pieChartItems = useMemo(
     () =>
@@ -902,12 +970,18 @@ function AdminDashboardPage() {
 
     return Object.entries(partnerRevenueMap)
       .map(([partnerKey, value]) => ({
-        label: partnerLabelMap[partnerKey] || partnerKey,
+        label: resolvePartnerDisplayLabel(partnerKey),
         value: Math.round(value),
       }))
       .sort((first, second) => second.value - first.value)
       .slice(0, 8)
-  }, [filteredOrders, orderPartnerKeysMap, partnerLabelMap, selectedPartnerKey, statusDistribution])
+  }, [
+    filteredOrders,
+    orderPartnerKeysMap,
+    resolvePartnerDisplayLabel,
+    selectedPartnerKey,
+    statusDistribution,
+  ])
 
   const unmappedOrderCount = useMemo(
     () => orders.filter((order) => (orderPartnerKeysMap[order.orderCode] || []).length === 0).length,
@@ -915,48 +989,56 @@ function AdminDashboardPage() {
   )
 
   const selectedPartnerLabel = selectedPartnerKey === ALL_PARTNERS_KEY
-    ? 'All partners'
-    : (partnerLabelMap[selectedPartnerKey] || selectedPartnerKey)
+    ? t('adminDashboard.allPartners', 'All partners')
+    : resolvePartnerDisplayLabel(selectedPartnerKey)
 
-  const selectedTimeRangeLabel = TIME_RANGE_OPTIONS.find((option) => option.value === selectedTimeRange)?.label || selectedTimeRange
+  const selectedTimeRangeLabel =
+    timeRangeOptions.find((option) => option.value === selectedTimeRange)?.label || selectedTimeRange
 
   if (loading) {
-    return <p className="role-muted">Loading Admin Dashboard...</p>
+    return (
+      <p className="role-muted">
+        {t('adminDashboard.loadingOverview', 'Loading Admin Dashboard...')}
+      </p>
+    )
   }
 
   return (
     <section className="admin-dashboard-page role-page-stack">
       <article className="role-card">
-        <h2>System Overview</h2>
+        <h2>{t('adminDashboard.systemOverviewTitle', 'System Overview')}</h2>
         <p className="role-muted">
-          Multi-chart dashboard (fan, pie, bar, line) by partner scope and time range.
+          {t(
+            'adminDashboard.systemOverviewDescription',
+            'Multi-chart dashboard (fan, pie, bar, line) by partner scope and time range.',
+          )}
         </p>
 
         <div className="role-inline-form admin-dashboard-filter-form">
           <label>
-            Shop / partner
+            {t('adminDashboard.filters.shopPartner', 'Shop / partner')}
             <select
               value={selectedPartnerKey}
               onChange={(event) => setSelectedPartnerKey(event.target.value)}
               disabled={analyticsLoading}
             >
-              <option value={ALL_PARTNERS_KEY}>All</option>
+              <option value={ALL_PARTNERS_KEY}>{t('adminDashboard.timeRange.all', 'All')}</option>
               {partnerOptions.map((partner) => (
                 <option key={partner.key} value={partner.key}>
-                  {partner.label}
+                  {resolvePartnerDisplayLabel(partner.key)}
                 </option>
               ))}
             </select>
           </label>
 
           <label>
-            Time range
+            {t('adminDashboard.filters.timeRange', 'Time range')}
             <select
               value={selectedTimeRange}
               onChange={(event) => setSelectedTimeRange(event.target.value as TimeRangeOption)}
               disabled={analyticsLoading}
             >
-              {TIME_RANGE_OPTIONS.map((option) => (
+              {timeRangeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -972,24 +1054,40 @@ function AdminDashboardPage() {
             onClick={() => void initializeDashboard()}
             disabled={analyticsLoading}
           >
-            {analyticsLoading ? 'Refreshing...' : 'Refresh dashboard'}
+            {analyticsLoading
+              ? t('adminDashboard.actions.refreshing', 'Refreshing...')
+              : t('adminDashboard.actions.refresh', 'Refresh dashboard')}
           </button>
         </div>
 
         <p className="admin-dashboard-filter-context">
-          Scope: <strong>{selectedPartnerLabel}</strong> | Range: <strong>{selectedTimeRangeLabel}</strong> | Updated:
+          {t('adminDashboard.context.scope', 'Scope')}:{' '}
+          <strong>{selectedPartnerLabel}</strong> |{' '}
+          {t('adminDashboard.context.range', 'Range')}:{' '}
+          <strong>{selectedTimeRangeLabel}</strong> |{' '}
+          {t('adminDashboard.context.updated', 'Updated')}:
           {' '}
-          <strong>{formatDateTime(lastUpdatedAt)}</strong>
+          <strong>{formatDateTime(lastUpdatedAt, locale)}</strong>
         </p>
 
         {ordersTruncated && (
           <p className="role-muted">
-            Chart data currently shows up to {formatNumber(MAX_ANALYTICS_ORDER_PAGES * ORDER_PAGE_SIZE)} newest orders in range for performance.
+            {t(
+              'adminDashboard.notes.truncatedOrders',
+              'Chart data currently shows up to {count} newest orders in range for performance.',
+              {
+                count: formatNumber(MAX_ANALYTICS_ORDER_PAGES * ORDER_PAGE_SIZE, locale),
+              },
+            )}
           </p>
         )}
         {Boolean(unmappedOrderCount) && (
           <p className="role-muted">
-            {formatNumber(unmappedOrderCount)} orders are not mapped to a shop from catalog data.
+            {t(
+              'adminDashboard.notes.unmappedOrders',
+              '{count} orders are not mapped to a shop from catalog data.',
+              { count: formatNumber(unmappedOrderCount, locale) },
+            )}
           </p>
         )}
         {error && <p className="role-error">{error}</p>}
@@ -998,71 +1096,112 @@ function AdminDashboardPage() {
       <article className="role-card">
         <div className="admin-dashboard-metric-grid">
           <div className="role-metric-card">
-            <span>Total users</span>
-            <strong>{formatNumber(systemStats.totalUsers)}</strong>
+            <span>{t('adminDashboard.metrics.totalUsers', 'Total users')}</span>
+            <strong>{formatNumber(systemStats.totalUsers, locale)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Total partners</span>
-            <strong>{formatNumber(systemStats.totalPartners)}</strong>
+            <span>{t('adminDashboard.metrics.totalPartners', 'Total partners')}</span>
+            <strong>{formatNumber(systemStats.totalPartners, locale)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Total products</span>
-            <strong>{formatNumber(systemStats.totalProducts)}</strong>
+            <span>{t('adminDashboard.metrics.totalProducts', 'Total products')}</span>
+            <strong>{formatNumber(systemStats.totalProducts, locale)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Total orders</span>
-            <strong>{formatNumber(systemStats.totalOrders)}</strong>
+            <span>{t('adminDashboard.metrics.totalOrders', 'Total orders')}</span>
+            <strong>{formatNumber(systemStats.totalOrders, locale)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Revenue</span>
-            <strong>{formatMoney(totalRevenue, displayCurrency)}</strong>
+            <span>{t('adminDashboard.metrics.revenue', 'Revenue')}</span>
+            <strong>{formatMoney(totalRevenue, displayCurrency, locale)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
           <div className="role-metric-card">
-            <span>Pending orders</span>
-            <strong>{formatNumber(pendingOrders)}</strong>
+            <span>{t('adminDashboard.metrics.pendingOrders', 'Pending orders')}</span>
+            <strong>{formatNumber(pendingOrders, locale)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
           <div className="role-metric-card">
-            <span>Cancelled orders</span>
-            <strong>{formatNumber(cancelledOrders)}</strong>
+            <span>{t('adminDashboard.metrics.cancelledOrders', 'Cancelled orders')}</span>
+            <strong>{formatNumber(cancelledOrders, locale)}</strong>
             <small>{selectedTimeRangeLabel} - {selectedPartnerLabel}</small>
           </div>
         </div>
 
         <p className="role-muted admin-dashboard-metric-footnote">
-          Orders in current range: <strong>{formatNumber(orderTotalInRange)}</strong> |
-          After partner filter: <strong>{formatNumber(filteredOrders.length)}</strong>
+          {t('adminDashboard.metrics.ordersInRange', 'Orders in current range')}:{' '}
+          <strong>{formatNumber(orderTotalInRange, locale)}</strong> |{' '}
+          {t('adminDashboard.metrics.afterPartnerFilter', 'After partner filter')}:{' '}
+          <strong>{formatNumber(filteredOrders.length, locale)}</strong>
         </p>
       </article>
 
       <article className="role-card">
-        <h3>Analytics charts</h3>
-        {analyticsLoading && <p className="role-muted">Loading chart data...</p>}
+        <h3>{t('adminDashboard.charts.title', 'Analytics charts')}</h3>
+        {analyticsLoading && (
+          <p className="role-muted">
+            {t('adminDashboard.charts.loading', 'Loading chart data...')}
+          </p>
+        )}
 
         <div className="admin-dashboard-chart-grid">
           <section className="admin-dashboard-chart-card">
-            <h4>Pie chart: Order status distribution</h4>
-            <StatusPieChart items={pieChartItems} />
+            <h4>{t('adminDashboard.charts.pieTitle', 'Pie chart: Order status distribution')}</h4>
+            <StatusPieChart
+              items={pieChartItems}
+              ariaLabel={t('adminDashboard.charts.pieAria', 'Order status pie chart')}
+              emptyLabel={t(
+                'adminDashboard.charts.pieEmpty',
+                'No order status data available for this scope.',
+              )}
+              totalOrdersLabel={t('adminDashboard.metrics.totalOrders', 'Total orders')}
+            />
           </section>
 
           <section className="admin-dashboard-chart-card">
-            <h4>Fan chart: Order cancellation rate</h4>
-            <CancelFanChart cancelRate={cancelRate} cancelledOrders={cancelledOrders} />
+            <h4>{t('adminDashboard.charts.fanTitle', 'Fan chart: Order cancellation rate')}</h4>
+            <CancelFanChart
+              cancelRate={cancelRate}
+              cancelRateLabel={t(
+                'adminDashboard.charts.orderCancellationRate',
+                'Order cancellation rate',
+              )}
+              cancelledOrdersLabel={t(
+                'adminDashboard.charts.cancelledOrdersLabel',
+                '{count} cancelled orders',
+                { count: formatNumber(cancelledOrders, locale) },
+              )}
+            />
           </section>
 
           <section className="admin-dashboard-chart-card">
             <h4>
               {selectedPartnerKey === ALL_PARTNERS_KEY
-                ? 'Bar chart: Top shops by revenue'
-                : 'Bar chart: Status distribution for selected shop'}
+                ? t('adminDashboard.charts.barTopShops', 'Bar chart: Top shops by revenue')
+                : t(
+                  'adminDashboard.charts.barStatusSelectedShop',
+                  'Bar chart: Status distribution for selected shop',
+                )}
             </h4>
-            <HorizontalBarChart items={barChartData} />
+            <HorizontalBarChart
+              items={barChartData}
+              emptyLabel={t(
+                'adminDashboard.charts.barEmpty',
+                'No bar chart data available in the selected scope.',
+              )}
+            />
           </section>
 
           <section className="admin-dashboard-chart-card admin-dashboard-chart-card-wide">
-            <h4>Line chart: Revenue trend</h4>
-            <RevenueLineChart points={revenueLinePoints} />
+            <h4>{t('adminDashboard.charts.lineTitle', 'Line chart: Revenue trend')}</h4>
+            <RevenueLineChart
+              points={revenueLinePoints}
+              ariaLabel={t('adminDashboard.charts.lineAria', 'Revenue trend line chart')}
+              emptyLabel={t(
+                'adminDashboard.charts.lineEmpty',
+                'No revenue data available in the selected scope.',
+              )}
+            />
           </section>
         </div>
       </article>

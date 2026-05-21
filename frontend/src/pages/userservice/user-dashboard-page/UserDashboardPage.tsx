@@ -10,6 +10,7 @@ import {
   setAuthSession,
 } from '../../../config/apis'
 import { AppRole, resolvePrimaryRole } from '../../../constants/roles'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './UserDashboardPage.css'
 
 const APP_NOTIFICATION_EVENT = 'app-notification-event'
@@ -101,6 +102,7 @@ function resolveDisplayName(profile: UserProfile | null, sessionUsername?: strin
 }
 
 function UserDashboardPage() {
+  const { t } = useI18n()
   const session = getAuthSession()
   const promotingSessionRef = useRef(false)
 
@@ -121,7 +123,7 @@ function UserDashboardPage() {
   useEffect(() => {
     async function loadDashboard() {
       if (!session?.userId) {
-        setError('Cannot find current user information.')
+        setError(t('pages.userDashboard.errors.missingUserId'))
         setLoading(false)
         return
       }
@@ -154,14 +156,14 @@ function UserDashboardPage() {
         setPartnerRequest(partnerRequestData || null)
         setPartnerShopName(partnerRequestData?.shopName || '')
       } catch (err) {
-        setError(extractApiErrorMessage(err, 'Cannot load user dashboard data.'))
+        setError(extractApiErrorMessage(err, t('pages.userDashboard.errors.loadFailed')))
       } finally {
         setLoading(false)
       }
     }
 
     void loadDashboard()
-  }, [session?.userId])
+  }, [session?.userId, t])
 
   const recentTotal = useMemo(
     () => orders.reduce((sum, item) => sum + (item.totalAmount || 0), 0),
@@ -211,7 +213,7 @@ function UserDashboardPage() {
     try {
       const refreshed = await refreshSessionToken()
       if (!refreshed) {
-        setPartnerRequestError('Cannot refresh session token after partner approval.')
+        setPartnerRequestError(t('pages.userDashboard.errors.refreshSessionFailed'))
         return
       }
 
@@ -229,10 +231,10 @@ function UserDashboardPage() {
         backendMenus: profileResponse.menus || [],
       })
 
-      setPartnerRequestSuccess('Your partner request was approved. Partner workspace is now available.')
+      setPartnerRequestSuccess(t('pages.userDashboard.partner.success.approvedAndEnabled'))
     } catch (sessionError) {
       setPartnerRequestError(
-        extractApiErrorMessage(sessionError, 'Cannot update session after partner approval.'),
+        extractApiErrorMessage(sessionError, t('pages.userDashboard.errors.updateSessionFailed')),
       )
     } finally {
       promotingSessionRef.current = false
@@ -274,7 +276,7 @@ function UserDashboardPage() {
 
       if (streamEvent.status === 'REJECTED' || streamEvent.decision === 'REJECT') {
         setPartnerRequestSuccess('')
-        setPartnerRequestError(streamEvent.reviewNote || 'Your partner upgrade request was rejected.')
+        setPartnerRequestError(streamEvent.reviewNote || t('pages.userDashboard.partner.errors.rejected'))
       }
     }
 
@@ -289,7 +291,7 @@ function UserDashboardPage() {
         handleNotificationEvent as EventListener,
       )
     }
-  }, [session?.userId])
+  }, [session?.userId, t])
 
   async function handleSubmitPartnerRequest() {
     if (!isUserRole) {
@@ -298,7 +300,7 @@ function UserDashboardPage() {
 
     const normalizedShopName = partnerShopName.trim()
     if (!normalizedShopName) {
-      setPartnerRequestError('Shop name is required.')
+      setPartnerRequestError(t('pages.userDashboard.partner.errors.shopNameRequired'))
       return
     }
 
@@ -315,9 +317,9 @@ function UserDashboardPage() {
       setPartnerRequest(createdRequest)
       setPartnerShopName(createdRequest.shopName || normalizedShopName)
       setPartnerRequestNote('')
-      setPartnerRequestSuccess('Partner upgrade request sent successfully. Admin will review soon.')
+      setPartnerRequestSuccess(t('pages.userDashboard.partner.success.requestSent'))
     } catch (err) {
-      setPartnerRequestError(extractApiErrorMessage(err, 'Cannot send partner upgrade request.'))
+      setPartnerRequestError(extractApiErrorMessage(err, t('pages.userDashboard.partner.errors.submitFailed')))
     } finally {
       setPartnerRequestSubmitting(false)
     }
@@ -327,7 +329,7 @@ function UserDashboardPage() {
     return (
       <section className="user-dashboard-page role-page-stack">
         <article className="role-card user-dashboard-loading">
-          <p className="role-muted">Loading User Dashboard...</p>
+          <p className="role-muted">{t('pages.userDashboard.loading')}</p>
         </article>
       </section>
     )
@@ -339,42 +341,42 @@ function UserDashboardPage() {
 
       <article className="role-card user-dashboard-hero">
         <div className="user-dashboard-hero-main">
-          <p className="user-dashboard-overline">User Command Center</p>
-          <h2>Welcome back, {displayName}</h2>
+          <p className="user-dashboard-overline">{t('pages.userDashboard.overline')}</p>
+          <h2>{t('pages.userDashboard.welcomeBack', undefined, { name: displayName })}</h2>
           <p className="role-muted">
-            Track your order flow, spending, and partner upgrade progress from one dashboard.
+            {t('pages.userDashboard.heroSubtitle')}
           </p>
         </div>
 
         <div className="user-dashboard-identity-panel">
-          <span>Current Role</span>
+          <span>{t('pages.userDashboard.currentRole')}</span>
           <strong>{session?.role || 'UNKNOWN'}</strong>
-          <small>Last order: {formatDate(latestOrderAt)}</small>
+          <small>{t('pages.userDashboard.lastOrder', undefined, { date: formatDate(latestOrderAt) })}</small>
         </div>
 
         <div className="role-metric-grid user-dashboard-metric-grid">
           <div className="role-metric-card">
-            <span>Total Orders</span>
+            <span>{t('pages.userDashboard.metrics.totalOrders')}</span>
             <strong>{formatCount(totalOrders)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Recent Order Value</span>
+            <span>{t('pages.userDashboard.metrics.recentOrderValue')}</span>
             <strong>{formatMoney(recentTotal, orders[0]?.currency || 'VND')}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Average (Recent 5)</span>
+            <span>{t('pages.userDashboard.metrics.averageRecent5')}</span>
             <strong>{formatMoney(recentAverageValue, orders[0]?.currency || 'VND')}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Account Email</span>
+            <span>{t('pages.userDashboard.metrics.accountEmail')}</span>
             <strong>{profile?.email || '-'}</strong>
           </div>
         </div>
       </article>
 
       <article className="role-card user-dashboard-status-card">
-        <h3>Order Status Snapshot</h3>
-        {!statusBreakdown.length && <p className="role-muted">No orders yet.</p>}
+        <h3>{t('pages.userDashboard.orderStatusSnapshot')}</h3>
+        {!statusBreakdown.length && <p className="role-muted">{t('pages.userDashboard.emptyOrders')}</p>}
         {!!statusBreakdown.length && (
           <div className="user-dashboard-status-bars">
             {statusBreakdown.map((item) => {
@@ -398,24 +400,26 @@ function UserDashboardPage() {
 
       {isUserRole && (
         <article className="role-card user-dashboard-partner-card">
-          <h3>Become a Partner</h3>
+          <h3>{t('pages.userDashboard.partner.title')}</h3>
           <p className="role-muted">
-            Send a request to upgrade your account to partner role. Admin will review and respond.
+            {t('pages.userDashboard.partner.subtitle')}
           </p>
 
           {partnerRequest && (
             <div className={`user-dashboard-partner-status is-${toStatusClassToken(partnerRequest.status)}`}>
               <div className="user-dashboard-partner-status-head">
-                <span>Current Request Status</span>
+                <span>{t('pages.userDashboard.partner.currentStatus')}</span>
                 <strong>{partnerRequest.status}</strong>
               </div>
-              <small>Shop name: {partnerRequest.shopName || '-'}</small>
+              <small>{t('pages.userDashboard.partner.shopName', undefined, { value: partnerRequest.shopName || '-' })}</small>
               <small>
-                Requested at: {formatDate(partnerRequest.createdAt)} | Reviewed at:{' '}
-                {formatDate(partnerRequest.reviewedAt)}
+                {t('pages.userDashboard.partner.requestedReviewedAt', undefined, {
+                  requestedAt: formatDate(partnerRequest.createdAt),
+                  reviewedAt: formatDate(partnerRequest.reviewedAt),
+                })}
               </small>
               {partnerRequest.reviewNote && (
-                <small>Review note: {partnerRequest.reviewNote}</small>
+                <small>{t('pages.userDashboard.partner.reviewNote', undefined, { note: partnerRequest.reviewNote })}</small>
               )}
             </div>
           )}
@@ -426,20 +430,20 @@ function UserDashboardPage() {
           {canSubmitNewPartnerRequest && (
             <>
               <label className="user-dashboard-partner-note">
-                Shop name
+                {t('pages.userDashboard.partner.form.shopName')}
                 <input
                   value={partnerShopName}
                   onChange={(event) => setPartnerShopName(event.target.value)}
-                  placeholder="Your public shop name"
+                  placeholder={t('pages.userDashboard.partner.form.placeholders.shopName')}
                   disabled={partnerRequestSubmitting}
                 />
               </label>
               <label className="user-dashboard-partner-note">
-                Request note (optional)
+                {t('pages.userDashboard.partner.form.requestNoteOptional')}
                 <textarea
                   value={partnerRequestNote}
                   onChange={(event) => setPartnerRequestNote(event.target.value)}
-                  placeholder="Describe your business and why you need partner access"
+                  placeholder={t('pages.userDashboard.partner.form.placeholders.requestNote')}
                   disabled={partnerRequestSubmitting}
                 />
               </label>
@@ -450,35 +454,37 @@ function UserDashboardPage() {
                   onClick={() => void handleSubmitPartnerRequest()}
                   disabled={partnerRequestSubmitting}
                 >
-                  {partnerRequestSubmitting ? 'Sending Request...' : 'Request Partner Upgrade'}
+                  {partnerRequestSubmitting
+                    ? t('pages.userDashboard.partner.form.sending')
+                    : t('pages.userDashboard.partner.form.submit')}
                 </button>
               </div>
             </>
           )}
 
           {partnerRequest?.status === 'PENDING' && (
-            <p className="role-muted">Your request is pending admin review.</p>
+            <p className="role-muted">{t('pages.userDashboard.partner.pendingMessage')}</p>
           )}
 
           {partnerRequest?.status === 'APPROVED' && (
             <p className="role-muted">
-              Your request is approved. Partner workspace is enabled for this session.
+              {t('pages.userDashboard.partner.approvedMessage')}
             </p>
           )}
         </article>
       )}
 
       <article className="role-card user-dashboard-orders-card">
-        <h3>Recent Orders</h3>
+        <h3>{t('pages.userDashboard.recentOrders')}</h3>
         <div className="role-table-wrap">
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Total Amount</th>
-                <th>Created At</th>
+                <th>{t('pages.userDashboard.table.orderCode')}</th>
+                <th>{t('pages.userDashboard.table.status')}</th>
+                <th>{t('pages.userDashboard.table.totalAmount')}</th>
+                <th>{t('pages.userDashboard.table.createdAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -498,7 +504,7 @@ function UserDashboardPage() {
               {!orders.length && (
                 <tr>
                   <td colSpan={5} className="role-empty-cell">
-                    No orders yet.
+                    {t('pages.userDashboard.emptyOrders')}
                   </td>
                 </tr>
               )}

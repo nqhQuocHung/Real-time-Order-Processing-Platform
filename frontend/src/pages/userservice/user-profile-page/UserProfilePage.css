@@ -1,33 +1,108 @@
+.user-profile-page {
+  min-height: 0;
+  width: 100%;
+}
+
+.user-profile-page .role-card {
+  padding: 12px 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-profile-page .role-card h2 {
+  margin: 0;
+  font-size: 1.9rem;
+}
+
 .user-profile-page .profile-edit-avatar-row,
 .partner-profile-page .profile-edit-avatar-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
+  margin: 4px 0 8px;
 }
 
 .user-profile-page .profile-edit-avatar-trigger,
 .partner-profile-page .profile-edit-avatar-trigger {
-  border: 0;
-  background: transparent;
-  padding: 0;
+  border: 1px solid rgba(133, 169, 214, 0.34);
+  background: radial-gradient(circle at 25% 20%, rgba(39, 194, 255, 0.2), rgba(8, 24, 40, 0.9) 58%);
+  padding: 4px;
   border-radius: 999px;
   cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+
+.user-profile-page .profile-edit-avatar-trigger:hover,
+.partner-profile-page .profile-edit-avatar-trigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(39, 194, 255, 0.58);
 }
 
 .user-profile-page .profile-edit-avatar-preview,
 .partner-profile-page .profile-edit-avatar-preview {
-  width: 80px;
-  height: 80px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid rgba(133, 169, 214, 0.35);
   background: rgba(8, 24, 40, 0.9);
 }
 
+.user-profile-page .role-inline-form {
+  margin-top: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.user-profile-page .user-profile-sections {
+  display: grid;
+  gap: 10px;
+}
+
+.user-profile-page .user-profile-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--role-text-sub);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.user-profile-page .user-profile-subtitle-system {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(133, 169, 214, 0.2);
+}
+
+.user-profile-page .user-profile-editable-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.user-profile-page .user-profile-readonly-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.user-profile-page .role-inline-form label {
+  gap: 4px;
+  font-size: 0.76rem;
+}
+
+.user-profile-page .role-inline-form input {
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 0.92rem;
+}
+
+.user-profile-page .role-inline-form input:disabled {
+  color: rgba(214, 231, 247, 0.96);
+  background: rgba(10, 31, 51, 0.82);
+  border-color: rgba(133, 169, 214, 0.28);
+}
+
 .user-profile-page .profile-actions,
 .partner-profile-page .profile-actions {
   justify-content: center;
+  margin: 2px 0 0;
 }
 
 .user-profile-page .profile-avatar-modal-backdrop,
@@ -82,4 +157,40 @@
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .user-profile-page .role-card {
+    padding: 14px;
+  }
+
+  .user-profile-page .role-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .user-profile-page .user-profile-editable-grid,
+  .user-profile-page .user-profile-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-profile-page .profile-edit-avatar-preview {
+    width: 84px;
+    height: 84px;
+  }
+
+  .user-profile-page .profile-actions {
+    justify-content: stretch;
+  }
+
+  .user-profile-page .profile-actions .role-btn-primary {
+    width: 100%;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  .user-profile-page .role-inline-form,
+  .user-profile-page .user-profile-editable-grid,
+  .user-profile-page .user-profile-readonly-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

@@ -1,16 +1,22 @@
 ﻿import RoleFeaturePage from '../../sharedservice/role-feature-page/RoleFeaturePage'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminSystemSettingsPage.css'
 
 function AdminSystemSettingsPage() {
+  const { t } = useI18n()
+
   return (
     <RoleFeaturePage
       className="admin-system-settings-page"
-      title="Cấu hình hệ thống"
-      description="Trang cấu hình dành cho Admin. Có thể tích hợp cấu hình service khi backend mở API quản trị."
+      title={t('pages.adminSystemSettings.title', 'System settings')}
+      description={t(
+        'pages.adminSystemSettings.subtitle',
+        'Configure system-level parameters and defaults.',
+      )}
       highlights={[
-        'Cấu hình tham số vận hành',
-        'Quản lý cổng tích hợp đối tác',
-        'Theo dõi trạng thái môi trường',
+        t('pages.adminSystemSettings.general', 'General'),
+        t('pages.adminSystemSettings.integrations', 'Integrations'),
+        t('pages.adminSystemSettings.security', 'Security'),
       ]}
     />
   )

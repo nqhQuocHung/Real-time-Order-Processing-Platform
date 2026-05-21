@@ -18,6 +18,7 @@ import {
   type OrderRefundStatus,
   type PaymentStatus,
 } from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './UserOrdersPage.css'
 import { QRCodeCanvas } from 'qrcode.react'
 
@@ -380,6 +381,7 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, 
 }
 
 function UserOrdersPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
   const session = getAuthSession()
@@ -1041,10 +1043,9 @@ function UserOrdersPage() {
   return (
     <section className="user-orders-page role-page-stack">
       <article className="role-card">
-        <h2>Checkout Cart</h2>
+        <h2>{t('pages.userOrders.checkout.title')}</h2>
         <p className="role-muted">
-          Cart is synced from the Products tab and saved locally. Stock is revalidated before
-          creating an order.
+          {t('pages.userOrders.checkout.subtitle')}
         </p>
 
         <div className="role-inline-actions">
@@ -1054,7 +1055,9 @@ function UserOrdersPage() {
             onClick={() => void handleCreateOrder()}
             disabled={checkoutLoading || cartItems.length === 0}
           >
-            {checkoutLoading ? 'Creating Order...' : 'Create Order & Open Payment'}
+            {checkoutLoading
+              ? t('pages.userOrders.checkout.creatingOrder')
+              : t('pages.userOrders.checkout.createOrderAndPay')}
           </button>
           <button
             type="button"
@@ -1065,13 +1068,16 @@ function UserOrdersPage() {
             }}
             disabled={!cartItems.length}
           >
-            Clear Cart
+            {t('pages.userOrders.checkout.clearCart')}
           </button>
         </div>
 
         <p className="role-muted">
-          Cart items: {cartItems.length} product(s), total quantity {cartTotalQuantity}, subtotal{' '}
-          {formatMoney(cartTotalAmount, cartItems[0]?.currency || 'VND')}.
+          {t('pages.userOrders.checkout.cartSummary', undefined, {
+            items: cartItems.length,
+            quantity: cartTotalQuantity,
+            subtotal: formatMoney(cartTotalAmount, cartItems[0]?.currency || 'VND'),
+          })}
         </p>
 
         {checkoutError && <p className="role-error">{checkoutError}</p>}
@@ -1080,12 +1086,17 @@ function UserOrdersPage() {
         {latestCreatedOrder && (
           <div className="user-orders-payment-hint">
             <span>
-              Latest order: <strong>{latestCreatedOrder.orderCode}</strong> ({latestCreatedOrder.status})
+              {t('pages.userOrders.checkout.latestOrder', undefined, {
+                code: latestCreatedOrder.orderCode,
+                status: latestCreatedOrder.status,
+              })}
             </span>
             <small>
               {latestCreatedOrder.paymentDeadlineAt
-                ? `Pay before ${formatDate(latestCreatedOrder.paymentDeadlineAt)}`
-                : 'Payment deadline is managed by order service.'}
+                ? t('pages.userOrders.checkout.payBefore', undefined, {
+                  date: formatDate(latestCreatedOrder.paymentDeadlineAt),
+                })
+                : t('pages.userOrders.checkout.deadlineManagedByService')}
             </small>
           </div>
         )}
@@ -1094,28 +1105,29 @@ function UserOrdersPage() {
           <div className="payment-dialog-overlay" onClick={closePaymentDialog}>
             <div className="payment-dialog" onClick={(event) => event.stopPropagation()}>
               <header className="payment-dialog-header">
-                <h3>Complete Payment</h3>
+                <h3>{t('pages.userOrders.paymentDialog.title')}</h3>
                 <button
                   type="button"
                   className="role-btn-ghost payment-dialog-close"
                   onClick={closePaymentDialog}
                 >
-                  Close
+                  {t('pages.userOrders.common.close')}
                 </button>
               </header>
 
               <p className="payment-dialog-message">
-                Order <strong>{activePaymentDialog.orderCode}</strong> is reserved. Complete payment
-                before it expires.
+                {t('pages.userOrders.paymentDialog.message', undefined, {
+                  code: activePaymentDialog.orderCode,
+                })}
               </p>
               <p className={`payment-dialog-deadline ${activeDialogExpired ? 'is-expired' : ''}`}>
-                Remaining: {activeDialogRemaining}
+                {t('pages.userOrders.paymentDialog.remaining', undefined, { value: activeDialogRemaining })}
               </p>
 
               {showQrCode && (
                 <div className="payment-qrcode">
                   <QRCodeCanvas value={activePaymentDialog.paymentUrl} size={220} includeMargin />
-                  <p>Scan QR to continue payment.</p>
+                  <p>{t('pages.userOrders.paymentDialog.scanQr')}</p>
                 </div>
               )}
 
@@ -1128,7 +1140,9 @@ function UserOrdersPage() {
                   }}
                   disabled={activeDialogExpired}
                 >
-                  {activeDialogExpired ? 'Payment Expired' : 'Pay Now'}
+                  {activeDialogExpired
+                    ? t('pages.userOrders.paymentDialog.paymentExpired')
+                    : t('pages.userOrders.paymentDialog.payNow')}
                 </button>
                 <button
                   type="button"
@@ -1138,14 +1152,16 @@ function UserOrdersPage() {
                   }}
                   disabled={activeDialogExpired}
                 >
-                  Open New Tab
+                  {t('pages.userOrders.paymentDialog.openNewTab')}
                 </button>
                 <button
                   type="button"
                   className="role-btn-ghost"
                   onClick={() => setShowQrCode((previous) => !previous)}
                 >
-                  {showQrCode ? 'Hide QR Code' : 'Show QR Code'}
+                  {showQrCode
+                    ? t('pages.userOrders.paymentDialog.hideQrCode')
+                    : t('pages.userOrders.paymentDialog.showQrCode')}
                 </button>
               </div>
             </div>
@@ -1155,12 +1171,12 @@ function UserOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Qty</th>
-                <th>Available</th>
-                <th>Price</th>
-                <th>Total</th>
-                <th>Actions</th>
+                <th>{t('pages.userOrders.checkoutTable.product')}</th>
+                <th>{t('pages.userOrders.checkoutTable.quantity')}</th>
+                <th>{t('pages.userOrders.checkoutTable.available')}</th>
+                <th>{t('pages.userOrders.checkoutTable.price')}</th>
+                <th>{t('pages.userOrders.checkoutTable.total')}</th>
+                <th>{t('pages.userOrders.checkoutTable.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1194,7 +1210,7 @@ function UserOrdersPage() {
                         className="role-btn-ghost"
                         onClick={() => handleRemoveCartItem(item.productId)}
                       >
-                        Remove
+                        {t('pages.userOrders.checkoutTable.remove')}
                       </button>
                     </div>
                   </td>
@@ -1203,7 +1219,7 @@ function UserOrdersPage() {
               {!cartItems.length && (
                 <tr>
                   <td colSpan={6} className="role-empty-cell">
-                    Cart is empty.
+                    {t('pages.userOrders.checkoutTable.empty')}
                   </td>
                 </tr>
               )}
@@ -1215,33 +1231,38 @@ function UserOrdersPage() {
       <article className="role-card user-orders-page-orders-card">
         <div className="user-orders-page-orders-header">
           <div>
-            <h2>My Orders</h2>
+            <h2>{t('pages.userOrders.title')}</h2>
             <p className="role-muted">
-              Orders in RESERVED state are holding stock. If payment times out, stock is auto-released.
+              {t('pages.userOrders.subtitle')}
             </p>
           </div>
           <div className="user-orders-page-orders-metrics">
-            <span>Total: {totalOrdersResult}</span>
-            <span>Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}</span>
+            <span>{t('pages.userOrders.metrics.total', undefined, { value: totalOrdersResult })}</span>
+            <span>
+              {t('pages.userOrders.metrics.page', undefined, {
+                current: totalOrderPages === 0 ? 0 : orderPage + 1,
+                total: totalOrderPages || 0,
+              })}
+            </span>
           </div>
         </div>
 
         <div className="role-inline-form user-orders-filter-bar">
           <label>
-            Status
+            {t('pages.userOrders.filters.status')}
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
               {ORDER_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
-                  {status || 'All'}
+                  {status || t('statuses.order.all')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Items / page
+            {t('pages.userOrders.filters.itemsPerPage')}
             <select
               value={orderPageSize}
               onChange={(event) => setOrderPageSize(Number(event.target.value))}
@@ -1261,7 +1282,7 @@ function UserOrdersPage() {
               void loadOrders(0, orderPageSize)
             }}
           >
-            {loading ? 'Loading...' : 'Filter Orders'}
+            {loading ? t('pages.userOrders.filters.loading') : t('pages.userOrders.filters.filterOrders')}
           </button>
         </div>
 
@@ -1271,13 +1292,13 @@ function UserOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Refund</th>
-                <th>Total Amount</th>
-                <th>Pay Before</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('pages.userOrders.table.orderCode')}</th>
+                <th>{t('pages.userOrders.table.status')}</th>
+                <th>{t('pages.userOrders.table.refund')}</th>
+                <th>{t('pages.userOrders.table.totalAmount')}</th>
+                <th>{t('pages.userOrders.table.payBefore')}</th>
+                <th>{t('pages.userOrders.table.createdAt')}</th>
+                <th>{t('pages.userOrders.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1316,7 +1337,9 @@ function UserOrdersPage() {
                         {order.status}
                       </span>
                       {paymentInfo?.status && (
-                        <span className="user-orders-payment-status-label">Payment: {paymentInfo.status}</span>
+                        <span className="user-orders-payment-status-label">
+                          {t('pages.userOrders.table.paymentLabel', undefined, { status: paymentInfo.status })}
+                        </span>
                       )}
                     </td>
                     <td>
@@ -1328,10 +1351,10 @@ function UserOrdersPage() {
                         </span>
                       )}
                       {!refundInfo && canRequestRefundBase && hasRefundLookup && (
-                        <span className="user-orders-refund-none">Not requested</span>
+                        <span className="user-orders-refund-none">{t('pages.userOrders.table.refundNotRequested')}</span>
                       )}
                       {!refundInfo && canRequestRefundBase && !hasRefundLookup && (
-                        <span className="role-muted">Checking...</span>
+                        <span className="role-muted">{t('pages.userOrders.table.checking')}</span>
                       )}
                       {!refundInfo && !canRequestRefundBase && <span className="role-muted">-</span>}
                     </td>
@@ -1357,7 +1380,7 @@ function UserOrdersPage() {
                               )
                             }
                           >
-                            Continue Payment
+                            {t('pages.userOrders.table.continuePayment')}
                           </button>
                         )}
                         {isReserved && (
@@ -1368,8 +1391,8 @@ function UserOrdersPage() {
                             disabled={refreshingPaymentOrder === order.orderCode}
                           >
                             {refreshingPaymentOrder === order.orderCode
-                              ? 'Refreshing...'
-                              : 'Refresh Payment'}
+                              ? t('pages.userOrders.table.refreshing')
+                              : t('pages.userOrders.table.refreshPayment')}
                           </button>
                         )}
                         {canCancel && (
@@ -1378,7 +1401,7 @@ function UserOrdersPage() {
                             className="role-btn-ghost"
                             onClick={() => void handleCancelOrder(order.orderCode)}
                           >
-                            Cancel
+                            {t('pages.userOrders.common.cancel')}
                           </button>
                         )}
                         {canRequestRefund && (
@@ -1387,7 +1410,7 @@ function UserOrdersPage() {
                             className="role-btn-ghost"
                             onClick={() => openRefundDialog(order.orderCode)}
                           >
-                            Request Refund
+                            {t('pages.userOrders.table.requestRefund')}
                           </button>
                         )}
                         {canRequestRefundBase && !hasRefundLookup && (
@@ -1397,7 +1420,9 @@ function UserOrdersPage() {
                             onClick={() => void loadRefundState(order.orderCode, true)}
                             disabled={isRefundLookupLoading}
                           >
-                            {isRefundLookupLoading ? 'Checking...' : 'Check Refund'}
+                            {isRefundLookupLoading
+                              ? t('pages.userOrders.table.checking')
+                              : t('pages.userOrders.table.checkRefund')}
                           </button>
                         )}
                       </div>
@@ -1408,7 +1433,7 @@ function UserOrdersPage() {
               {!orders.length && (
                 <tr>
                   <td colSpan={7} className="role-empty-cell">
-                    No orders found.
+                    {t('pages.userOrders.table.empty')}
                   </td>
                 </tr>
               )}
@@ -1419,7 +1444,11 @@ function UserOrdersPage() {
         {totalOrderPages > 0 && (
           <div className="user-orders-page-pagination">
             <p className="user-orders-page-pagination-summary">
-              Showing {currentOrderPageStart}-{currentOrderPageEnd} of {totalOrdersResult}
+              {t('pages.userOrders.pagination.summary', undefined, {
+                start: currentOrderPageStart,
+                end: currentOrderPageEnd,
+                total: totalOrdersResult,
+              })}
             </p>
             <div className="user-orders-page-pagination-controls">
               <button
@@ -1428,7 +1457,7 @@ function UserOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.max(0, prev - 1))}
                 disabled={orderPage <= 0}
               >
-                Prev
+                {t('pages.userOrders.pagination.prev')}
               </button>
               {orderPaginationPages.map((pageNumber) => (
                 <button
@@ -1446,7 +1475,7 @@ function UserOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.min(totalOrderPages - 1, prev + 1))}
                 disabled={orderPage >= totalOrderPages - 1}
               >
-                Next
+                {t('pages.userOrders.pagination.next')}
               </button>
             </div>
           </div>
@@ -1460,30 +1489,28 @@ function UserOrdersPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <header className="user-orders-refund-header">
-              <h3>Request Refund</h3>
+              <h3>{t('pages.userOrders.refundDialog.title')}</h3>
               <button
                 type="button"
                 className="role-btn-ghost"
                 onClick={closeRefundDialog}
               >
-                Close
+                {t('pages.userOrders.common.close')}
               </button>
             </header>
 
             <p className="user-orders-refund-message">
-              Submit refund account details for order <strong>{refundDialogOrderCode}</strong>.
-              Seller will review your request. For VNPay sandbox, these receiver details are
-              demonstration data only.
+              {t('pages.userOrders.refundDialog.message', undefined, { code: refundDialogOrderCode })}
             </p>
 
             {selectedRefund && (
               <div className="user-orders-refund-existing">
                 <p>
-                  Existing refund status:{' '}
+                  {t('pages.userOrders.refundDialog.existingStatus')}{' '}
                   <strong>{selectedRefund.status}</strong>
                 </p>
                 <p>
-                  Reason: {selectedRefund.refundReason || '-'}
+                  {t('pages.userOrders.refundDialog.reason', undefined, { value: selectedRefund.refundReason || '-' })}
                 </p>
               </div>
             )}
@@ -1492,35 +1519,35 @@ function UserOrdersPage() {
               <>
                 <div className="role-inline-form user-orders-refund-form">
                   <label>
-                    Account Name
+                    {t('pages.userOrders.refundDialog.accountName')}
                     <input
                       value={refundAccountName}
                       onChange={(event) => setRefundAccountName(event.target.value)}
-                      placeholder="Receiver full name"
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.accountName')}
                     />
                   </label>
                   <label>
-                    Account Number
+                    {t('pages.userOrders.refundDialog.accountNumber')}
                     <input
                       value={refundAccountNumber}
                       onChange={(event) => setRefundAccountNumber(event.target.value)}
-                      placeholder="Bank account number"
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.accountNumber')}
                     />
                   </label>
                   <label>
-                    Bank Code
+                    {t('pages.userOrders.refundDialog.bankCode')}
                     <input
                       value={refundBankCode}
                       onChange={(event) => setRefundBankCode(event.target.value)}
-                      placeholder="Example: VNBANK"
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.bankCode')}
                     />
                   </label>
                   <label>
-                    Refund Reason
+                    {t('pages.userOrders.refundDialog.refundReason')}
                     <textarea
                       value={refundReason}
                       onChange={(event) => setRefundReason(event.target.value)}
-                      placeholder="Tell the seller why you need this refund"
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.refundReason')}
                       rows={4}
                     />
                   </label>
@@ -1536,8 +1563,8 @@ function UserOrdersPage() {
                     disabled={requestingRefundOrderCode === refundDialogOrderCode}
                   >
                     {requestingRefundOrderCode === refundDialogOrderCode
-                      ? 'Submitting...'
-                      : 'Submit Refund Request'}
+                      ? t('pages.userOrders.refundDialog.submitting')
+                      : t('pages.userOrders.refundDialog.submit')}
                   </button>
                 </div>
               </>

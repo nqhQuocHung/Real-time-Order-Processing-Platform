@@ -11,6 +11,7 @@ import {
   ORDER_STATUS_FILTER_OPTIONS,
   type OrderRefundStatus,
 } from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerOrdersPage.css'
 
 const ORDER_PAGE_SIZE_OPTIONS = [10, 20, 30]
@@ -120,6 +121,7 @@ function buildPaginationPages(currentPage: number, totalPages: number): number[]
 }
 
 function PartnerOrdersPage() {
+  const { t } = useI18n()
   const session = getAuthSession()
   const [partnerProducts, setPartnerProducts] = useState<PartnerProductStock[]>([])
   const [sourceScopedOrders, setSourceScopedOrders] = useState<OrderSummary[]>([])
@@ -518,35 +520,35 @@ function PartnerOrdersPage() {
   return (
     <section className="partner-orders-page role-page-stack">
       <article className="role-card">
-        <h2>Shopee Orders</h2>
+        <h2>{t('pages.partnerOrders.title')}</h2>
         <p className="role-muted">
-          Orders are scoped to products in your shop. This prevents cross-shop overlap.
+          {t('pages.partnerOrders.subtitle')}
         </p>
         <p className="partner-orders-page-scope">
-          Current shop scope: <strong>{scopeLabel}</strong>
+          {t('pages.partnerOrders.currentShopScope', undefined, { shop: scopeLabel })}
         </p>
 
         <div className="role-inline-form partner-orders-page-filter">
           <label>
-            Search order code
+            {t('pages.partnerOrders.filters.searchOrderCode')}
             <input
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="Ex: ORD-20260515-123456"
+              placeholder={t('pages.partnerOrders.filters.placeholders.searchOrderCode')}
             />
           </label>
           <label>
-            Status
+            {t('pages.partnerOrders.filters.status')}
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               {ORDER_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
-                  {status || 'All'}
+                  {status || t('statuses.order.all')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Items / page
+            {t('pages.partnerOrders.filters.itemsPerPage')}
             <select
               value={orderPageSize}
               onChange={(event) => setOrderPageSize(Number(event.target.value))}
@@ -559,14 +561,14 @@ function PartnerOrdersPage() {
             </select>
           </label>
           <button type="button" className="role-btn-primary" onClick={() => void handleApplyFilters()}>
-            Apply Filters
+            {t('pages.partnerOrders.filters.applyFilters')}
           </button>
           <button
             type="button"
             className="role-btn-primary partner-orders-reload-btn"
             onClick={() => void handleRefreshOrders()}
           >
-            {loading ? 'Loading...' : 'Reload Orders'}
+            {loading ? t('pages.partnerOrders.filters.loading') : t('pages.partnerOrders.filters.reloadOrders')}
           </button>
         </div>
 
@@ -574,9 +576,12 @@ function PartnerOrdersPage() {
         {success && <p className="role-muted">{success}</p>}
 
         <div className="partner-orders-page-summary">
-          <span>Total scoped orders: {totalOrdersResult}</span>
+          <span>{t('pages.partnerOrders.summary.totalScopedOrders', undefined, { count: totalOrdersResult })}</span>
           <span>
-            Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}
+            {t('pages.partnerOrders.summary.page', undefined, {
+              current: totalOrderPages === 0 ? 0 : orderPage + 1,
+              total: totalOrderPages || 0,
+            })}
           </span>
         </div>
 
@@ -584,11 +589,11 @@ function PartnerOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Total Amount</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('pages.partnerOrders.table.orderCode')}</th>
+                <th>{t('pages.partnerOrders.table.status')}</th>
+                <th>{t('pages.partnerOrders.table.totalAmount')}</th>
+                <th>{t('pages.partnerOrders.table.createdAt')}</th>
+                <th>{t('pages.partnerOrders.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -615,10 +620,10 @@ function PartnerOrdersPage() {
                             onClick={() => void handleCancelOrder(order.orderCode)}
                             disabled={isProcessing}
                           >
-                            {isProcessing ? 'Processing...' : 'Cancel'}
+                            {isProcessing ? t('pages.partnerOrders.common.processing') : t('pages.partnerOrders.common.cancel')}
                           </button>
                         )}
-                        {!canCancel && <span className="role-muted">No actions</span>}
+                        {!canCancel && <span className="role-muted">{t('pages.partnerOrders.table.noActions')}</span>}
                       </div>
                     </td>
                   </tr>
@@ -627,7 +632,7 @@ function PartnerOrdersPage() {
               {!pagedOrders.length && (
                 <tr>
                   <td colSpan={5} className="role-empty-cell">
-                    No orders found in your current shop scope.
+                    {t('pages.partnerOrders.table.empty')}
                   </td>
                 </tr>
               )}
@@ -638,7 +643,11 @@ function PartnerOrdersPage() {
         {totalOrderPages > 0 && (
           <div className="partner-orders-page-pagination">
             <p className="partner-orders-page-pagination-summary">
-              Showing {currentOrderPageStart}-{currentOrderPageEnd} of {totalOrdersResult}
+              {t('pages.partnerOrders.pagination.summary', undefined, {
+                start: currentOrderPageStart,
+                end: currentOrderPageEnd,
+                total: totalOrdersResult,
+              })}
             </p>
             <div className="partner-orders-page-pagination-controls">
               <button
@@ -647,7 +656,7 @@ function PartnerOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.max(0, prev - 1))}
                 disabled={orderPage <= 0}
               >
-                Prev
+                {t('pages.partnerOrders.pagination.prev')}
               </button>
               {orderPaginationPages.map((pageNumber) => (
                 <button
@@ -665,7 +674,7 @@ function PartnerOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.min(totalOrderPages - 1, prev + 1))}
                 disabled={orderPage >= totalOrderPages - 1}
               >
-                Next
+                {t('pages.partnerOrders.pagination.next')}
               </button>
             </div>
           </div>
@@ -674,28 +683,31 @@ function PartnerOrdersPage() {
 
       <article className="role-card">
         <div className="partner-orders-page-summary">
-          <span>Refund requests: {refundRequestsTotal}</span>
+          <span>{t('pages.partnerOrders.refundTable.refundRequests', undefined, { count: refundRequestsTotal })}</span>
           <span>
-            Page: {refundTotalPages === 0 ? 0 : refundPage + 1}/{refundTotalPages || 0}
+            {t('pages.partnerOrders.summary.page', undefined, {
+              current: refundTotalPages === 0 ? 0 : refundPage + 1,
+              total: refundTotalPages || 0,
+            })}
           </span>
         </div>
 
         <div className="role-inline-form partner-orders-refund-filter-row">
           <label>
-            Status
+            {t('pages.partnerOrders.filters.status')}
             <select
               value={refundStatusFilter}
               onChange={(event) => handleRefundStatusChange(event.target.value)}
             >
               {ORDER_REFUND_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
-                  {status || 'All'}
+                  {status || t('statuses.order.all')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Refunds / page
+            {t('pages.partnerOrders.refundTable.refundsPerPage')}
             <select
               value={refundPageSize}
               onChange={(event) => setRefundPageSize(Number(event.target.value))}
@@ -713,7 +725,7 @@ function PartnerOrdersPage() {
             onClick={() => void loadRefundRequests(refundPage, refundPageSize)}
             disabled={loadingRefundList}
           >
-            {loadingRefundList ? 'Loading...' : 'Reload Refund Requests'}
+            {loadingRefundList ? t('pages.partnerOrders.filters.loading') : t('pages.partnerOrders.refundTable.reload')}
           </button>
         </div>
 
@@ -721,12 +733,12 @@ function PartnerOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Reason</th>
-                <th>Requested At</th>
-                <th>Action</th>
+                <th>{t('pages.partnerOrders.refundTable.orderCode')}</th>
+                <th>{t('pages.partnerOrders.refundTable.status')}</th>
+                <th>{t('pages.partnerOrders.refundTable.amount')}</th>
+                <th>{t('pages.partnerOrders.refundTable.reason')}</th>
+                <th>{t('pages.partnerOrders.refundTable.requestedAt')}</th>
+                <th>{t('pages.partnerOrders.refundTable.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -747,7 +759,7 @@ function PartnerOrdersPage() {
                       className="role-btn-primary"
                       onClick={() => void openRefundDialog(refund.orderCode)}
                     >
-                      Review
+                      {t('pages.partnerOrders.refundTable.review')}
                     </button>
                   </td>
                 </tr>
@@ -755,7 +767,7 @@ function PartnerOrdersPage() {
               {!refundRequests.length && (
                 <tr>
                   <td colSpan={6} className="role-empty-cell">
-                    No refund requests found.
+                    {t('pages.partnerOrders.refundTable.empty')}
                   </td>
                 </tr>
               )}
@@ -766,7 +778,11 @@ function PartnerOrdersPage() {
         {refundTotalPages > 0 && (
           <div className="partner-orders-page-pagination">
             <p className="partner-orders-page-pagination-summary">
-              Showing {currentRefundPageStart}-{currentRefundPageEnd} of {refundRequestsTotal}
+              {t('pages.partnerOrders.pagination.summary', undefined, {
+                start: currentRefundPageStart,
+                end: currentRefundPageEnd,
+                total: refundRequestsTotal,
+              })}
             </p>
             <div className="partner-orders-page-pagination-controls">
               <button
@@ -775,7 +791,7 @@ function PartnerOrdersPage() {
                 onClick={() => setRefundPage((prev) => Math.max(0, prev - 1))}
                 disabled={refundPage <= 0}
               >
-                Prev
+                {t('pages.partnerOrders.pagination.prev')}
               </button>
               {refundPaginationPages.map((pageNumber) => (
                 <button
@@ -793,7 +809,7 @@ function PartnerOrdersPage() {
                 onClick={() => setRefundPage((prev) => Math.min(refundTotalPages - 1, prev + 1))}
                 disabled={refundPage >= refundTotalPages - 1}
               >
-                Next
+                {t('pages.partnerOrders.pagination.next')}
               </button>
             </div>
           </div>
@@ -804,35 +820,34 @@ function PartnerOrdersPage() {
         <div className="partner-orders-refund-overlay" onClick={closeRefundDialog}>
           <div className="partner-orders-refund-dialog" onClick={(event) => event.stopPropagation()}>
             <header className="partner-orders-refund-header">
-              <h3>Review Refund Request</h3>
+              <h3>{t('pages.partnerOrders.refundDialog.title')}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeRefundDialog}>
-                Close
+                {t('pages.partnerOrders.common.close')}
               </button>
             </header>
 
             <p className="partner-orders-refund-message">
-              Customer requested refund for order <strong>{refundDialogOrderCode}</strong>. Review
-              account information and choose to reject or create VNPay refund URL.
+              {t('pages.partnerOrders.refundDialog.message', undefined, { code: refundDialogOrderCode })}
             </p>
 
-            {loadingRefundInfo && <p className="role-muted">Loading refund request...</p>}
+            {loadingRefundInfo && <p className="role-muted">{t('pages.partnerOrders.refundDialog.loading')}</p>}
 
             {!loadingRefundInfo && selectedRefund && (
               <dl className="partner-orders-refund-meta">
                 <div>
-                  <dt>Status</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.status')}</dt>
                   <dd>{selectedRefund.status}</dd>
                 </div>
                 <div>
-                  <dt>Order Status</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.orderStatus')}</dt>
                   <dd>{refundDialogOrderDetail?.status || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Amount</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.amount')}</dt>
                   <dd>{formatMoney(selectedRefund.refundAmount, selectedRefund.currency)}</dd>
                 </div>
                 <div>
-                  <dt>Order Total</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.orderTotal')}</dt>
                   <dd>
                     {refundDialogOrderDetail
                       ? formatMoney(refundDialogOrderDetail.totalAmount, refundDialogOrderDetail.currency)
@@ -840,28 +855,28 @@ function PartnerOrdersPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Requested At</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.requestedAt')}</dt>
                   <dd>{formatDate(selectedRefund.createdAt)}</dd>
                 </div>
                 <div>
-                  <dt>Account Name</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.accountName')}</dt>
                   <dd>{selectedRefund.refundAccountName}</dd>
                 </div>
                 <div>
-                  <dt>Account Number</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.accountNumber')}</dt>
                   <dd>{selectedRefund.refundAccountNumberMasked || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Bank Code</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.bankCode')}</dt>
                   <dd>{selectedRefund.refundBankCode}</dd>
                 </div>
                 <div className="partner-orders-refund-note-block">
-                  <dt>Reason</dt>
+                  <dt>{t('pages.partnerOrders.refundDialog.reason')}</dt>
                   <dd>{selectedRefund.refundReason}</dd>
                 </div>
                 {selectedRefund.providerRefundUrl && (
                   <div className="partner-orders-refund-note-block">
-                    <dt>VNPay Refund URL</dt>
+                    <dt>{t('pages.partnerOrders.refundDialog.vnpayRefundUrl')}</dt>
                     <dd className="partner-orders-refund-url">{selectedRefund.providerRefundUrl}</dd>
                   </div>
                 )}
@@ -870,18 +885,18 @@ function PartnerOrdersPage() {
 
             {!loadingRefundInfo && !selectedRefund && (
               <p className="role-muted">
-                Refund request was not found for this order.
+                {t('pages.partnerOrders.refundDialog.notFound')}
               </p>
             )}
 
             {selectedRefund?.status === 'REQUESTED' && (
               <label className="partner-orders-refund-note-input">
-                Decision Note (optional)
+                {t('pages.partnerOrders.refundDialog.decisionNoteOptional')}
                 <textarea
                   value={refundDecisionNote}
                   onChange={(event) => setRefundDecisionNote(event.target.value)}
                   rows={3}
-                  placeholder="Add context for the customer"
+                  placeholder={t('pages.partnerOrders.refundDialog.placeholders.decisionNote')}
                 />
               </label>
             )}
@@ -896,8 +911,8 @@ function PartnerOrdersPage() {
                     disabled={processingOrderCode === refundDialogOrderCode}
                   >
                     {processingOrderCode === refundDialogOrderCode
-                      ? 'Processing...'
-                      : 'Approve & Create VNPay URL'}
+                      ? t('pages.partnerOrders.common.processing')
+                      : t('pages.partnerOrders.refundDialog.approveAndCreateVnpayUrl')}
                   </button>
                   <button
                     type="button"
@@ -905,7 +920,9 @@ function PartnerOrdersPage() {
                     onClick={() => void handleRefundDecision(refundDialogOrderCode, 'REJECT')}
                     disabled={processingOrderCode === refundDialogOrderCode}
                   >
-                    {processingOrderCode === refundDialogOrderCode ? 'Processing...' : 'Reject Request'}
+                    {processingOrderCode === refundDialogOrderCode
+                      ? t('pages.partnerOrders.common.processing')
+                      : t('pages.partnerOrders.refundDialog.rejectRequest')}
                   </button>
                 </>
               )}
@@ -915,7 +932,7 @@ function PartnerOrdersPage() {
                   className="role-btn-ghost"
                   onClick={() => window.open(selectedRefund.providerRefundUrl, '_blank', 'noopener,noreferrer')}
                 >
-                  Open VNPay Refund URL
+                  {t('pages.partnerOrders.refundDialog.openVnpayRefundUrl')}
                 </button>
               )}
             </div>

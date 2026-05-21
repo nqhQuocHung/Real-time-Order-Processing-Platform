@@ -5,6 +5,7 @@ import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AuthForgotPasswordPage.css'
 
 type AuthForgotPasswordOtpInfo = {
@@ -28,6 +29,7 @@ function parseExpiresAtToMillis(expiresAt?: string): number | null {
 }
 
 function AuthForgotPasswordPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   const [newPassword, setNewPassword] = useState('')
@@ -115,17 +117,17 @@ function AuthForgotPasswordPage() {
 
   const validatePasswordForm = () => {
     if (!newPassword.trim()) {
-      setError('Please enter your new password.')
+      setError(t('pages.authForgotPassword.errors.missingNewPassword', 'Please enter your new password.'))
       return false
     }
 
     if (!confirmPassword.trim()) {
-      setError('Please confirm your new password.')
+      setError(t('pages.authForgotPassword.errors.missingConfirmPassword', 'Please confirm your new password.'))
       return false
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Password confirmation does not match.')
+      setError(t('pages.authForgotPassword.errors.confirmMismatch', 'Password confirmation does not match.'))
       return false
     }
 
@@ -146,13 +148,16 @@ function AuthForgotPasswordPage() {
   const handleSubmitForgotPassword = async () => {
     if (!forgotPasswordUsername.trim()) {
       setPopupError(
-        'Account information is missing. Please go back and request OTP again.',
+        t(
+          'pages.authForgotPassword.errors.missingAccountInfo',
+          'Account information is missing. Please go back and request OTP again.',
+        ),
       )
       return
     }
 
     if (!otp.trim()) {
-      setPopupError('Please enter the OTP code.')
+      setPopupError(t('pages.authForgotPassword.errors.missingOtp', 'Please enter the OTP code.'))
       return
     }
 
@@ -169,7 +174,10 @@ function AuthForgotPasswordPage() {
     navigate('/login', {
       replace: true,
       state: {
-        toastMessage: 'Password changed successfully. Please sign in again.',
+        toastMessage: t(
+          'pages.authForgotPassword.success.passwordChanged',
+          'Password changed successfully. Please sign in again.',
+        ),
       },
     })
   }
@@ -177,7 +185,10 @@ function AuthForgotPasswordPage() {
   const handleRenewOtp = async () => {
     if (!forgotPasswordUsername.trim()) {
       setPopupError(
-        'Username/email is missing. Please return to the previous step.',
+        t(
+          'pages.authForgotPassword.errors.missingUsernameOrEmail',
+          'Username/email is missing. Please return to the previous step.',
+        ),
       )
       return
     }
@@ -190,7 +201,7 @@ function AuthForgotPasswordPage() {
 
     setOtpInfo(data)
     setOtp('')
-    setPopupSuccess(data?.message || 'OTP has been reissued successfully.')
+    setPopupSuccess(data?.message || t('pages.authForgotPassword.success.otpReissued', 'OTP has been reissued successfully.'))
 
     localStorage.setItem('forgotPasswordUsername', forgotPasswordUsername.trim())
     localStorage.setItem('forgotPasswordOtpInfo', JSON.stringify(data))
@@ -214,8 +225,8 @@ function AuthForgotPasswordPage() {
       setPopupError(
         err?.response?.data?.message ||
           (isOtpExpired
-            ? 'Unable to reissue OTP. Please try again.'
-            : 'Password reset failed. Please verify your OTP.'),
+            ? t('pages.authForgotPassword.errors.reissueOtpFailed', 'Unable to reissue OTP. Please try again.')
+            : t('pages.authForgotPassword.errors.resetFailed', 'Password reset failed. Please verify your OTP.')),
       )
     } finally {
       setLoading(false)
@@ -232,22 +243,30 @@ function AuthForgotPasswordPage() {
 
   const otpButtonText = useMemo(() => {
     if (loading) {
-      return isOtpExpired ? 'Reissuing OTP...' : 'Verifying OTP...'
+      return isOtpExpired
+        ? t('pages.authForgotPassword.actions.reissuingOtp', 'Reissuing OTP...')
+        : t('pages.authForgotPassword.actions.verifyingOtp', 'Verifying OTP...')
     }
 
     if (isOtpExpired) {
-      return 'OTP expired - Reissue OTP'
+      return t('pages.authForgotPassword.actions.otpExpiredReissue', 'OTP expired - Reissue OTP')
     }
 
-    return `Confirm OTP (${countdownText || '00:00'})`
-  }, [loading, isOtpExpired, countdownText])
+    return t('pages.authForgotPassword.actions.confirmOtpCountdown', 'Confirm OTP ({time})', {
+      time: countdownText || '00:00',
+    })
+  }, [loading, isOtpExpired, countdownText, t])
 
   return (
     <PageTransition>
       {loading && (
         <Loading
           fullScreen
-          text={isOtpExpired ? 'Reissuing OTP...' : 'Updating password...'}
+          text={
+            isOtpExpired
+              ? t('pages.authForgotPassword.actions.reissuingOtp', 'Reissuing OTP...')
+              : t('pages.authForgotPassword.actions.updatingPassword', 'Updating password...')
+          }
         />
       )}
 
@@ -273,12 +292,15 @@ function AuthForgotPasswordPage() {
 
                   <div className="forgot-password-divider forgot-password-d-flex forgot-password-align-items-center forgot-password-my-4">
                     <p className="forgot-password-text-center forgot-password-fw-bold forgot-password-mx-3 forgot-password-mb-0">
-                      Reset password
+                      {t('pages.authForgotPassword.title', 'Reset password')}
                     </p>
                   </div>
 
                   <p className="forgot-password-text-center forgot-password-mb-4 forgot-password-helper-text">
-                    Enter a new password, then confirm using the OTP sent to your email.
+                    {t(
+                      'pages.authForgotPassword.subtitle',
+                      'Enter a new password, then confirm using the OTP sent to your email.',
+                    )}
                   </p>
 
                   {error && (
@@ -294,13 +316,13 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-form-label"
                       htmlFor="forgotPasswordNew"
                     >
-                      New password
+                      {t('pages.authForgotPassword.newPassword', 'New password')}
                     </label>
                     <input
                       type="password"
                       id="forgotPasswordNew"
                       className="forgot-password-form-control forgot-password-form-control-lg"
-                      placeholder="Enter new password"
+                      placeholder={t('pages.authForgotPassword.placeholders.newPassword', 'Enter new password')}
                       value={newPassword}
                       onChange={(e) => {
                         setNewPassword(e.target.value)
@@ -315,13 +337,13 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-form-label"
                       htmlFor="forgotPasswordConfirm"
                     >
-                      Confirm password
+                      {t('pages.authForgotPassword.confirmPassword', 'Confirm password')}
                     </label>
                     <input
                       type="password"
                       id="forgotPasswordConfirm"
                       className="forgot-password-form-control forgot-password-form-control-lg"
-                      placeholder="Re-enter new password"
+                      placeholder={t('pages.authForgotPassword.placeholders.confirmPassword', 'Re-enter new password')}
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value)
@@ -337,7 +359,7 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-link-action"
                       onClick={() => navigate('/forgot-password-otp')}
                     >
-                      Back to OTP request
+                      {t('pages.authForgotPassword.backToOtpRequest', 'Back to OTP request')}
                     </button>
                   </div>
 
@@ -347,7 +369,7 @@ function AuthForgotPasswordPage() {
                       className="forgot-password-btn forgot-password-btn-primary forgot-password-btn-lg"
                       disabled={loading}
                     >
-                      Continue
+                      {t('pages.authForgotPassword.continue', 'Continue')}
                     </button>
                   </div>
                 </form>
@@ -366,19 +388,24 @@ function AuthForgotPasswordPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="forgot-password-modal-header">
-                <h3 className="forgot-password-modal-title">Confirm OTP</h3>
+                <h3 className="forgot-password-modal-title">
+                  {t('pages.authForgotPassword.modalTitle', 'Confirm OTP')}
+                </h3>
               </div>
 
               <div className="forgot-password-modal-body">
                 {otpInfo?.email && (
                   <p className="forgot-password-modal-subtext forgot-password-modal-email">
-                    OTP destination: <strong>{maskedEmail}</strong>
+                    {t('pages.authForgotPassword.otpDestination', 'OTP destination')}: <strong>{maskedEmail}</strong>
                   </p>
                 )}
 
                 {!forgotPasswordUsername && (
                   <div className="forgot-password-alert-danger">
-                    Account information is missing. Please return to OTP request step.
+                    {t(
+                      'pages.authForgotPassword.errors.missingAccountPopup',
+                      'Account information is missing. Please return to OTP request step.',
+                    )}
                   </div>
                 )}
 
@@ -397,13 +424,13 @@ function AuthForgotPasswordPage() {
                     className="forgot-password-form-label"
                     htmlFor="forgotPasswordOtp"
                   >
-                    OTP Code
+                    {t('pages.authForgotPassword.otpCode', 'OTP Code')}
                   </label>
                   <input
                     type="text"
                     id="forgotPasswordOtp"
                     className="forgot-password-form-control forgot-password-form-control-lg"
-                    placeholder="Enter OTP code"
+                    placeholder={t('pages.authForgotPassword.placeholders.otpCode', 'Enter OTP code')}
                     value={otp}
                     onChange={(e) => {
                       setOtp(e.target.value)
@@ -430,7 +457,7 @@ function AuthForgotPasswordPage() {
                   onClick={handleClosePopup}
                   disabled={loading}
                 >
-                  Cancel
+                  {t('pages.authForgotPassword.cancel', 'Cancel')}
                 </button>
               </div>
             </div>

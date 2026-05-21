@@ -1,3 +1,4 @@
+﻿import { useI18n } from '../../../i18n/I18nProvider'
 import './RoleFeaturePage.css'
 
 type RoleFeaturePageProps = {
@@ -13,6 +14,8 @@ function RoleFeaturePage({
   description,
   highlights = [],
 }: RoleFeaturePageProps) {
+  const { t } = useI18n()
+
   const sectionClassName = className
     ? `${className} role-feature-page role-page-stack`
     : 'role-feature-page role-page-stack'
@@ -26,7 +29,7 @@ function RoleFeaturePage({
 
       {!!highlights.length && (
         <article className="role-card">
-          <h3>Highlights</h3>
+          <h3>{t('pages.sharedRoleFeature.highlights', 'Highlights')}</h3>
           <ul className="role-list">
             {highlights.map((item) => (
               <li key={item}>{item}</li>

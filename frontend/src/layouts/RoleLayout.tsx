@@ -27,6 +27,7 @@ import {
   type OpenMessageConversationDetail,
 } from '../constants/messageEvents'
 import useNotificationStream from '../hooks/useNotificationStream'
+import { useI18n } from '../i18n/I18nProvider'
 import './RoleLayout.css'
 
 type ChangePasswordOtpResponse = {
@@ -60,6 +61,12 @@ type NotificationStreamEventDetail = {
   eventName: string
   payload: unknown
 }
+
+type TranslateFn = (
+  key: string,
+  fallback?: string,
+  params?: Record<string, string | number>,
+) => string
 
 type MessageConversationListResponse = {
   content?: MessageConversationItem[]
@@ -281,6 +288,7 @@ function buildNotificationMessage(
   eventName: string,
   payload: unknown,
   currentUserId: string,
+  t: TranslateFn,
 ): NotificationItem | null {
   if (eventName === 'connected') {
     return null
@@ -317,103 +325,225 @@ function buildNotificationMessage(
       ? payload
       : JSON.stringify(data)
 
-  let title = 'New notification'
-  let message = truncateText(fallbackMessage || 'You have a new notification from the system.')
+  const safeOrderCode = orderCode || t('common.notAvailable', '-')
+  const noteSection = (value: string) =>
+    value
+      ? t('notifications.sectionNote', ' Note: {value}', {
+          value: truncateText(value, 120),
+        })
+      : ''
+  const amountSection = (value: string) =>
+    value
+      ? t('notifications.sectionAmount', ' Amount: {amount} {currency}.', {
+          amount: value,
+          currency,
+        })
+      : ''
+  const reasonSection = (value: string) =>
+    value
+      ? t('notifications.sectionReason', ' Reason: {value}.', {
+          value: truncateText(value, 120),
+        })
+      : ''
+  const statusSection = (value: string) =>
+    value
+      ? t('notifications.sectionStatus', ' Status: {value}.', {
+          value,
+        })
+      : ''
+
+  let title = t('notifications.defaultTitle', 'New notification')
+  let message = truncateText(
+    fallbackMessage || t('notifications.defaultMessage', 'You have a new notification from the system.'),
+  )
   let eventTypeLabel = eventName
   let linkHint: string | undefined
 
   if (eventName === 'partner.request.created') {
-    const actor = username || email || 'user'
-    title = 'New partner request'
-    message = `New partner request from ${actor}.${requestNote ? ` Note: ${requestNote}` : ''}`
+    const actor = username || email || t('notifications.actorFallback', 'user')
+    title = t('notifications.partnerRequestCreatedTitle', 'New partner request')
+    message = t(
+      'notifications.partnerRequestCreatedMessage',
+      'New partner request from {actor}.{noteSection}',
+      {
+        actor,
+        noteSection: noteSection(requestNote),
+      },
+    )
   }
 
   if (eventName === 'partner.request.decided') {
-    const actor = username || email || 'user'
+    const actor = username || email || t('notifications.actorFallback', 'user')
     const decisionLabel = decision.includes('REJECT')
-      ? 'rejected'
+      ? t('statuses.partnerRequest.rejected', 'rejected')
       : decision.includes('APPROV')
-        ? 'approved'
-        : decision.toLowerCase() || 'updated'
+        ? t('statuses.partnerRequest.approved', 'approved')
+        : decision.toLowerCase() || t('statuses.partnerRequest.updated', 'updated')
 
-    title = 'Partner request decision'
-    message = `Partner request of ${actor} was ${decisionLabel}.${reviewNote ? ` Note: ${reviewNote}` : ''}`
+    title = t('notifications.partnerRequestDecidedTitle', 'Partner request decision')
+    message = t(
+      'notifications.partnerRequestDecidedMessage',
+      'Partner request of {actor} was {decision}.{noteSection}',
+      {
+        actor,
+        decision: decisionLabel,
+        noteSection: noteSection(reviewNote),
+      },
+    )
   }
 
   if (eventName === 'payment.transaction.succeeded') {
-    title = 'Payment successful'
-    message = `Order ${orderCode || '-'} was paid successfully.${amount ? ` Amount: ${amount} ${currency}.` : ''}`
+    title = t('notifications.paymentSucceededTitle', 'Payment successful')
+    message = t(
+      'notifications.paymentSucceededMessage',
+      'Order {orderCode} was paid successfully.{amountSection}',
+      {
+        orderCode: safeOrderCode,
+        amountSection: amountSection(amount),
+      },
+    )
   }
 
   if (eventName === 'payment.transaction.failed') {
-    title = 'Payment failed'
-    message = `Order ${orderCode || '-'} payment failed.${paymentStatus ? ` Status: ${paymentStatus}.` : ''}`
+    title = t('notifications.paymentFailedTitle', 'Payment failed')
+    message = t(
+      'notifications.paymentFailedMessage',
+      'Order {orderCode} payment failed.{statusSection}',
+      {
+        orderCode: safeOrderCode,
+        statusSection: statusSection(paymentStatus),
+      },
+    )
   }
 
   if (eventName === 'order.refund.requested') {
-    title = 'Refund request submitted'
-    message =
-      `Order ${orderCode || '-'} has a new refund request.` +
-      (refundAmount ? ` Amount: ${refundAmount} ${currency}.` : '') +
-      (refundReason ? ` Reason: ${truncateText(refundReason, 120)}` : '')
+    title = t('notifications.refundRequestedTitle', 'Refund request submitted')
+    message = t(
+      'notifications.refundRequestedMessage',
+      'Order {orderCode} has a new refund request.{amountSection}{reasonSection}',
+      {
+        orderCode: safeOrderCode,
+        amountSection: amountSection(refundAmount),
+        reasonSection: reasonSection(refundReason),
+      },
+    )
   }
 
   if (eventName === 'order.refund.approved') {
-    title = 'Refund request approved'
-    message =
-      `Seller approved refund request for order ${orderCode || '-'}.` +
-      (sellerDecisionNote ? ` Note: ${truncateText(sellerDecisionNote, 120)}` : '')
+    title = t('notifications.refundApprovedTitle', 'Refund request approved')
+    message = t(
+      'notifications.refundApprovedMessage',
+      'Seller approved refund request for order {orderCode}.{noteSection}',
+      {
+        orderCode: safeOrderCode,
+        noteSection: noteSection(sellerDecisionNote),
+      },
+    )
   }
 
   if (eventName === 'order.refund.rejected') {
-    title = 'Refund request rejected'
-    message =
-      `Seller rejected refund request for order ${orderCode || '-'}.` +
-      (sellerDecisionNote ? ` Note: ${truncateText(sellerDecisionNote, 120)}` : '')
+    title = t('notifications.refundRejectedTitle', 'Refund request rejected')
+    message = t(
+      'notifications.refundRejectedMessage',
+      'Seller rejected refund request for order {orderCode}.{noteSection}',
+      {
+        orderCode: safeOrderCode,
+        noteSection: noteSection(sellerDecisionNote),
+      },
+    )
   }
 
   if (eventName === 'order.refund.completed' || eventName === 'payment.refund.succeeded') {
-    title = 'Refund completed'
-    message =
-      `Refund for order ${orderCode || '-'} completed successfully.` +
-      (refundAmount ? ` Amount: ${refundAmount} ${currency}.` : '')
+    title = t('notifications.refundCompletedTitle', 'Refund completed')
+    message = t(
+      'notifications.refundCompletedMessage',
+      'Refund for order {orderCode} completed successfully.{amountSection}',
+      {
+        orderCode: safeOrderCode,
+        amountSection: amountSection(refundAmount),
+      },
+    )
   }
 
   if (eventName === 'order.refund.failed' || eventName === 'payment.refund.failed') {
-    title = 'Refund failed'
-    message =
-      `Refund for order ${orderCode || '-'} failed.` +
-      (providerNote ? ` Reason: ${truncateText(providerNote, 120)}` : '')
+    title = t('notifications.refundFailedTitle', 'Refund failed')
+    message = t(
+      'notifications.refundFailedMessage',
+      'Refund for order {orderCode} failed.{reasonSection}',
+      {
+        orderCode: safeOrderCode,
+        reasonSection: reasonSection(providerNote),
+      },
+    )
   }
 
   if (eventName === 'order.lifecycle.completed') {
-    title = 'Order completed'
-    message = `Order ${orderCode || '-'} is completed.`
+    title = t('notifications.orderCompletedTitle', 'Order completed')
+    message = t('notifications.orderCompletedMessage', 'Order {orderCode} is completed.', {
+      orderCode: safeOrderCode,
+    })
   }
 
   if (eventName === 'order.lifecycle.failed') {
-    title = 'Order failed'
-    message = `Order ${orderCode || '-'} processing failed.`
+    title = t('notifications.orderFailedTitle', 'Order failed')
+    message = t('notifications.orderFailedMessage', 'Order {orderCode} processing failed.', {
+      orderCode: safeOrderCode,
+    })
   }
 
   if (eventName === 'product.review.created') {
     const rating = String(reviewPayload.rating ?? '').trim()
-    const actor = actorUserName || normalizeText(reviewPayload.userName) || 'A user'
-    title = 'New product review'
-    message = `${actor} posted a new review${productId ? ` for product ${productId}` : ''}.${rating ? ` Rating: ${rating}/5.` : ''}`
+    const actor =
+      actorUserName ||
+      normalizeText(reviewPayload.userName) ||
+      t('notifications.reviewActorFallback', 'A user')
+    const productSection = productId
+      ? t('notifications.sectionProduct', ' for product {productId}', {
+          productId,
+        })
+      : ''
+    const ratingSection = rating
+      ? t('notifications.sectionRating', ' Rating: {rating}/5', {
+          rating,
+        })
+      : ''
+    title = t('notifications.reviewCreatedTitle', 'New product review')
+    message = t(
+      'notifications.reviewCreatedMessage',
+      '{actor} posted a new review{productSection}.{ratingSection}',
+      {
+        actor,
+        productSection,
+        ratingSection,
+      },
+    )
   }
 
   if (eventName === 'product.review.updated') {
-    const actor = actorUserName || normalizeText(reviewPayload.userName) || 'A user'
-    title = 'Product review updated'
-    message = `${actor} updated a review${productId ? ` for product ${productId}` : ''}.`
+    const actor =
+      actorUserName ||
+      normalizeText(reviewPayload.userName) ||
+      t('notifications.reviewActorFallback', 'A user')
+    const productSection = productId
+      ? t('notifications.sectionProduct', ' for product {productId}', {
+          productId,
+        })
+      : ''
+    title = t('notifications.reviewUpdatedTitle', 'Product review updated')
+    message = t('notifications.reviewUpdatedMessage', '{actor} updated a review{productSection}.', {
+      actor,
+      productSection,
+    })
   }
 
   if (eventName === 'product.review.comment.created') {
-    const actor = actorUserName || normalizeText(commentPayload.userName) || 'A user'
+    const actor =
+      actorUserName ||
+      normalizeText(commentPayload.userName) ||
+      t('notifications.reviewActorFallback', 'A user')
     const shortComment = truncateText(normalizeText(commentPayload.content), 140)
     title = actor
-    message = shortComment || 'Added a new review comment.'
+    message = shortComment || t('notifications.reviewCommentFallback', 'Added a new review comment.')
     eventTypeLabel = ''
     linkHint = ''
   }
@@ -634,6 +764,7 @@ function isMenuVisibleForRole(item: NavigationMenuItem, currentRole: AppRole) {
 function RoleLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { language, setLanguage, t } = useI18n()
   const session = getAuthSession()
   const userMenuRef = useRef<HTMLDivElement | null>(null)
   const notificationMenuRef = useRef<HTMLDivElement | null>(null)
@@ -760,22 +891,42 @@ function RoleLayout() {
     return '/user/profile'
   }, [currentRole])
 
+  const translateRoleLabel = useCallback(
+    (role: AppRole) => {
+      const roleKey = role.toLowerCase()
+      return t(`roles.${roleKey}`, getRoleLabel(role))
+    },
+    [t],
+  )
+
+  const translateMenuLabel = useCallback(
+    (menuItem: Pick<NavigationMenuItem, 'key' | 'label'>) => {
+      return t(`menu.${menuItem.key}`, menuItem.label)
+    },
+    [t],
+  )
+
+  const currentRoleLabel = useMemo(
+    () => translateRoleLabel(currentRole),
+    [currentRole, translateRoleLabel],
+  )
+
   const currentPageLabel = useMemo(() => {
     const matchedMenu = roleMenuSource.find((item) => item.path === location.pathname)
     if (matchedMenu) {
-      return matchedMenu.label
+      return translateMenuLabel(matchedMenu)
     }
 
     if (location.pathname.startsWith('/partner/profile')) {
-      return 'Partner Profile'
+      return t('menu.partner-profile', 'Partner Profile')
     }
 
     if (location.pathname.startsWith('/user/profile')) {
-      return 'Profile'
+      return t('menu.user-profile', 'Profile')
     }
 
-    return 'Dashboard'
-  }, [roleMenuSource, location.pathname])
+    return t('system.dashboard', 'Dashboard')
+  }, [roleMenuSource, location.pathname, t, translateMenuLabel])
 
   const activeConversationMessages = useMemo(
     () =>
@@ -900,7 +1051,10 @@ function RoleLayout() {
       return sortedContent
     } catch (error) {
       setMessageCenterError(
-        extractApiErrorMessage(error, 'Cannot load conversations.'),
+        extractApiErrorMessage(
+          error,
+          t('errors.loadConversations', 'Cannot load conversations.'),
+        ),
       )
       console.error('Cannot load message conversations:', error)
       return [] as MessageConversationItem[]
@@ -933,7 +1087,10 @@ function RoleLayout() {
       )
     } catch (error) {
       setMessageCenterError(
-        extractApiErrorMessage(error, 'Cannot mark conversation as read.'),
+        extractApiErrorMessage(
+          error,
+          t('errors.markConversationRead', 'Cannot mark conversation as read.'),
+        ),
       )
       console.error('Cannot mark conversation as read:', error)
     }
@@ -983,7 +1140,7 @@ function RoleLayout() {
       }
     } catch (error) {
       setMessageCenterError(
-        extractApiErrorMessage(error, 'Cannot load messages.'),
+        extractApiErrorMessage(error, t('errors.loadMessages', 'Cannot load messages.')),
       )
       console.error('Cannot load conversation messages:', error)
     } finally {
@@ -1068,7 +1225,10 @@ function RoleLayout() {
     } catch (error) {
       setIsMessageOpen(true)
       setMessageCenterError(
-        extractApiErrorMessage(error, 'Cannot open conversation with this shop.'),
+        extractApiErrorMessage(
+          error,
+          t('errors.openConversation', 'Cannot open conversation with this shop.'),
+        ),
       )
       console.error('Cannot open message conversation:', error)
     }
@@ -1127,7 +1287,7 @@ function RoleLayout() {
       })
     } catch (error) {
       setMessageCenterError(
-        extractApiErrorMessage(error, 'Cannot send message.'),
+        extractApiErrorMessage(error, t('errors.sendMessage', 'Cannot send message.')),
       )
       console.error('Cannot send message:', error)
     } finally {
@@ -1297,7 +1457,7 @@ function RoleLayout() {
         }
       }
 
-      const notification = buildNotificationMessage(eventName, payload, currentUserId)
+      const notification = buildNotificationMessage(eventName, payload, currentUserId, t)
       if (!notification) {
         return
       }
@@ -1571,27 +1731,37 @@ function RoleLayout() {
     setChangePasswordSuccess('')
 
     if (!session?.userId) {
-      setChangePasswordError('User session not found. Please login again.')
+      setChangePasswordError(
+        t('changePassword.errorSessionMissing', 'User session not found. Please login again.'),
+      )
       return
     }
 
     if (!oldPassword.trim()) {
-      setChangePasswordError('Please enter your current password.')
+      setChangePasswordError(
+        t('changePassword.errorCurrentPasswordRequired', 'Please enter your current password.'),
+      )
       return
     }
 
     if (!newPassword.trim()) {
-      setChangePasswordError('Please enter a new password.')
+      setChangePasswordError(
+        t('changePassword.errorNewPasswordRequired', 'Please enter a new password.'),
+      )
       return
     }
 
     if (newPassword.trim().length < 8) {
-      setChangePasswordError('New password must be at least 8 characters.')
+      setChangePasswordError(
+        t('changePassword.errorNewPasswordLength', 'New password must be at least 8 characters.'),
+      )
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setChangePasswordError('Password confirmation does not match.')
+      setChangePasswordError(
+        t('changePassword.errorConfirmMismatch', 'Password confirmation does not match.'),
+      )
       return
     }
 
@@ -1608,11 +1778,15 @@ function RoleLayout() {
       setOtp('')
       setOtpEmail(data.email || session.email || '')
       setChangePasswordSuccess(
-        data.message || 'OTP sent to your email. Please enter OTP to continue.',
+        data.message ||
+          t('changePassword.successOtpSent', 'OTP has been sent to your email.'),
       )
     } catch (err) {
       setChangePasswordError(
-        extractApiErrorMessage(err, 'Cannot send OTP for password change.'),
+        extractApiErrorMessage(
+          err,
+          t('errors.sendOtp', 'Cannot send OTP for password change.'),
+        ),
       )
     } finally {
       setChangePasswordLoading(false)
@@ -1624,12 +1798,14 @@ function RoleLayout() {
     setChangePasswordSuccess('')
 
     if (!session?.userId) {
-      setChangePasswordError('User session not found. Please login again.')
+      setChangePasswordError(
+        t('changePassword.errorSessionMissing', 'User session not found. Please login again.'),
+      )
       return
     }
 
     if (!/^\d{6}$/.test(otp.trim())) {
-      setChangePasswordError('OTP must be exactly 6 digits.')
+      setChangePasswordError(t('changePassword.errorOtpInvalid', 'OTP must be exactly 6 digits.'))
       return
     }
 
@@ -1642,14 +1818,22 @@ function RoleLayout() {
       })
 
       const data = extractApiData<ChangePasswordResponse>(response)
-      setChangePasswordSuccess(data.message || 'Password updated successfully.')
+      setChangePasswordSuccess(
+        data.message || t('changePassword.successUpdated', 'Password updated successfully.'),
+      )
       window.setTimeout(() => {
         setIsChangePasswordOpen(false)
         resetChangePasswordForm()
       }, 1200)
     } catch (err) {
       setChangePasswordError(
-        extractApiErrorMessage(err, 'Password change failed. Please check OTP and try again.'),
+        extractApiErrorMessage(
+          err,
+          t(
+            'errors.changePasswordFailed',
+            'Password change failed. Please check OTP and try again.',
+          ),
+        ),
       )
     } finally {
       setChangePasswordLoading(false)
@@ -1710,7 +1894,7 @@ function RoleLayout() {
             onClick={() => toggleMenuGroup(node.key)}
             aria-expanded={hasChildren ? isOpen : false}
           >
-            <span>{node.label}</span>
+            <span>{translateMenuLabel(node)}</span>
             {hasChildren && (
               <span className={`role-menu-group-caret ${isOpen ? 'open' : ''}`}>
                 v
@@ -1737,131 +1921,181 @@ function RoleLayout() {
         to={nodePath}
         className={({ isActive }) => `role-menu-item ${isActive ? 'active' : ''}`}
       >
-        {node.label}
+        {translateMenuLabel(node)}
       </NavLink>
     )
   }
 
-  function renderUserMenu(compact = false) {
-    const usernameLabel = session?.username || 'User'
-
+  function renderLanguageSwitcher(compact = false) {
     return (
-      <div className={`role-user-controls ${compact ? 'role-user-controls-compact' : ''}`}>
-        {isMessagingEnabled && (
+      <div
+        className={`role-language-switch ${compact ? 'compact' : ''}`}
+        role="group"
+        aria-label={t('language.switchLabel', 'Language')}
+      >
+        <button
+          type="button"
+          className={`role-language-btn is-vi ${language === 'vi' ? 'active' : ''}`}
+          onClick={() => setLanguage('vi')}
+          title={t('language.vietnamese', 'Vietnamese')}
+          aria-label={t('language.vietnamese', 'Vietnamese')}
+        />
+        <button
+          type="button"
+          className={`role-language-btn is-en ${language === 'en' ? 'active' : ''}`}
+          onClick={() => setLanguage('en')}
+          title={t('language.english', 'English')}
+          aria-label={t('language.english', 'English')}
+        />
+      </div>
+    )
+  }
+
+  function renderUserMenu(compact = false) {
+    const usernameLabel = session?.username || t('userMenu.user', 'User')
+
+    const messageControl = isMessagingEnabled ? (
           <MessageCenter
             ref={messageMenuRef}
             compact={compact}
             isOpen={isMessageOpen}
             isThreadOpen={isMessageThreadOpen}
+            language={language}
+            t={t}
             error={messageCenterError}
             unreadCount={unreadMessageCount}
             conversations={messageConversations}
-            activeConversationId={activeMessageConversationId}
-            messages={activeConversationMessages}
-            currentUserId={currentUserId}
-            currentUserAvatar={displayedAvatar}
-            avatarByUserId={messageAvatarByUserId}
-            draft={messageDraft}
-            sending={sendingMessage}
-            loadingConversations={loadingMessageConversations}
-            loadingMessages={loadingMessageEntries}
-            onToggle={() => {
-              setIsUserMenuOpen(false)
-              setIsNotificationOpen(false)
-              setMessageCenterError('')
-              setIsMessageOpen((state) => !state)
-            }}
-            onSelectConversation={(conversationId) => {
-              void openMessageThread(conversationId)
-            }}
-            onCloseThread={() => setIsMessageThreadOpen(false)}
-            onDraftChange={setMessageDraft}
-            onSend={() => {
-              void handleSendMessage()
-            }}
-          />
-        )}
+        activeConversationId={activeMessageConversationId}
+        messages={activeConversationMessages}
+        currentUserId={currentUserId}
+        currentUserAvatar={displayedAvatar}
+        avatarByUserId={messageAvatarByUserId}
+        draft={messageDraft}
+        sending={sendingMessage}
+        loadingConversations={loadingMessageConversations}
+        loadingMessages={loadingMessageEntries}
+        onToggle={() => {
+          setIsUserMenuOpen(false)
+          setIsNotificationOpen(false)
+          setMessageCenterError('')
+          setIsMessageOpen((state) => !state)
+        }}
+        onSelectConversation={(conversationId) => {
+          void openMessageThread(conversationId)
+        }}
+        onCloseThread={() => setIsMessageThreadOpen(false)}
+        onDraftChange={setMessageDraft}
+        onSend={() => {
+          void handleSendMessage()
+        }}
+      />
+    ) : null
 
+    const notificationControl = (
         <NotificationBell
           ref={notificationMenuRef}
           compact={compact}
           isOpen={isNotificationOpen}
+          language={language}
           notifications={notifications}
+          t={t}
           onItemClick={(item) => {
             setIsNotificationOpen(false)
             setIsMessageOpen(false)
-            if (!item.link) {
-              return
-            }
-            navigate(item.link)
-          }}
-          unreadCount={unreadNotificationCount}
-          onToggle={() => {
-            setIsUserMenuOpen(false)
+          if (!item.link) {
+            return
+          }
+          navigate(item.link)
+        }}
+        unreadCount={unreadNotificationCount}
+        onToggle={() => {
+          setIsUserMenuOpen(false)
+          setIsMessageOpen(false)
+          setIsNotificationOpen((state) => !state)
+        }}
+      />
+    )
+
+    const userControl = (
+      <div
+        className={`role-user-menu ${compact ? 'role-user-menu-compact' : ''}`}
+        ref={userMenuRef}
+      >
+        <button
+          type="button"
+          className={`role-user-trigger ${compact ? 'compact' : ''}`}
+          onClick={() => {
+            setIsNotificationOpen(false)
             setIsMessageOpen(false)
-            setIsNotificationOpen((state) => !state)
+            setIsUserMenuOpen((state) => !state)
           }}
-        />
-
-        <div
-          className={`role-user-menu ${compact ? 'role-user-menu-compact' : ''}`}
-          ref={userMenuRef}
+          aria-expanded={isUserMenuOpen}
         >
-          <button
-            type="button"
-            className={`role-user-trigger ${compact ? 'compact' : ''}`}
-            onClick={() => {
-              setIsNotificationOpen(false)
-              setIsMessageOpen(false)
-              setIsUserMenuOpen((state) => !state)
-            }}
-            aria-expanded={isUserMenuOpen}
-          >
-            <img
-              src={displayedAvatar}
-              alt="User avatar"
-              className="role-avatar"
-              onError={() => setUseFallbackAvatar(true)}
-            />
-            {!compact && (
-              <div className="role-user-meta">
-                <strong>{session?.username || 'Unknown user'}</strong>
-                <span>{session?.email || '-'}</span>
-              </div>
-            )}
-            {compact ? (
-              <span className="role-user-trigger-label">{usernameLabel}</span>
-            ) : (
-              <span className={`role-user-caret ${isUserMenuOpen ? 'open' : ''}`}>v</span>
-            )}
-          </button>
-
-          {isUserMenuOpen && (
-            <div className="role-user-dropdown" role="menu">
-              <button
-                type="button"
-                className="role-user-dropdown-item"
-                onClick={handleEditProfile}
-              >
-                Edit profile
-              </button>
-              <button
-                type="button"
-                className="role-user-dropdown-item"
-                onClick={openChangePasswordModal}
-              >
-                Change password
-              </button>
-              <button
-                type="button"
-                className="role-user-dropdown-item danger"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
+          <img
+            src={displayedAvatar}
+            alt={t('userMenu.user', 'User')}
+            className="role-avatar"
+            onError={() => setUseFallbackAvatar(true)}
+          />
+          {!compact && (
+            <div className="role-user-meta">
+              <strong>{session?.username || t('userMenu.unknownUser', 'Unknown user')}</strong>
+              <span>{session?.email || '-'}</span>
             </div>
           )}
+          {compact ? (
+            <span className="role-user-trigger-label">{usernameLabel}</span>
+          ) : (
+            <span className={`role-user-caret ${isUserMenuOpen ? 'open' : ''}`}>v</span>
+          )}
+        </button>
+
+        {isUserMenuOpen && (
+          <div className="role-user-dropdown" role="menu">
+            <button
+              type="button"
+              className="role-user-dropdown-item"
+              onClick={handleEditProfile}
+            >
+              {t('userMenu.editProfile', 'Edit profile')}
+            </button>
+            <button
+              type="button"
+              className="role-user-dropdown-item"
+              onClick={openChangePasswordModal}
+            >
+              {t('userMenu.changePassword', 'Change password')}
+            </button>
+            <button
+              type="button"
+              className="role-user-dropdown-item danger"
+              onClick={handleLogout}
+            >
+              {t('userMenu.logout', 'Logout')}
+            </button>
+          </div>
+        )}
+      </div>
+    )
+
+    if (compact) {
+      return (
+        <div className="role-user-controls role-user-controls-compact role-user-controls-mobile">
+          <div className="role-user-controls-mobile-top">
+            {messageControl}
+            {notificationControl}
+            {userControl}
+          </div>
+          <div className="role-user-controls-mobile-language">{renderLanguageSwitcher(true)}</div>
         </div>
+      )
+    }
+
+    return (
+      <div className="role-user-controls">
+        {messageControl}
+        {notificationControl}
+        {userControl}
       </div>
     )
   }
@@ -1877,8 +2111,8 @@ function RoleLayout() {
           >
             <img src={realtimeLogo} alt="Realtime Logo" className="role-brand-logo" />
             <div>
-              <h1>Order Platform</h1>
-              <p>{getRoleLabel(currentRole)}</p>
+              <h1>{t('system.orderPlatform', 'Order Platform')}</h1>
+              <p>{currentRoleLabel}</p>
             </div>
           </button>
 
@@ -1891,7 +2125,9 @@ function RoleLayout() {
           onClick={() => setIsMobileMenuOpen((state) => !state)}
           aria-expanded={isMobileMenuOpen}
           aria-controls="role-sidebar-menu"
-          aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-label={isMobileMenuOpen
+            ? t('mobileMenu.close', 'Close menu')
+            : t('mobileMenu.open', 'Open menu')}
         >
           <span aria-hidden="true" className="role-mobile-menu-icon">
             <span />
@@ -1913,9 +2149,14 @@ function RoleLayout() {
         <header className="role-header">
           <div>
             <h2>{currentPageLabel}</h2>
-            <p className="role-muted">Role: {getRoleLabel(currentRole)}</p>
+            <p className="role-muted">{t('header.roleWithValue', 'Role: {role}', { role: currentRoleLabel })}</p>
           </div>
-          {!isMobileViewport && <div className="role-header-actions">{renderUserMenu()}</div>}
+          {!isMobileViewport && (
+            <div className="role-header-actions">
+              {renderLanguageSwitcher()}
+              {renderUserMenu()}
+            </div>
+          )}
         </header>
 
         <section className="role-content">
@@ -1926,7 +2167,7 @@ function RoleLayout() {
       {isChangePasswordOpen && (
         <div className="role-modal-backdrop" onClick={closeChangePasswordModal}>
           <div className="role-modal" onClick={(event) => event.stopPropagation()}>
-            <h3>Change password</h3>
+            <h3>{t('changePassword.title', 'Change password')}</h3>
 
             {changePasswordError && <p className="role-error">{changePasswordError}</p>}
             {changePasswordSuccess && <p className="role-muted">{changePasswordSuccess}</p>}
@@ -1934,7 +2175,7 @@ function RoleLayout() {
             {!otpStep && (
               <div className="role-modal-field-grid">
                 <label className="role-modal-label" htmlFor="oldPasswordInput">
-                  Current password
+                  {t('changePassword.currentPassword', 'Current password')}
                   <input
                     id="oldPasswordInput"
                     className="role-modal-input"
@@ -1947,7 +2188,7 @@ function RoleLayout() {
                 </label>
 
                 <label className="role-modal-label" htmlFor="newPasswordInput">
-                  New password
+                  {t('changePassword.newPassword', 'New password')}
                   <input
                     id="newPasswordInput"
                     className="role-modal-input"
@@ -1960,7 +2201,7 @@ function RoleLayout() {
                 </label>
 
                 <label className="role-modal-label" htmlFor="confirmPasswordInput">
-                  Confirm new password
+                  {t('changePassword.confirmNewPassword', 'Confirm new password')}
                   <input
                     id="confirmPasswordInput"
                     className="role-modal-input"
@@ -1976,10 +2217,14 @@ function RoleLayout() {
 
             {otpStep && (
               <div className="role-modal-field-grid">
-                <p className="role-muted">OTP has been sent to {otpEmail || 'your email'}.</p>
+                <p className="role-muted">
+                  {t('changePassword.otpSentTo', 'OTP has been sent to {email}.', {
+                    email: otpEmail || t('changePassword.yourEmail', 'your email'),
+                  })}
+                </p>
 
                 <label className="role-modal-label" htmlFor="otpInput">
-                  OTP (6 digits)
+                  {t('changePassword.otpDigits', 'OTP (6 digits)')}
                   <input
                     id="otpInput"
                     className="role-modal-input"
@@ -2002,7 +2247,9 @@ function RoleLayout() {
                   onClick={handleSendChangePasswordOtp}
                   disabled={changePasswordLoading}
                 >
-                  {changePasswordLoading ? 'Sending OTP...' : 'Send OTP'}
+                  {changePasswordLoading
+                    ? t('changePassword.sendingOtp', 'Sending OTP...')
+                    : t('changePassword.sendOtp', 'Send OTP')}
                 </button>
               )}
 
@@ -2014,7 +2261,7 @@ function RoleLayout() {
                     onClick={handleSendChangePasswordOtp}
                     disabled={changePasswordLoading}
                   >
-                    Resend OTP
+                    {t('changePassword.resendOtp', 'Resend OTP')}
                   </button>
                   <button
                     type="button"
@@ -2022,7 +2269,9 @@ function RoleLayout() {
                     onClick={handleConfirmChangePassword}
                     disabled={changePasswordLoading}
                   >
-                    {changePasswordLoading ? 'Updating...' : 'Confirm'}
+                    {changePasswordLoading
+                      ? t('changePassword.updating', 'Updating...')
+                      : t('changePassword.confirm', 'Confirm')}
                   </button>
                 </>
               )}
@@ -2033,7 +2282,7 @@ function RoleLayout() {
                 onClick={closeChangePasswordModal}
                 disabled={changePasswordLoading}
               >
-                Cancel
+                {t('changePassword.cancel', 'Cancel')}
               </button>
             </div>
           </div>

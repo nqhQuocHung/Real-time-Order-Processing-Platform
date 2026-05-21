@@ -1,13 +1,30 @@
 .admin-category-page-form {
   margin-top: 0.8rem;
+  row-gap: 12px;
 }
 
 .admin-category-page-filter {
   margin-top: 0.8rem;
+  margin-bottom: 10px;
 }
 
 .admin-category-page-full-width {
   grid-column: 1 / -1;
+}
+
+.admin-category-page .role-inline-actions {
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.admin-category-page .role-table-wrap {
+  margin-top: 6px;
+}
+
+.admin-category-page-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 6px;
 }
 
 .admin-category-page-header h3 {
@@ -22,6 +39,29 @@
   display: inline-flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-category-page-btn-edit {
+  border-color: rgba(125, 214, 255, 0.52);
+  color: #bce7ff;
+  background: rgba(16, 63, 98, 0.46);
+}
+
+.admin-category-page-btn-edit:hover:not(:disabled) {
+  border-color: rgba(125, 214, 255, 0.72);
+  background: rgba(25, 82, 125, 0.58);
+}
+
+.admin-category-page-btn-delete {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+  background: rgba(108, 32, 49, 0.42);
+}
+
+.admin-category-page-btn-delete:hover:not(:disabled) {
+  border-color: rgba(255, 143, 161, 0.72);
+  background: rgba(136, 40, 61, 0.56);
 }
 
 .admin-category-page-pagination {
