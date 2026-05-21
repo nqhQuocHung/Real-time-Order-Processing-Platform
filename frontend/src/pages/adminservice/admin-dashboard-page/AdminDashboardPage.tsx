@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { ORDER_STATUSES } from '../../../constants/orderStatus'
 import './AdminDashboardPage.css'
 
 type NotificationStreamEventDetail = {
@@ -81,14 +82,11 @@ const UNMAPPED_PARTNER_KEY = '__UNMAPPED_PARTNER__'
 const REVENUE_STATUSES = new Set(['PAID', 'COMPLETED'])
 const PENDING_STATUSES = new Set(['CREATED', 'RESERVED', 'PAID'])
 
-const STATUS_LABEL_MAP: Record<string, string> = {
-  CREATED: 'Created',
-  RESERVED: 'Reserved',
-  PAID: 'Paid',
-  COMPLETED: 'Completed',
-  FAILED: 'Failed',
-  CANCELLED: 'Cancelled',
-}
+const STATUS_LABEL_MAP: Record<string, string> = ORDER_STATUSES.reduce((acc, status) => {
+  const normalized = status.toLowerCase()
+  acc[status] = normalized.charAt(0).toUpperCase() + normalized.slice(1)
+  return acc
+}, {} as Record<string, string>)
 
 const CHART_COLORS = ['#27c2ff', '#22e4c6', '#ffd166', '#ff9f6e', '#ff6f91', '#a78bfa']
 

@@ -146,9 +146,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (paymentTransaction.getStatus() == PaymentStatusEnum.FAILED) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_FAILED);
         }
-        if (paymentTransaction.getStatus() == PaymentStatusEnum.CANCELLED) {
-            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_CANCELLED);
-        }
         if (paymentTransaction.getStatus() != PaymentStatusEnum.PENDING) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_INVALID_STATE);
         }
@@ -187,9 +184,6 @@ public class PaymentServiceImpl implements PaymentService {
         }
         if (paymentTransaction.getStatus() == PaymentStatusEnum.SUCCESS) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_SUCCESS);
-        }
-        if (paymentTransaction.getStatus() == PaymentStatusEnum.CANCELLED) {
-            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_CANCELLED);
         }
         if (paymentTransaction.getStatus() != PaymentStatusEnum.PENDING) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_INVALID_STATE);

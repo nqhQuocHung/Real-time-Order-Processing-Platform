@@ -60,9 +60,11 @@
 .user-orders-refund-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   border-radius: 999px;
   border: 1px solid rgba(98, 210, 255, 0.4);
   padding: 4px 9px;
+  min-width: 110px;
   font-size: 0.74rem;
   background: rgba(10, 33, 52, 0.82);
 }
@@ -91,6 +93,55 @@
 .user-orders-refund-none {
   color: var(--role-text-sub);
   font-size: 0.82rem;
+}
+
+.user-orders-order-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 210, 255, 0.42);
+  padding: 4px 9px;
+  min-width: 110px;
+  margin-right: 8px;
+  font-size: 0.74rem;
+  background: rgba(10, 33, 52, 0.82);
+}
+
+.user-orders-order-status-badge.status-created {
+  border-color: rgba(255, 177, 97, 0.55);
+  color: #ffd4a3;
+}
+
+.user-orders-order-status-badge.status-reserved {
+  border-color: rgba(167, 151, 255, 0.55);
+  color: #d5c5ff;
+}
+
+.user-orders-order-status-badge.status-paid {
+  border-color: rgba(125, 214, 255, 0.55);
+  color: #bce7ff;
+}
+
+.user-orders-order-status-badge.status-completed {
+  border-color: rgba(113, 226, 175, 0.55);
+  color: #b8f5d7;
+}
+
+.user-orders-order-status-badge.status-failed {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+}
+
+.user-orders-order-status-badge.status-cancelled {
+  border-color: rgba(220, 120, 134, 0.55);
+  color: #ffc5d0;
+}
+
+.user-orders-payment-status-label {
+  display: inline-block;
+  font-size: 0.74rem;
+  color: var(--role-text-sub);
 }
 
 .user-orders-pay-button {
@@ -322,13 +373,22 @@
 .user-orders-page-pagination-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
 }
 
 .user-orders-page-btn-page {
-  min-width: 40px;
-  padding: 7px 10px;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
   font-size: 0.76rem;
+}
+
+.user-orders-page-pagination-controls .user-orders-page-btn-page:first-child,
+.user-orders-page-pagination-controls .user-orders-page-btn-page:last-child {
+  min-width: 72px;
 }
 
 .user-orders-page-btn-page.is-active {

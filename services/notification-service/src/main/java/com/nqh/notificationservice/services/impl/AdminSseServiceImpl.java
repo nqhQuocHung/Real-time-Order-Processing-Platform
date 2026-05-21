@@ -20,10 +20,9 @@ public class AdminSseServiceImpl implements AdminSseService {
     public SseEmitter subscribe(String userId, boolean isAdmin) {
         SseEmitter emitter = new SseEmitter(0L);
 
+        userEmittersByUserId.computeIfAbsent(userId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
         if (isAdmin) {
             adminEmitters.add(emitter);
-        } else {
-            userEmittersByUserId.computeIfAbsent(userId, ignored -> new CopyOnWriteArrayList<>()).add(emitter);
         }
 
         emitter.onCompletion(() -> removeEmitter(userId, isAdmin, emitter));
@@ -90,7 +89,6 @@ public class AdminSseServiceImpl implements AdminSseService {
     private void removeEmitter(String userId, boolean isAdmin, SseEmitter emitter) {
         if (isAdmin) {
             adminEmitters.remove(emitter);
-            return;
         }
 
         if (userId == null) {

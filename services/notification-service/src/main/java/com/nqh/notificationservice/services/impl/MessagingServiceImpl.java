@@ -65,10 +65,6 @@ public class MessagingServiceImpl implements MessagingService {
             throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.MSG_SELF_CONVERSATION_NOT_ALLOWED);
         }
 
-        if (currentRole == MessageParticipantRoleEnum.ADMIN) {
-            throw new AppException(HttpStatus.FORBIDDEN, MessageCode.MSG_ADMIN_NOT_SUPPORTED);
-        }
-
         UUID userId = currentRole == MessageParticipantRoleEnum.PARTNER
                 ? request.getPartnerUserId()
                 : currentUserId;

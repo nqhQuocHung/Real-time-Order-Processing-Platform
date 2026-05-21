@@ -302,6 +302,42 @@ function parseBackendMenus(): BackendMenuItem[] {
   }
 }
 
+function resolveRoleFromPath(pathname?: string): AppRole | undefined {
+  if (!pathname) {
+    return undefined
+  }
+
+  const normalizedPath = pathname.trim().toLowerCase()
+  if (!normalizedPath) {
+    return undefined
+  }
+
+  if (normalizedPath.startsWith('/partner/')) {
+    return 'SHOPEE_PARTNER'
+  }
+
+  if (normalizedPath.startsWith('/admin/')) {
+    return 'ADMIN'
+  }
+
+  if (normalizedPath.startsWith('/user/') || normalizedPath === '/payment-return') {
+    return 'USER'
+  }
+
+  return undefined
+}
+
+function resolveForwardedRole(sessionRole?: AppRole): AppRole | undefined {
+  if (typeof window !== 'undefined') {
+    const roleFromPath = resolveRoleFromPath(window.location.pathname)
+    if (roleFromPath) {
+      return roleFromPath
+    }
+  }
+
+  return sessionRole
+}
+
 function setLocalStorageValue(key: string, value: string) {
   if (typeof window === 'undefined') {
     return
@@ -480,10 +516,21 @@ function createApiInstance(accessToken?: string) {
   instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     beginApiLoading(config)
 
-    const token = accessToken || getAuthSession()?.accessToken
+    const session = getAuthSession()
+    const token = accessToken || session?.accessToken
 
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+
+    const forwardedRole = resolveForwardedRole(session?.role)
+    if (forwardedRole && !config.headers['X-User-Role']) {
+      config.headers['X-User-Role'] = forwardedRole
+    }
+
+    const forwardedUserId = session?.userId?.trim()
+    if (forwardedUserId && !config.headers['X-User-Id']) {
+      config.headers['X-User-Id'] = forwardedUserId
     }
 
     if (!config.headers['X-Correlation-Id']) {

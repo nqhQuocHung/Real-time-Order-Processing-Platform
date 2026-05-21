@@ -229,7 +229,11 @@ public class NotificationEventConsumer {
             }
 
             if (excludeActorRecipient && actorUserId != null) {
-                recipients.remove(actorUserId);
+                String normalizedActorUserId = actorUserId.trim();
+                boolean actorIsCustomer = customerId != null && normalizedActorUserId.equals(customerId);
+                if (!actorIsCustomer) {
+                    recipients.remove(normalizedActorUserId);
+                }
             }
 
             for (String recipientUserId : recipients) {

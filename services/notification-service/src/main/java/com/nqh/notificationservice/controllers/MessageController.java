@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -45,11 +46,12 @@ public class MessageController {
     @PostMapping("/conversations/open")
     public ResponseEntity<BaseResponse<MessageConversationResponse>> openConversation(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @RequestBody @Valid OpenMessageConversationRequest request,
             HttpServletRequest httpServletRequest
     ) {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
-        MessageParticipantRoleEnum currentRole = resolveRole(jwt);
+        MessageParticipantRoleEnum currentRole = resolveRole(forwardedUserRole, jwt);
         String currentUserName = jwt.getClaimAsString("username");
 
         MessageConversationResponse response = messagingService.openConversation(
@@ -64,12 +66,13 @@ public class MessageController {
     @GetMapping("/conversations")
     public ResponseEntity<BaseResponse<MessageConversationListResponse>> getConversations(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             HttpServletRequest httpServletRequest
     ) {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
-        MessageParticipantRoleEnum currentRole = resolveRole(jwt);
+        MessageParticipantRoleEnum currentRole = resolveRole(forwardedUserRole, jwt);
 
         MessageConversationListResponse response = messagingService.getConversations(
                 currentUserId,
@@ -83,6 +86,7 @@ public class MessageController {
     @GetMapping("/conversations/{conversationId}/messages")
     public ResponseEntity<BaseResponse<MessageEntryListResponse>> getConversationMessages(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @PathVariable UUID conversationId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "30") @Min(1) @Max(100) int size,
@@ -90,7 +94,7 @@ public class MessageController {
             HttpServletRequest httpServletRequest
     ) {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
-        MessageParticipantRoleEnum currentRole = resolveRole(jwt);
+        MessageParticipantRoleEnum currentRole = resolveRole(forwardedUserRole, jwt);
 
         MessageEntryListResponse response = messagingService.getConversationMessages(
                 currentUserId,
@@ -106,12 +110,13 @@ public class MessageController {
     @PostMapping("/conversations/{conversationId}/messages")
     public ResponseEntity<BaseResponse<MessageEntryResponse>> sendMessage(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @PathVariable UUID conversationId,
             @RequestBody @Valid SendMessageRequest request,
             HttpServletRequest httpServletRequest
     ) {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
-        MessageParticipantRoleEnum currentRole = resolveRole(jwt);
+        MessageParticipantRoleEnum currentRole = resolveRole(forwardedUserRole, jwt);
         String currentUserName = jwt.getClaimAsString("username");
 
         MessageEntryResponse response = messagingService.sendMessage(
@@ -127,11 +132,12 @@ public class MessageController {
     @PatchMapping("/conversations/{conversationId}/read")
     public ResponseEntity<BaseResponse<MarkMessageConversationReadResponse>> markConversationAsRead(
             @AuthenticationPrincipal Jwt jwt,
+            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @PathVariable UUID conversationId,
             HttpServletRequest httpServletRequest
     ) {
         UUID currentUserId = UUID.fromString(jwt.getSubject());
-        MessageParticipantRoleEnum currentRole = resolveRole(jwt);
+        MessageParticipantRoleEnum currentRole = resolveRole(forwardedUserRole, jwt);
 
         MarkMessageConversationReadResponse response = messagingService.markConversationAsRead(
                 currentUserId,
@@ -141,7 +147,12 @@ public class MessageController {
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.MSG_MARK_READ_SUCCESS, response, httpServletRequest);
     }
 
-    private MessageParticipantRoleEnum resolveRole(Jwt jwt) {
+    private MessageParticipantRoleEnum resolveRole(String forwardedUserRole, Jwt jwt) {
+        MessageParticipantRoleEnum roleFromHeader = resolveRoleFromHeader(forwardedUserRole, jwt);
+        if (roleFromHeader != null) {
+            return roleFromHeader;
+        }
+
         if (jwt == null) {
             return MessageParticipantRoleEnum.USER;
         }
@@ -152,6 +163,42 @@ public class MessageController {
             return MessageParticipantRoleEnum.PARTNER;
         }
         return MessageParticipantRoleEnum.USER;
+    }
+
+    private MessageParticipantRoleEnum resolveRoleFromHeader(String forwardedUserRole, Jwt jwt) {
+        if (jwt == null) {
+            return null;
+        }
+
+        String normalizedRole = normalize(forwardedUserRole);
+        if (normalizedRole == null) {
+            return null;
+        }
+
+        if (("ADMIN".equalsIgnoreCase(normalizedRole) || "ROLE_ADMIN".equalsIgnoreCase(normalizedRole))
+                && containsIgnoreCase(jwt.getClaimAsStringList("roles"), "ADMIN")) {
+            return MessageParticipantRoleEnum.ADMIN;
+        }
+
+        if (("SHOPEE_PARTNER".equalsIgnoreCase(normalizedRole) || "PARTNER".equalsIgnoreCase(normalizedRole))
+                && containsIgnoreCase(jwt.getClaimAsStringList("roles"), "SHOPEE_PARTNER")) {
+            return MessageParticipantRoleEnum.PARTNER;
+        }
+
+        if (("USER".equalsIgnoreCase(normalizedRole) || "CUSTOMER".equalsIgnoreCase(normalizedRole))
+                && containsIgnoreCase(jwt.getClaimAsStringList("roles"), "USER")) {
+            return MessageParticipantRoleEnum.USER;
+        }
+
+        return null;
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private boolean containsIgnoreCase(Collection<String> values, String expected) {

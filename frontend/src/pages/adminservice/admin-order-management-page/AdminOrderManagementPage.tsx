@@ -6,16 +6,10 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { ORDER_STATUSES } from '../../../constants/orderStatus'
 import './AdminOrderManagementPage.css'
 
-const orderStatuses = [
-  'CREATED',
-  'RESERVED',
-  'PAID',
-  'COMPLETED',
-  'FAILED',
-  'CANCELLED',
-]
+const orderStatuses = ORDER_STATUSES
 
 type OrderSummary = {
   orderCode: string

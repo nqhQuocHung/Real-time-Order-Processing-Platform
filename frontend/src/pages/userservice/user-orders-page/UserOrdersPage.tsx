@@ -13,18 +13,29 @@ import {
   type UserCartMap,
   writeUserCartToStorage,
 } from '../../../features/cart/userCartStorage'
+import {
+  ORDER_STATUS_FILTER_OPTIONS,
+  type OrderRefundStatus,
+  type PaymentStatus,
+} from '../../../constants/orderStatus'
 import './UserOrdersPage.css'
 import { QRCodeCanvas } from 'qrcode.react'
 
-const orderStatuses = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
 const paymentReturnRoutePath = '/payment-return'
 const paymentReturnFlashStorageKey = 'user-orders-payment-return-flash-v1'
 const paymentReturnHandledStorageKey = 'user-orders-payment-return-handled-v1'
 const PAYMENT_RETURN_HANDLED_TTL_MS = 30 * 60 * 1000
 const DEFAULT_ORDER_PAGE_SIZE = 8
 const ORDER_PAGE_SIZE_OPTIONS = [8, 12, 20, 30]
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
 
 type PaymentFlashType = 'success' | 'error'
+type AppNotificationEventDetail = {
+  eventName?: string
+  payload?: {
+    orderCode?: string
+  }
+}
 
 type PaymentDialogState = {
   orderCode: string
@@ -67,20 +78,13 @@ type CreateOrderResponse = {
 
 type PaymentTransactionResponse = {
   orderCode: string
-  status: string
+  status: PaymentStatus
   paymentUrl?: string
   method?: string
   amount?: number
   currency?: string
   updatedAt?: string
 }
-
-type OrderRefundStatus =
-  | 'REQUESTED'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'REFUNDED'
-  | 'FAILED'
 
 type OrderRefundResponse = {
   refundId: string
@@ -129,25 +133,19 @@ function normalizePrice(value: number | null | undefined): number {
   return normalized > 0 ? Number(normalized.toFixed(2)) : 0
 }
 
-function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+function buildPaginationPages(currentPage: number, totalPages: number): number[] {
   if (totalPages <= 0) {
     return []
   }
 
-  const half = Math.floor(maxButtons / 2)
-  let start = Math.max(0, currentPage - half)
-  let end = Math.min(totalPages - 1, start + maxButtons - 1)
-
-  if (end - start + 1 < maxButtons) {
-    start = Math.max(0, end - maxButtons + 1)
+  if (totalPages <= 4) {
+    return Array.from({ length: totalPages }, (_, index) => index)
   }
 
-  const pages: number[] = []
-  for (let i = start; i <= end; i += 1) {
-    pages.push(i)
-  }
-
-  return pages
+  const candidatePages = [currentPage - 1, currentPage, currentPage + 1, totalPages - 1]
+  return Array.from(new Set(candidatePages.filter((page) => page >= 0 && page < totalPages))).sort(
+    (left, right) => left - right,
+  )
 }
 
 function buildIdempotencyKey(): string {
@@ -521,6 +519,37 @@ function UserOrdersPage() {
     }, 1000)
     return () => window.clearInterval(tickTimer)
   }, [])
+
+  useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<AppNotificationEventDetail>
+      const eventName = (customEvent.detail?.eventName || '').trim()
+      if (
+        eventName !== 'payment.transaction.succeeded' &&
+        eventName !== 'payment.transaction.failed' &&
+        eventName !== 'order.refund.approved' &&
+        eventName !== 'order.refund.rejected' &&
+        eventName !== 'order.refund.completed' &&
+        eventName !== 'order.refund.failed' &&
+        eventName !== 'payment.refund.succeeded' &&
+        eventName !== 'payment.refund.failed'
+      ) {
+        return
+      }
+
+      const orderCode = customEvent.detail?.payload?.orderCode?.trim() || ''
+      if (orderCode) {
+        void loadRefundState(orderCode, true)
+      }
+      void loadOrders(orderPage, orderPageSize)
+      void loadCatalog()
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    return () => {
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    }
+  }, [loadCatalog, loadOrders, orderPage, orderPageSize])
 
   useEffect(() => {
     const refundableOrders = orders
@@ -1204,7 +1233,7 @@ function UserOrdersPage() {
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              {orderStatuses.map((status) => (
+              {ORDER_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
                   {status || 'All'}
                 </option>
@@ -1283,8 +1312,12 @@ function UserOrdersPage() {
                   <tr key={order.orderCode}>
                     <td>{order.orderCode}</td>
                     <td>
-                      {order.status}
-                      {paymentInfo?.status ? ` / Payment: ${paymentInfo.status}` : ''}
+                      <span className={`user-orders-order-status-badge status-${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                      {paymentInfo?.status && (
+                        <span className="user-orders-payment-status-label">Payment: {paymentInfo.status}</span>
+                      )}
                     </td>
                     <td>
                       {refundInfo && (
@@ -1517,4 +1550,3 @@ function UserOrdersPage() {
 }
 
 export default UserOrdersPage
-

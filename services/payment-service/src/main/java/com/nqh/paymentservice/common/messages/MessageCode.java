@@ -19,7 +19,6 @@ public enum MessageCode {
     PAYMENT_ORDER_CODE_REQUIRED("PAYMENT_ORDER_CODE_REQUIRED", "Order code is required"),
     PAYMENT_ALREADY_SUCCESS("PAYMENT_ALREADY_SUCCESS", "Payment already marked as success"),
     PAYMENT_ALREADY_FAILED("PAYMENT_ALREADY_FAILED", "Payment already marked as failed"),
-    PAYMENT_ALREADY_CANCELLED("PAYMENT_ALREADY_CANCELLED", "Payment already cancelled"),
     PAYMENT_INVALID_STATE("PAYMENT_INVALID_STATE", "Payment transaction state is invalid"),
     PAYMENT_METHOD_NOT_SUPPORTED_FOR_SUCCESS("PAYMENT_METHOD_NOT_SUPPORTED_FOR_SUCCESS", "Only VNPAY can succeed in demo mode"),
     PAYMENT_REFUND_ALREADY_EXISTS("PAYMENT_REFUND_ALREADY_EXISTS", "Payment refund already exists"),

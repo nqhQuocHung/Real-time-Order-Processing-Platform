@@ -210,6 +210,8 @@ function buildStreamEventDedupKey(eventName: string, payload: unknown): string {
     return ''
   }
 
+  const normalizedEventName = normalizeEventNameForDedup(eventName)
+  const isCrossTopicDuplicatePair = normalizedEventName !== eventName
   const data = toNotificationPayload(payload)
   const eventId = normalizeText(data.eventId)
   const requestId = normalizeText(data.requestId)
@@ -217,27 +219,62 @@ function buildStreamEventDedupKey(eventName: string, payload: unknown): string {
   const providerTransactionId = normalizeText(data.providerTransactionId)
   const status = normalizeText(data.status)
 
-  if (eventId) {
-    return `${eventName}|eventId:${eventId}`
+  // For equivalent cross-topic events (e.g. refund success from both payment
+  // and order topics), deduplicate by business key instead of eventId.
+  if (!isCrossTopicDuplicatePair && eventId) {
+    return `${normalizedEventName}|eventId:${eventId}`
   }
 
-  if (requestId) {
-    return `${eventName}|requestId:${requestId}`
+  if (!isCrossTopicDuplicatePair && requestId) {
+    return `${normalizedEventName}|requestId:${requestId}`
   }
 
   if (orderCode && providerTransactionId) {
-    return `${eventName}|order:${orderCode}|txn:${providerTransactionId}|status:${status}`
+    return `${normalizedEventName}|order:${orderCode}|txn:${providerTransactionId}|status:${status}`
   }
 
   if (orderCode) {
-    return `${eventName}|order:${orderCode}|status:${status}`
+    return `${normalizedEventName}|order:${orderCode}|status:${status}`
+  }
+
+  if (requestId) {
+    return `${normalizedEventName}|requestId:${requestId}`
+  }
+
+  if (eventId) {
+    return `${normalizedEventName}|eventId:${eventId}`
   }
 
   const payloadSignature = truncateText(
     typeof payload === 'string' ? payload : JSON.stringify(data),
     280,
   )
-  return `${eventName}|payload:${payloadSignature}`
+  return `${normalizedEventName}|payload:${payloadSignature}`
+}
+
+function normalizeEventNameForDedup(eventName: string): string {
+  if (
+    eventName === 'payment.refund.succeeded' ||
+    eventName === 'order.refund.completed'
+  ) {
+    return 'refund.succeeded'
+  }
+
+  if (
+    eventName === 'payment.refund.failed' ||
+    eventName === 'order.refund.failed'
+  ) {
+    return 'refund.failed'
+  }
+
+  if (
+    eventName === 'payment.transaction.succeeded' ||
+    eventName === 'order.lifecycle.paid'
+  ) {
+    return 'payment.succeeded'
+  }
+
+  return eventName
 }
 
 function buildNotificationMessage(
@@ -1252,7 +1289,10 @@ function RoleLayout() {
       ) {
         const notificationPayload = toNotificationPayload(payload)
         const actor = normalizeText(notificationPayload.actor)
-        if (actor === currentUserId) {
+        const customerId = normalizeText(notificationPayload.customerId)
+        const isActorButNotRefundCustomer =
+          actor === currentUserId && (!customerId || customerId !== currentUserId)
+        if (isActorButNotRefundCustomer) {
           return
         }
       }
