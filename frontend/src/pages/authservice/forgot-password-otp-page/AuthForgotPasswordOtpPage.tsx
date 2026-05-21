@@ -1,10 +1,11 @@
 ﻿import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apis, endpoints, extractApiData } from '../../../config/apis'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AuthForgotPasswordOtpPage.css'
 
 type AuthForgotPasswordOtpData = {
@@ -15,6 +16,7 @@ type AuthForgotPasswordOtpData = {
 }
 
 function AuthForgotPasswordOtpPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
@@ -28,7 +30,7 @@ function AuthForgotPasswordOtpPage() {
     setSuccess('')
 
     if (!usernameOrEmail.trim()) {
-      setError('Vui lòng nhập tài khoản hoặc email')
+      setError(t('pages.authForgotPasswordOtp.errors.missingUsernameOrEmail', 'Please enter your username or email.'))
       return
     }
 
@@ -41,7 +43,7 @@ function AuthForgotPasswordOtpPage() {
 
       const data = extractApiData<AuthForgotPasswordOtpData>(response)
 
-      setSuccess(data.message || 'OTP đã được gửi thành công')
+      setSuccess(data.message || t('pages.authForgotPasswordOtp.success.otpSent', 'OTP has been sent successfully.'))
 
       localStorage.setItem('forgotPasswordUsername', usernameOrEmail.trim())
       localStorage.setItem('forgotPasswordOtpInfo', JSON.stringify(data))
@@ -49,7 +51,8 @@ function AuthForgotPasswordOtpPage() {
       navigate('/forgot-password')
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || 'Không thể gửi OTP, vui lòng thử lại',
+        err?.response?.data?.message ||
+          t('pages.authForgotPasswordOtp.errors.sendOtpFailed', 'Failed to send OTP. Please try again.'),
       )
     } finally {
       setLoading(false)
@@ -58,7 +61,7 @@ function AuthForgotPasswordOtpPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang gửi OTP..." />}
+      {loading && <Loading fullScreen text={t('pages.authForgotPasswordOtp.sendingOtp', 'Sending OTP...')} />}
 
       <section
         className="auth-forgot-password-otp-page forgot-password-otp-vh-100 forgot-password-otp-page-bg"
@@ -74,20 +77,23 @@ function AuthForgotPasswordOtpPage() {
                 >
                   <div className="forgot-password-otp-logo-wrap">
                     <img
-                      src={vnptLogo}
+                      src={realtimeLogo}
                       className="forgot-password-otp-brand-image"
-                      alt="VNPT Logo"
+                      alt="Realtime Logo"
                     />
                   </div>
 
                   <div className="forgot-password-otp-divider forgot-password-otp-d-flex forgot-password-otp-align-items-center forgot-password-otp-my-4">
                     <p className="forgot-password-otp-text-center forgot-password-otp-fw-bold forgot-password-otp-mx-3 forgot-password-otp-mb-0">
-                      Quên mật khẩu
+                      {t('pages.authForgotPasswordOtp.title', 'Forgot password')}
                     </p>
                   </div>
 
                   <p className="forgot-password-otp-text-center forgot-password-otp-mb-4">
-                    Nhập tài khoản hoặc email để nhận mã OTP đặt lại mật khẩu
+                    {t(
+                      'pages.authForgotPasswordOtp.subtitle',
+                      'Enter your username or email to receive a password reset OTP.',
+                    )}
                   </p>
 
                   {error && (
@@ -106,13 +112,16 @@ function AuthForgotPasswordOtpPage() {
                       className="forgot-password-otp-form-label"
                       htmlFor="forgotUsernameOrEmail"
                     >
-                      Tài khoản hoặc email
+                      {t('pages.authForgotPasswordOtp.usernameOrEmail', 'Username or Email')}
                     </label>
                     <input
                       type="text"
                       id="forgotUsernameOrEmail"
                       className="forgot-password-otp-form-control forgot-password-otp-form-control-lg"
-                      placeholder="Nhập tài khoản hoặc email"
+                      placeholder={t(
+                        'pages.authForgotPasswordOtp.placeholders.usernameOrEmail',
+                        'Enter your username or email',
+                      )}
                       value={usernameOrEmail}
                       onChange={(e) => {
                         setUsernameOrEmail(e.target.value)
@@ -129,7 +138,7 @@ function AuthForgotPasswordOtpPage() {
                         className="forgot-password-otp-link-action"
                         onClick={() => navigate('/login')}
                       >
-                        Quay lại đăng nhập
+                        {t('pages.authForgotPasswordOtp.backToLogin', 'Back to sign in')}
                       </button>
                     </div>
                   </div>
@@ -140,7 +149,9 @@ function AuthForgotPasswordOtpPage() {
                       className="forgot-password-otp-btn forgot-password-otp-btn-primary forgot-password-otp-btn-lg"
                       disabled={loading}
                     >
-                      {loading ? 'Đang gửi OTP...' : 'Gửi OTP'}
+                      {loading
+                        ? t('pages.authForgotPasswordOtp.sendingOtp', 'Sending OTP...')
+                        : t('pages.authForgotPasswordOtp.sendOtp', 'Send OTP')}
                     </button>
                   </div>
                 </form>

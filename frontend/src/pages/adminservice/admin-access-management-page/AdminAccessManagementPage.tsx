@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminAccessManagementPage.css'
 
 type RoleSummary = {
@@ -166,6 +167,7 @@ function buildPaginationPages(currentPage: number, totalPages: number, maxButton
 }
 
 function AdminAccessManagementPage() {
+  const { t } = useI18n()
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -717,14 +719,14 @@ function AdminAccessManagementPage() {
   return (
     <section className="admin-access-management-page role-page-stack">
       <article className="role-card">
-        <h2>Access Management</h2>
+        <h2>{t('pages.adminAccessManagement.title')}</h2>
         <p className="role-muted">
           Create roles, create main tabs, create child pages, and map visible menus by role.
         </p>
       </article>
 
       <article className="role-card">
-        <h3>Create Role</h3>
+        <h3>{t('pages.adminAccessManagement.sections.createRole')}</h3>
         <div className="role-inline-form admin-access-management-two-cols">
           <label>
             Role Code
@@ -758,7 +760,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Create Main Tab</h3>
+        <h3>{t('pages.adminAccessManagement.sections.createMainTab')}</h3>
         <div className="role-inline-form admin-access-management-main-tab-grid">
           <label>
             Tab Key
@@ -810,7 +812,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Create Page / Tab</h3>
+        <h3>{t('pages.adminAccessManagement.sections.createPageTab')}</h3>
         <div className="role-inline-form admin-access-management-create-page-grid">
           <label>
             Parent Tab
@@ -901,7 +903,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Role - Tab/Page Mapping</h3>
+        <h3>{t('pages.adminAccessManagement.sections.roleTabMapping')}</h3>
 
         <div className="role-inline-form admin-access-management-two-cols">
           <label>
@@ -1027,7 +1029,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Current Roles</h3>
+        <h3>{t('pages.adminAccessManagement.sections.currentRoles')}</h3>
         <div className="role-table-wrap">
           <table>
             <thead>
@@ -1092,7 +1094,7 @@ function AdminAccessManagementPage() {
       </article>
 
       <article className="role-card">
-        <h3>Current Tabs / Pages</h3>
+        <h3>{t('pages.adminAccessManagement.sections.currentTabsPages')}</h3>
         <div className="role-inline-form admin-access-management-search-grid">
           <label className="admin-access-management-search-full">
             Search tab/page by name or URL
@@ -1220,7 +1222,7 @@ function AdminAccessManagementPage() {
             className="role-modal admin-access-management-delete-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3>Confirm Delete</h3>
+            <h3>{t('pages.adminAccessManagement.sections.confirmDelete')}</h3>
             <p className="role-muted">
               Delete {isContainerMenu(pendingDeleteMenu) ? 'tab' : 'page'}{' '}
               <strong>{pendingDeleteMenu.label}</strong>?
@@ -1260,7 +1262,7 @@ function AdminAccessManagementPage() {
             className="role-modal admin-access-management-edit-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3>Edit Tab / Page</h3>
+            <h3>{t('pages.adminAccessManagement.sections.editTabPage')}</h3>
             {editingMenuError && <p className="role-error">{editingMenuError}</p>}
             <div className="role-inline-form admin-access-management-create-page-grid">
               <label>
@@ -1421,7 +1423,7 @@ function AdminAccessManagementPage() {
         </div>
       )}
 
-      {loading && <p className="role-muted">Loading access management...</p>}
+      {loading && <p className="role-muted">{t('pages.adminAccessManagement.loading')}</p>}
       {error && <p className="role-error">{error}</p>}
       {success && <p className="role-muted">{success}</p>}
     </section>

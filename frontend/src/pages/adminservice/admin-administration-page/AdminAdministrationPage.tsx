@@ -8,6 +8,7 @@ import {
   extractApiErrorMessage,
 } from '../../../config/apis'
 import defaultAvatar from '../../../assets/default-avatar.svg'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminAdministrationPage.css'
 
 const APP_NOTIFICATION_EVENT = 'app-notification-event'
@@ -184,6 +185,7 @@ function toProfileFallback(user: AdminUserSummary): AdminUserProfile {
 }
 
 function AdminAdministrationPage() {
+  const { t } = useI18n()
   const location = useLocation()
   const [loadingSummary, setLoadingSummary] = useState(true)
   const [loadingUsers, setLoadingUsers] = useState(true)
@@ -686,16 +688,16 @@ async function loadPartnerRequests(
   return (
     <section className="admin-administration-page role-page-stack">
       <article className="role-card">
-        <h2>Administration Center</h2>
+        <h2>{t('pages.adminAdministration.title')}</h2>
         <p className="role-muted">
-          Admin workspace for user/partner governance, role assignment, account approval, and account locking.
+          {t('pages.adminAdministration.subtitle')}
         </p>
       </article>
 
       <article className="role-card">
-        <h3>Administration Metrics</h3>
+        <h3>{t('pages.adminAdministration.sections.metrics')}</h3>
 
-        {loadingSummary && <p className="role-muted">Loading metrics...</p>}
+        {loadingSummary && <p className="role-muted">{t('pages.adminAdministration.loadingMetrics')}</p>}
         {!loadingSummary && (
           <>
             <div className="role-metric-grid">
@@ -747,7 +749,7 @@ async function loadPartnerRequests(
       </article>
 
       <article className="role-card">
-        <h3>Account Filters</h3>
+        <h3>{t('pages.adminAdministration.sections.accountFilters')}</h3>
         <div className="role-inline-form">
           <label>
             Keyword (username/email)
@@ -854,7 +856,7 @@ async function loadPartnerRequests(
       </article>
 
       <article className="role-card">
-        <h3>Partner Upgrade Requests</h3>
+        <h3>{t('pages.adminAdministration.sections.partnerUpgradeRequests')}</h3>
         <p className="role-muted">
           New requests are pushed from server events.
         </p>
@@ -971,9 +973,9 @@ async function loadPartnerRequests(
       </article>
 
       <article className="role-card">
-        <h3>Account List ({totalUsersResult})</h3>
+        <h3>{t('pages.adminAdministration.sections.accountList', undefined, { count: totalUsersResult })}</h3>
         {(loadingUsers || isExecutingAction) && (
-          <p className="role-muted">Loading administration data...</p>
+          <p className="role-muted">{t('pages.adminAdministration.loadingData')}</p>
         )}
 
         <div className="role-table-wrap">

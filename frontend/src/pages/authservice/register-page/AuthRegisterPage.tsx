@@ -4,8 +4,9 @@ import Cropper, { type Area } from 'react-easy-crop'
 import { apis, endpoints } from '../../../config/apis'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AuthRegisterPage.css'
 
 const createImage = (url: string): Promise<HTMLImageElement> =>
@@ -23,7 +24,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
   const ctx = canvas.getContext('2d')
 
   if (!ctx) {
-    throw new Error('Không thể khởi tạo canvas')
+    throw new Error('Unable to initialize canvas')
   }
 
   canvas.width = pixelCrop.width
@@ -45,7 +46,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          reject(new Error('Không thể cắt ảnh'))
+          reject(new Error('Unable to crop image'))
           return
         }
 
@@ -61,6 +62,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<File> {
 }
 
 function AuthRegisterPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
 
   const [formData, setFormData] = useState({
@@ -105,7 +107,7 @@ function AuthRegisterPage() {
     if (!file) return
 
     if (!file.type.startsWith('image/')) {
-      setError('Vui lòng chọn file ảnh hợp lệ')
+      setError(t('pages.authRegister.errors.invalidImage', 'Please choose a valid image file.'))
       return
     }
 
@@ -143,7 +145,7 @@ function AuthRegisterPage() {
   const handleCropSave = async () => {
     try {
       if (!cropImageSrc || !croppedAreaPixels) {
-        setError('Không có vùng ảnh để cắt')
+        setError(t('pages.authRegister.errors.cropAreaMissing', 'No crop area was detected.'))
         return
       }
 
@@ -162,7 +164,7 @@ function AuthRegisterPage() {
       setCrop({ x: 0, y: 0 })
       setCroppedAreaPixels(null)
     } catch {
-      setError('Không thể cắt ảnh, vui lòng thử lại')
+      setError(t('pages.authRegister.errors.cropFailed', 'Unable to crop image. Please try again.'))
     }
   }
 
@@ -176,42 +178,42 @@ function AuthRegisterPage() {
 
   const validateForm = () => {
     if (!formData.username.trim()) {
-      setError('Vui lòng nhập tài khoản')
+      setError(t('pages.authRegister.errors.missingUsername', 'Please enter a username.'))
       return false
     }
 
     if (!formData.password.trim()) {
-      setError('Vui lòng nhập mật khẩu')
+      setError(t('pages.authRegister.errors.missingPassword', 'Please enter a password.'))
       return false
     }
 
     if (!formData.confirmPassword.trim()) {
-      setError('Vui lòng nhập xác nhận mật khẩu')
+      setError(t('pages.authRegister.errors.missingConfirmPassword', 'Please confirm your password.'))
       return false
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp')
+      setError(t('pages.authRegister.errors.confirmMismatch', 'Password confirmation does not match.'))
       return false
     }
 
     if (!formData.lastName.trim()) {
-      setError('Vui lòng nhập họ')
+      setError(t('pages.authRegister.errors.missingLastName', 'Please enter your last name.'))
       return false
     }
 
     if (!formData.firstName.trim()) {
-      setError('Vui lòng nhập tên')
+      setError(t('pages.authRegister.errors.missingFirstName', 'Please enter your first name.'))
       return false
     }
 
     if (!formData.email.trim()) {
-      setError('Vui lòng nhập email')
+      setError(t('pages.authRegister.errors.missingEmail', 'Please enter your email.'))
       return false
     }
 
     if (!formData.phone.trim()) {
-      setError('Vui lòng nhập số điện thoại')
+      setError(t('pages.authRegister.errors.missingPhone', 'Please enter your phone number.'))
       return false
     }
 
@@ -250,12 +252,16 @@ function AuthRegisterPage() {
       navigate('/login', {
         replace: true,
         state: {
-          toastMessage: 'Đăng ký tài khoản thành công. Vui lòng đăng nhập.',
+          toastMessage: t(
+            'pages.authRegister.success.accountCreated',
+            'Account created successfully. Please sign in.',
+          ),
         },
       })
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại',
+        err?.response?.data?.message ||
+          t('pages.authRegister.errors.registerFailed', 'Registration failed. Please try again.'),
       )
     } finally {
       setLoading(false)
@@ -264,7 +270,7 @@ function AuthRegisterPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang đăng ký tài khoản..." />}
+      {loading && <Loading fullScreen text={t('pages.authRegister.submitting', 'Creating account...')} />}
 
       <section
         className="auth-register-page register-page-bg register-page-shell"
@@ -278,15 +284,15 @@ function AuthRegisterPage() {
                   <form onSubmit={handleRegister} className="register-form-card">
                     <div className="register-logo-wrap">
                       <img
-                        src={vnptLogo}
+                        src={realtimeLogo}
                         className="register-brand-image"
-                        alt="VNPT Logo"
+                        alt="Realtime Logo"
                       />
                     </div>
 
                     <div className="register-divider register-d-flex register-align-items-center register-my-4">
                       <p className="register-text-center register-fw-bold register-mx-3 register-mb-0">
-                        Đăng ký tài khoản
+                        {t('pages.authRegister.title', 'Register')}
                       </p>
                     </div>
 
@@ -302,14 +308,14 @@ function AuthRegisterPage() {
                         className="register-form-label"
                         htmlFor="registerUsername"
                       >
-                        Tài khoản
+                        {t('pages.authRegister.username', 'Username')}
                       </label>
                       <input
                         type="text"
                         id="registerUsername"
                         name="username"
                         className="register-form-control register-form-control-lg"
-                        placeholder="Nhập tài khoản"
+                        placeholder={t('pages.authRegister.placeholders.username', 'Enter username')}
                         value={formData.username}
                         onChange={handleChange}
                       />
@@ -321,14 +327,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerPassword"
                         >
-                          Mật khẩu
+                          {t('pages.authRegister.password', 'Password')}
                         </label>
                         <input
                           type="password"
                           id="registerPassword"
                           name="password"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập mật khẩu"
+                          placeholder={t('pages.authRegister.placeholders.password', 'Enter password')}
                           value={formData.password}
                           onChange={handleChange}
                         />
@@ -339,14 +345,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerConfirmPassword"
                         >
-                          Xác nhận mật khẩu
+                          {t('pages.authRegister.confirmPassword', 'Confirm password')}
                         </label>
                         <input
                           type="password"
                           id="registerConfirmPassword"
                           name="confirmPassword"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập lại mật khẩu"
+                          placeholder={t('pages.authRegister.placeholders.confirmPassword', 'Re-enter password')}
                           value={formData.confirmPassword}
                           onChange={handleChange}
                         />
@@ -359,14 +365,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerLastName"
                         >
-                          Họ
+                          {t('pages.authRegister.lastName', 'Last name')}
                         </label>
                         <input
                           type="text"
                           id="registerLastName"
                           name="lastName"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập họ"
+                          placeholder={t('pages.authRegister.placeholders.lastName', 'Enter last name')}
                           value={formData.lastName}
                           onChange={handleChange}
                         />
@@ -377,14 +383,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerFirstName"
                         >
-                          Tên
+                          {t('pages.authRegister.firstName', 'First name')}
                         </label>
                         <input
                           type="text"
                           id="registerFirstName"
                           name="firstName"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập tên"
+                          placeholder={t('pages.authRegister.placeholders.firstName', 'Enter first name')}
                           value={formData.firstName}
                           onChange={handleChange}
                         />
@@ -396,14 +402,14 @@ function AuthRegisterPage() {
                         className="register-form-label"
                         htmlFor="registerEmail"
                       >
-                        Email
+                        {t('pages.authRegister.email', 'Email')}
                       </label>
                       <input
                         type="email"
                         id="registerEmail"
                         name="email"
                         className="register-form-control register-form-control-lg"
-                        placeholder="Nhập email"
+                        placeholder={t('pages.authRegister.placeholders.email', 'Enter email')}
                         value={formData.email}
                         onChange={handleChange}
                       />
@@ -415,7 +421,7 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerGender"
                         >
-                          Giới tính
+                          {t('pages.authRegister.gender', 'Gender')}
                         </label>
                         <select
                           id="registerGender"
@@ -424,10 +430,10 @@ function AuthRegisterPage() {
                           value={formData.gender}
                           onChange={handleChange}
                         >
-                          <option value="MALE">Nam</option>
-                          <option value="FEMALE">Nữ</option>
-                          <option value="OTHER">Khác</option>
-                          <option value="UNKNOWN">Không xác định</option>
+                          <option value="MALE">{t('pages.authRegister.genderOptions.male', 'Male')}</option>
+                          <option value="FEMALE">{t('pages.authRegister.genderOptions.female', 'Female')}</option>
+                          <option value="OTHER">{t('pages.authRegister.genderOptions.other', 'Other')}</option>
+                          <option value="UNKNOWN">{t('pages.authRegister.genderOptions.unknown', 'Prefer not to say')}</option>
                         </select>
                       </div>
 
@@ -436,14 +442,14 @@ function AuthRegisterPage() {
                           className="register-form-label"
                           htmlFor="registerPhone"
                         >
-                          Số điện thoại
+                          {t('pages.authRegister.phone', 'Phone number')}
                         </label>
                         <input
                           type="text"
                           id="registerPhone"
                           name="phone"
                           className="register-form-control register-form-control-lg"
-                          placeholder="Nhập số điện thoại"
+                          placeholder={t('pages.authRegister.placeholders.phone', 'Enter phone number')}
                           value={formData.phone}
                           onChange={handleChange}
                         />
@@ -455,7 +461,7 @@ function AuthRegisterPage() {
     className="register-form-label"
     htmlFor="registerAvatar"
   >
-    Ảnh đại diện
+    {t('pages.authRegister.avatar', 'Avatar')}
   </label>
 
   <div className="register-avatar-row">
@@ -474,19 +480,19 @@ function AuthRegisterPage() {
       <div className="register-avatar-preview-wrap register-avatar-preview-inline">
         <img
           src={avatarPreview}
-          alt="Avatar preview"
+          alt={t('pages.authRegister.avatarPreview', 'Avatar preview')}
           className="register-avatar-preview"
         />
 
         <div className="register-avatar-actions">
-          <span className="register-avatar-crop-text">Cắt ảnh</span>
+          <span className="register-avatar-crop-text">{t('pages.authRegister.croppedImage', 'Cropped image')}</span>
 
           <button
             type="button"
             className="register-avatar-remove"
             onClick={removeAvatar}
           >
-            Xóa ảnh
+            {t('pages.authRegister.removeAvatar', 'Remove')}
           </button>
         </div>
       </div>
@@ -500,7 +506,7 @@ function AuthRegisterPage() {
                         className="register-link-action"
                         onClick={() => navigate('/login')}
                       >
-                        Quay lại đăng nhập
+                        {t('pages.authRegister.backToLogin', 'Login now')}
                       </button>
                     </div>
 
@@ -510,7 +516,9 @@ function AuthRegisterPage() {
                         className="register-btn register-btn-primary register-btn-lg"
                         disabled={loading}
                       >
-                        {loading ? 'Đang đăng ký...' : 'Đăng ký'}
+                        {loading
+                          ? t('pages.authRegister.submitting', 'Creating account...')
+                          : t('pages.authRegister.submit', 'Create account')}
                       </button>
                     </div>
                   </form>
@@ -530,7 +538,7 @@ function AuthRegisterPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="register-crop-header">
-                <h3 className="register-crop-title">Cắt ảnh đại diện</h3>
+                <h3 className="register-crop-title">{t('pages.authRegister.cropTitle', 'Crop profile picture')}</h3>
               </div>
 
               <div className="register-crop-container">
@@ -548,7 +556,7 @@ function AuthRegisterPage() {
               </div>
 
               <div className="register-crop-zoom">
-                <label htmlFor="registerCropZoom">Phóng to</label>
+                <label htmlFor="registerCropZoom">{t('pages.authRegister.zoom', 'Zoom')}</label>
                 <input
                   id="registerCropZoom"
                   type="range"
@@ -566,14 +574,14 @@ function AuthRegisterPage() {
                   className="register-btn register-btn-secondary"
                   onClick={handleCloseCropModal}
                 >
-                  Hủy
+                  {t('pages.authRegister.cancel', 'Cancel')}
                 </button>
                 <button
                   type="button"
                   className="register-btn register-btn-primary"
                   onClick={handleCropSave}
                 >
-                  Xác nhận
+                  {t('pages.authRegister.confirm', 'Confirm')}
                 </button>
               </div>
             </div>

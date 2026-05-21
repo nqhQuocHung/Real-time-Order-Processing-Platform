@@ -5,6 +5,7 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminReportsPage.css'
 
 type OrderSummary = {
@@ -213,6 +214,7 @@ function buildReportPdfHtml(params: {
 }
 
 function AdminReportsPage() {
+  const { t } = useI18n()
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [error, setError] = useState('')
   const [statusPage, setStatusPage] = useState(0)
@@ -228,12 +230,12 @@ function AdminReportsPage() {
         const data = extractApiData<OrderListResponse>(response)
         setOrders(data.content || [])
       } catch (err) {
-        setError(extractApiErrorMessage(err, 'Không tải được dữ liệu báo cáo.'))
+        setError(extractApiErrorMessage(err, t('pages.adminReports.errors.loadFailed')))
       }
     }
 
     void loadOrders()
-  }, [])
+  }, [t])
 
   const statusStats = useMemo(() => {
     const stats: Record<string, number> = {}
@@ -298,7 +300,7 @@ function AdminReportsPage() {
     try {
       const printWindow = window.open('', '_blank', 'noopener,noreferrer')
       if (!printWindow) {
-        setError('Trình duyệt đã chặn popup xuất PDF. Vui lòng cho phép popup và thử lại.')
+        setError(t('pages.adminReports.errors.popupBlocked'))
         return
       }
 
@@ -313,7 +315,7 @@ function AdminReportsPage() {
       printWindow.document.write(html)
       printWindow.document.close()
     } catch {
-      setError('Không thể khởi tạo file PDF từ báo cáo.')
+      setError(t('pages.adminReports.errors.exportFailed'))
     } finally {
       setExportingPdf(false)
     }
@@ -322,20 +324,19 @@ function AdminReportsPage() {
   return (
     <section className="admin-reports-page role-page-stack">
       <article className="role-card">
-        <h2>Báo cáo</h2>
+        <h2>{t('pages.adminReports.title')}</h2>
         <p className="role-muted">
-          Báo cáo nhanh theo dữ liệu đơn hàng hiện tại. Có thể mở rộng biểu đồ khi bổ sung
-          endpoint thống kê chuyên dụng.
+          {t('pages.adminReports.subtitle')}
         </p>
         {error && <p className="role-error">{error}</p>}
 
         <div className="role-metric-grid">
           <div className="role-metric-card">
-            <span>Tổng doanh thu</span>
+            <span>{t('pages.adminReports.totalRevenue')}</span>
             <strong>{formatMoney(totalRevenue)}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Tổng bản ghi đơn đang tính</span>
+            <span>{t('pages.adminReports.totalCountedOrders')}</span>
             <strong>{orders.length}</strong>
           </div>
         </div>
@@ -347,25 +348,29 @@ function AdminReportsPage() {
             onClick={handleExportPdf}
             disabled={exportingPdf}
           >
-            {exportingPdf ? 'Đang chuẩn bị PDF...' : 'Xuất báo cáo PDF'}
+            {exportingPdf ? t('pages.adminReports.exportingPdf') : t('pages.adminReports.exportPdf')}
           </button>
         </div>
       </article>
 
       <article className="role-card">
-        <h3>Phân bổ trạng thái đơn hàng</h3>
+        <h3>{t('pages.adminReports.statusDistribution')}</h3>
         <ul className="role-list">
           {visibleStatusEntries.map(([status, count]) => (
             <li key={status}>
               {status}: {count}
             </li>
           ))}
-          {!statusEntries.length && <li>Chưa có dữ liệu.</li>}
+          {!statusEntries.length && <li>{t('pages.adminReports.emptyData')}</li>}
         </ul>
 
         <div className="admin-reports-pagination">
           <p className="admin-reports-pagination-summary">
-            Showing {statusListStart}-{statusListEnd} of {statusEntries.length}
+            {t('pages.adminReports.pagination.summary', undefined, {
+              start: statusListStart,
+              end: statusListEnd,
+              total: statusEntries.length,
+            })}
           </p>
           <div className="admin-reports-pagination-controls">
             <button
@@ -374,7 +379,7 @@ function AdminReportsPage() {
               onClick={() => handleGoToStatusPage(statusPage - 1)}
               disabled={statusPage <= 0}
             >
-              Previous
+              {t('pages.adminReports.pagination.prev')}
             </button>
             {paginationPages.map((pageNumber) => (
               <button
@@ -392,7 +397,7 @@ function AdminReportsPage() {
               onClick={() => handleGoToStatusPage(statusPage + 1)}
               disabled={statusPage >= statusTotalPages - 1}
             >
-              Next
+              {t('pages.adminReports.pagination.next')}
             </button>
           </div>
         </div>

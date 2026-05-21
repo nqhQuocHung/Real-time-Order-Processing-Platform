@@ -1,4 +1,46 @@
-﻿.admin-order-management-pagination {
+﻿.admin-order-management-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 210, 255, 0.42);
+  padding: 4px 9px;
+  font-size: 0.74rem;
+  background: rgba(10, 33, 52, 0.82);
+}
+
+.admin-order-management-status-badge.status-created {
+  border-color: rgba(255, 177, 97, 0.55);
+  color: #ffd4a3;
+}
+
+.admin-order-management-status-badge.status-reserved {
+  border-color: rgba(167, 151, 255, 0.55);
+  color: #d5c5ff;
+}
+
+.admin-order-management-status-badge.status-paid {
+  border-color: rgba(125, 214, 255, 0.55);
+  color: #bce7ff;
+}
+
+.admin-order-management-status-badge.status-completed {
+  border-color: rgba(113, 226, 175, 0.55);
+  color: #b8f5d7;
+}
+
+.admin-order-management-status-badge.status-failed {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+}
+
+.admin-order-management-status-badge.status-cancelled {
+  border-color: rgba(220, 120, 134, 0.55);
+  color: #ffc5d0;
+}
+
+.admin-order-management-pagination {
   margin-top: 12px;
   display: flex;
   justify-content: space-between;

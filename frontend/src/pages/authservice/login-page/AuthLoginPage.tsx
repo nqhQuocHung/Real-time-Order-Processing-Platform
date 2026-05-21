@@ -4,10 +4,11 @@ import { toast } from 'react-toastify'
 import { completeLoginSession, type LoginResponseData } from '../../../auth/authSession'
 import { getDefaultPathByRole } from '../../../config/roleConfig'
 import { apis, endpoints, extractApiData, extractApiErrorMessage } from '../../../config/apis'
-import vnptLogo from '../../../assets/logo/vnpt_logo.png'
+import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
 import Loading from '../../../components/loading/Loading'
 import PageTransition from '../../../components/transition/PageTransition'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AuthLoginPage.css'
 
 type LoginLocationState = {
@@ -15,6 +16,7 @@ type LoginLocationState = {
 }
 
 function AuthLoginPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,7 +39,12 @@ function AuthLoginPage() {
     setError('')
 
     if (!username.trim() || !password.trim()) {
-      setError('Vui lòng nhập đầy đủ tài khoản và mật khẩu.')
+      setError(
+        t(
+          'pages.authLogin.errors.missingCredentials',
+          'Please enter both username and password.',
+        ),
+      )
       return
     }
 
@@ -53,7 +60,12 @@ function AuthLoginPage() {
 
       navigate(getDefaultPathByRole(role), { replace: true })
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Tài khoản hoặc mật khẩu không đúng.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('pages.authLogin.errors.invalidCredentials', 'Invalid username or password.'),
+        ),
+      )
     } finally {
       setLoading(false)
     }
@@ -61,12 +73,19 @@ function AuthLoginPage() {
 
   return (
     <PageTransition>
-      {loading && <Loading fullScreen text="Đang đăng nhập..." />}
+      {loading && <Loading fullScreen text={t('pages.authLogin.submitting', 'Signing in...')} />}
 
       <section
         className="auth-login-page login-vh-100 login-page-bg"
         style={{ backgroundImage: `url(${vnptBackground})` }}
       >
+        <button
+          type="button"
+          className="login-about-corner-link"
+          onClick={() => navigate('/about')}
+        >
+          {t('pages.commonHome.about', 'About')}
+        </button>
         <div className="login-bg-overlay">
           <div className="login-container-fluid login-h-custom">
             <div className="login-row login-d-flex login-justify-content-center login-align-items-center login-h-100">
@@ -74,15 +93,15 @@ function AuthLoginPage() {
                 <form onSubmit={handleLogin} className="login-form-card">
                   <div className="login-logo-wrap">
                     <img
-                      src={vnptLogo}
+                      src={realtimeLogo}
                       className="login-brand-image"
-                      alt="VNPT Logo"
+                      alt="Realtime Logo"
                     />
                   </div>
 
                   <div className="login-divider login-d-flex login-align-items-center login-my-4">
                     <p className="login-text-center login-fw-bold login-mx-3 login-mb-0">
-                      Đăng nhập hệ thống
+                      {t('pages.authLogin.title', 'Login')}
                     </p>
                   </div>
 
@@ -90,13 +109,16 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-4">
                     <label className="login-form-label" htmlFor="loginUsername">
-                      Tài khoản
+                      {t('pages.authLogin.usernameOrEmail', 'Username or Email')}
                     </label>
                     <input
                       type="text"
                       id="loginUsername"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Nhập tài khoản"
+                      placeholder={t(
+                        'pages.authLogin.placeholders.usernameOrEmail',
+                        'Enter your username or email',
+                      )}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value)
@@ -107,13 +129,13 @@ function AuthLoginPage() {
 
                   <div className="login-form-outline login-mb-3">
                     <label className="login-form-label" htmlFor="loginPassword">
-                      Mật khẩu
+                      {t('pages.authLogin.password', 'Password')}
                     </label>
                     <input
                       type="password"
                       id="loginPassword"
                       className="login-form-control login-form-control-lg"
-                      placeholder="Nhập mật khẩu"
+                      placeholder={t('pages.authLogin.placeholders.password', 'Enter your password')}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value)
@@ -129,7 +151,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/register')}
                       >
-                        Đăng ký tài khoản
+                        {t('pages.authLogin.createAccount', 'Create account')}
                       </button>
                     </div>
 
@@ -139,7 +161,7 @@ function AuthLoginPage() {
                         className="login-link-action"
                         onClick={() => navigate('/forgot-password-otp')}
                       >
-                        Quên mật khẩu?
+                        {t('pages.authLogin.forgotPassword', 'Forgot password?')}
                       </button>
                     </div>
                   </div>
@@ -150,7 +172,9 @@ function AuthLoginPage() {
                       className="login-btn login-btn-primary login-btn-lg"
                       disabled={loading}
                     >
-                      {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                      {loading
+                        ? t('pages.authLogin.submitting', 'Signing in...')
+                        : t('pages.authLogin.submit', 'Sign in')}
                     </button>
                   </div>
                 </form>

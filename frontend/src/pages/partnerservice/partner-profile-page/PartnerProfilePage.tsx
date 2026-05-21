@@ -8,6 +8,7 @@ import {
   setAuthSession,
 } from '../../../config/apis'
 import defaultAvatar from '../../../assets/default-avatar.svg'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerProfilePage.css'
 
 type Profile = {
@@ -46,6 +47,7 @@ function normalizeValue(value?: string) {
 }
 
 function PartnerProfilePage() {
+  const { t } = useI18n()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [form, setForm] = useState<PartnerProfileForm | null>(null)
   const [error, setError] = useState('')
@@ -68,14 +70,19 @@ function PartnerProfilePage() {
         setProfile(data)
         setForm(toForm(data))
       } catch (err) {
-        setError(extractApiErrorMessage(err, 'Cannot load partner profile.'))
+        setError(
+          extractApiErrorMessage(
+            err,
+            t('pages.partnerProfile.errors.loadFailed', 'Cannot load partner profile.'),
+          ),
+        )
       } finally {
         setLoading(false)
       }
     }
 
     void loadProfile()
-  }, [])
+  }, [t])
 
   useEffect(() => {
     return () => {
@@ -114,7 +121,9 @@ function PartnerProfilePage() {
 
       setProfile(nextProfile)
       setForm(toForm(nextProfile))
-      setSuccess('Partner profile updated successfully.')
+      setSuccess(
+        t('pages.partnerProfile.success.profileUpdated', 'Partner profile updated successfully.'),
+      )
       setAuthSession({
         userId: nextProfile.userId,
         username: nextProfile.username,
@@ -128,7 +137,12 @@ function PartnerProfilePage() {
         }),
       )
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot update partner profile.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('pages.partnerProfile.errors.updateFailed', 'Cannot update partner profile.'),
+        ),
+      )
     } finally {
       setSaving(false)
     }
@@ -162,7 +176,7 @@ function PartnerProfilePage() {
     }
 
     if (!file.type.startsWith('image/')) {
-      setError('Only image files are allowed.')
+      setError(t('pages.partnerProfile.errors.invalidImage', 'Only image files are allowed.'))
       return
     }
 
@@ -198,7 +212,7 @@ function PartnerProfilePage() {
 
       setProfile(nextProfile)
       setForm(toForm(nextProfile))
-      setSuccess('Avatar updated successfully.')
+      setSuccess(t('pages.partnerProfile.success.avatarUpdated', 'Avatar updated successfully.'))
       setAuthSession({
         userId: nextProfile.userId,
         username: nextProfile.username,
@@ -213,20 +227,29 @@ function PartnerProfilePage() {
       )
       closeAvatarModal()
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot upload avatar.'))
+      setError(
+        extractApiErrorMessage(
+          err,
+          t('pages.partnerProfile.errors.uploadAvatarFailed', 'Cannot upload avatar.'),
+        ),
+      )
     } finally {
       setAvatarUploading(false)
     }
   }
 
   if (loading) {
-    return <p className="role-muted">Loading partner profile...</p>
+    return (
+      <p className="role-muted">
+        {t('pages.partnerProfile.loading', 'Loading partner profile...')}
+      </p>
+    )
   }
 
   return (
     <section className="partner-profile-page role-page-stack">
       <article className="role-card">
-        <h2>Partner Profile</h2>
+        <h2>{t('pages.partnerProfile.title', 'Partner profile')}</h2>
         {error && <p className="role-error">{error}</p>}
         {success && <p className="role-muted">{success}</p>}
         {profile && form ? (
@@ -239,7 +262,7 @@ function PartnerProfilePage() {
               >
                 <img
                   src={normalizeValue(profile.avatar) || defaultAvatar}
-                  alt="Avatar preview"
+                  alt={t('pages.partnerProfile.avatarPreview', 'Avatar preview')}
                   className="profile-edit-avatar-preview"
                   onError={(event) => {
                     event.currentTarget.src = defaultAvatar
@@ -250,15 +273,15 @@ function PartnerProfilePage() {
 
             <div className="role-inline-form">
               <label>
-                Username
+                {t('pages.userProfile.username', 'Username')}
                 <input value={profile.username} disabled />
               </label>
               <label>
-                Email
+                {t('pages.userProfile.email', 'Email')}
                 <input value={profile.email} disabled />
               </label>
               <label>
-                First name
+                {t('pages.userProfile.firstName', 'First name')}
                 <input
                   value={form.firstName}
                   onChange={(event) =>
@@ -269,7 +292,7 @@ function PartnerProfilePage() {
                 />
               </label>
               <label>
-                Last name
+                {t('pages.userProfile.lastName', 'Last name')}
                 <input
                   value={form.lastName}
                   onChange={(event) =>
@@ -280,7 +303,7 @@ function PartnerProfilePage() {
                 />
               </label>
               <label>
-                Phone
+                {t('pages.userProfile.phone', 'Phone')}
                 <input
                   value={form.phone}
                   onChange={(event) =>
@@ -291,15 +314,15 @@ function PartnerProfilePage() {
                 />
               </label>
               <label>
-                Date of birth
-                <input value="Not supported by backend yet" disabled />
+                {t('pages.userProfile.dateOfBirth', 'Date of birth')}
+                <input value={t('pages.userProfile.notSupported', 'Not supported by backend yet')} disabled />
               </label>
               <label>
                 Status
                 <input value={profile.status || '-'} disabled />
               </label>
               <label>
-                Roles
+                {t('pages.userProfile.roles', 'Roles')}
                 <input value={profile.roles?.join(', ') || '-'} disabled />
               </label>
             </div>
@@ -312,13 +335,17 @@ function PartnerProfilePage() {
                   onClick={() => void handleUpdateProfile()}
                   disabled={saving}
                 >
-                  {saving ? 'Updating...' : 'Update'}
+                  {saving
+                    ? t('pages.partnerProfile.actions.updating', 'Updating...')
+                    : t('pages.partnerProfile.updateProfile', 'Update profile')}
                 </button>
               )}
             </div>
           </>
         ) : (
-          <p className="role-muted">No profile data available.</p>
+          <p className="role-muted">
+            {t('pages.partnerProfile.empty', 'No profile data available.')}
+          </p>
         )}
       </article>
 
@@ -328,7 +355,7 @@ function PartnerProfilePage() {
             className="profile-avatar-modal"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3>Change avatar</h3>
+            <h3>{t('pages.partnerProfile.changeAvatar', 'Change avatar')}</h3>
             <div className="profile-avatar-modal-preview-wrap">
               <img
                 src={
@@ -336,7 +363,7 @@ function PartnerProfilePage() {
                   normalizeValue(profile?.avatar) ||
                   defaultAvatar
                 }
-                alt="Avatar selected preview"
+                alt={t('pages.partnerProfile.avatarSelectedPreview', 'Avatar selected preview')}
                 className="profile-avatar-modal-preview"
                 onError={(event) => {
                   event.currentTarget.src = defaultAvatar
@@ -357,7 +384,7 @@ function PartnerProfilePage() {
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={avatarUploading}
               >
-                Choose image
+                {t('pages.partnerProfile.actions.chooseImage', 'Choose image')}
               </button>
               <button
                 type="button"
@@ -365,7 +392,9 @@ function PartnerProfilePage() {
                 onClick={() => void handleUploadAvatar()}
                 disabled={!avatarUploadFile || avatarUploading}
               >
-                {avatarUploading ? 'Uploading...' : 'Save avatar'}
+                {avatarUploading
+                  ? t('pages.partnerProfile.actions.uploading', 'Uploading...')
+                  : t('pages.partnerProfile.actions.saveAvatar', 'Save avatar')}
               </button>
               <button
                 type="button"
@@ -373,7 +402,7 @@ function PartnerProfilePage() {
                 onClick={closeAvatarModal}
                 disabled={avatarUploading}
               >
-                Cancel
+                {t('pages.partnerProfile.actions.cancel', 'Cancel')}
               </button>
             </div>
           </div>

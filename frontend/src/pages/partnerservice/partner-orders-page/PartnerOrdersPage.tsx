@@ -6,12 +6,25 @@ import {
   extractApiErrorMessage,
   getAuthSession,
 } from '../../../config/apis'
+import {
+  ORDER_REFUND_STATUS_FILTER_OPTIONS,
+  ORDER_STATUS_FILTER_OPTIONS,
+  type OrderRefundStatus,
+} from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerOrdersPage.css'
 
 const ORDER_PAGE_SIZE_OPTIONS = [10, 20, 30]
 const DEFAULT_ORDER_PAGE_SIZE = 10
 const SOURCE_ORDER_FETCH_SIZE = 200
-const ORDER_STATUSES = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
+const REFUND_PAGE_SIZE_OPTIONS = [10, 20, 50]
+const DEFAULT_REFUND_PAGE_SIZE = 10
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
+
+type AppNotificationEventDetail = {
+  eventName?: string
+  payload?: unknown
+}
 
 type PartnerProductStock = {
   productId: string
@@ -48,12 +61,34 @@ type OrderDetailResponse = {
   }>
 }
 
-type PaymentTransactionResponse = {
-  status: string
-  paymentUrl?: string
-  providerTransactionId?: string
+type OrderRefundResponse = {
+  refundId: string
+  orderCode: string
+  customerId: string
+  refundAmount: number
+  currency: string
+  refundAccountName: string
+  refundAccountNumberMasked?: string
+  refundBankCode: string
+  refundReason: string
+  status: OrderRefundStatus
+  sellerDecisionNote?: string
+  sellerDecisionBy?: string
+  providerRefundId?: string
+  providerRefundUrl?: string
+  providerNote?: string
+  processedAt?: string
+  createdAt?: string
   updatedAt?: string
-  note?: string
+}
+
+type OrderRefundListResponse = {
+  content: OrderRefundResponse[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+  last: boolean
 }
 
 function formatMoney(value: number, currency: string) {
@@ -70,27 +105,23 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleString('en-US')
 }
 
-function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+function buildPaginationPages(currentPage: number, totalPages: number): number[] {
   if (totalPages <= 0) {
     return []
   }
 
-  const half = Math.floor(maxButtons / 2)
-  let start = Math.max(0, currentPage - half)
-  let end = Math.min(totalPages - 1, start + maxButtons - 1)
-
-  if (end - start + 1 < maxButtons) {
-    start = Math.max(0, end - maxButtons + 1)
+  if (totalPages <= 4) {
+    return Array.from({ length: totalPages }, (_, index) => index)
   }
 
-  const pages: number[] = []
-  for (let i = start; i <= end; i += 1) {
-    pages.push(i)
-  }
-  return pages
+  const candidatePages = [currentPage - 1, currentPage, currentPage + 1, totalPages - 1]
+  return Array.from(new Set(candidatePages.filter((page) => page >= 0 && page < totalPages))).sort(
+    (left, right) => left - right,
+  )
 }
 
 function PartnerOrdersPage() {
+  const { t } = useI18n()
   const session = getAuthSession()
   const [partnerProducts, setPartnerProducts] = useState<PartnerProductStock[]>([])
   const [sourceScopedOrders, setSourceScopedOrders] = useState<OrderSummary[]>([])
@@ -100,11 +131,20 @@ function PartnerOrdersPage() {
   const [orderPage, setOrderPage] = useState(0)
   const [orderPageSize, setOrderPageSize] = useState(DEFAULT_ORDER_PAGE_SIZE)
   const [loading, setLoading] = useState(false)
+  const [loadingRefundList, setLoadingRefundList] = useState(false)
   const [processingOrderCode, setProcessingOrderCode] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [refundDialogOrder, setRefundDialogOrder] = useState<OrderSummary | null>(null)
-  const [refundPaymentInfo, setRefundPaymentInfo] = useState<PaymentTransactionResponse | null>(null)
+  const [refundByOrder, setRefundByOrder] = useState<Record<string, OrderRefundResponse | null>>({})
+  const [refundRequests, setRefundRequests] = useState<OrderRefundResponse[]>([])
+  const [refundRequestsTotal, setRefundRequestsTotal] = useState(0)
+  const [refundTotalPages, setRefundTotalPages] = useState(0)
+  const [refundPage, setRefundPage] = useState(0)
+  const [refundPageSize, setRefundPageSize] = useState(DEFAULT_REFUND_PAGE_SIZE)
+  const [refundStatusFilter, setRefundStatusFilter] = useState('')
+  const [refundDialogOrderCode, setRefundDialogOrderCode] = useState('')
+  const [refundDialogOrderDetail, setRefundDialogOrderDetail] = useState<OrderDetailResponse | null>(null)
+  const [refundDecisionNote, setRefundDecisionNote] = useState('')
   const [loadingRefundInfo, setLoadingRefundInfo] = useState(false)
 
   const partnerProductsRef = useRef<PartnerProductStock[]>([])
@@ -165,6 +205,19 @@ function PartnerOrdersPage() {
   const currentOrderPageStart = totalOrdersResult === 0 ? 0 : orderPage * orderPageSize + 1
   const currentOrderPageEnd =
     totalOrdersResult === 0 ? 0 : Math.min((orderPage + 1) * orderPageSize, totalOrdersResult)
+  const currentRefundPageStart = refundRequestsTotal === 0 ? 0 : refundPage * refundPageSize + 1
+  const currentRefundPageEnd =
+    refundRequestsTotal === 0
+      ? 0
+      : Math.min((refundPage + 1) * refundPageSize, refundRequestsTotal)
+  const refundPaginationPages = useMemo(
+    () => buildPaginationPages(refundPage, refundTotalPages),
+    [refundPage, refundTotalPages],
+  )
+  const selectedRefund =
+    refundDialogOrderCode && refundByOrder[refundDialogOrderCode]
+      ? refundByOrder[refundDialogOrderCode]
+      : null
 
   const loadPartnerProducts = useCallback(async () => {
     const response = await apis().get(endpoints.inventories.myProducts)
@@ -204,6 +257,66 @@ function PartnerOrdersPage() {
     },
     [getOrderDetail],
   )
+
+  const loadRefundDetail = useCallback(async (orderCode: string) => {
+    const normalizedOrderCode = orderCode.trim()
+    if (!normalizedOrderCode) {
+      return null
+    }
+
+    const response = await apis().get(endpoints.orders.refundDetail(normalizedOrderCode))
+    const data = extractApiData<OrderRefundResponse>(response)
+    setRefundByOrder((previous) => ({
+      ...previous,
+      [normalizedOrderCode]: data || null,
+    }))
+    return data || null
+  }, [])
+
+  const loadRefundRequests = useCallback(async (page: number, size: number) => {
+    setLoadingRefundList(true)
+    try {
+      const response = await apis().get(endpoints.orders.refundList, {
+        params: {
+          page,
+          size,
+          status: refundStatusFilter || undefined,
+        },
+      })
+      const data = extractApiData<OrderRefundListResponse>(response)
+      const content = Array.isArray(data.content) ? data.content : []
+      const resolvedTotal = typeof data.totalElements === 'number' ? data.totalElements : content.length
+      const resolvedTotalPages =
+        typeof data.totalPages === 'number'
+          ? data.totalPages
+          : Math.ceil(resolvedTotal / Math.max(size, 1))
+
+      setRefundRequests(content)
+      setRefundRequestsTotal(resolvedTotal)
+      setRefundTotalPages(resolvedTotalPages)
+
+      if (resolvedTotalPages > 0 && page >= resolvedTotalPages) {
+        setRefundPage(resolvedTotalPages - 1)
+      } else if (resolvedTotalPages === 0 && page !== 0) {
+        setRefundPage(0)
+      }
+
+      setRefundByOrder((previous) => {
+        const next = { ...previous }
+        content.forEach((refund) => {
+          next[refund.orderCode] = refund
+        })
+        return next
+      })
+    } catch (err) {
+      setError(extractApiErrorMessage(err, 'Cannot load refund requests.'))
+      setRefundRequests([])
+      setRefundRequestsTotal(0)
+      setRefundTotalPages(0)
+    } finally {
+      setLoadingRefundList(false)
+    }
+  }, [refundStatusFilter])
 
   const loadOrders = useCallback(
     async (productsOverride?: PartnerProductStock[]) => {
@@ -265,16 +378,58 @@ function PartnerOrdersPage() {
     }
 
     void initializePage()
-  }, [loadOrders, loadPartnerProducts, session?.userId])
+  }, [loadOrders, loadPartnerProducts, loadRefundRequests, session?.userId])
+
+  useEffect(() => {
+    void loadRefundRequests(refundPage, refundPageSize)
+  }, [loadRefundRequests, refundPage, refundPageSize])
 
   useEffect(() => {
     setOrderPage(0)
   }, [orderPageSize, keywordFilter, statusFilter])
 
+  useEffect(() => {
+    setRefundPage(0)
+  }, [refundPageSize])
+
+  useEffect(() => {
+    setRefundPage(0)
+  }, [refundStatusFilter])
+
+  useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<AppNotificationEventDetail>
+      const eventName = (customEvent.detail?.eventName || '').trim()
+      if (
+        eventName !== 'order.refund.requested' &&
+        eventName !== 'order.refund.approved' &&
+        eventName !== 'order.refund.rejected' &&
+        eventName !== 'order.refund.completed' &&
+        eventName !== 'order.refund.failed' &&
+        eventName !== 'payment.refund.succeeded' &&
+        eventName !== 'payment.refund.failed'
+      ) {
+        return
+      }
+
+      void Promise.all([loadRefundRequests(refundPage, refundPageSize), loadOrders()])
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    return () => {
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    }
+  }, [loadOrders, loadRefundRequests, refundPage, refundPageSize])
+
   async function handleRefreshOrders() {
     setSuccess('')
     const scopedProducts = await loadPartnerProducts()
-    await loadOrders(scopedProducts)
+    await Promise.all([loadOrders(scopedProducts), loadRefundRequests(refundPage, refundPageSize)])
+  }
+
+  function handleRefundStatusChange(status: string) {
+    setRefundStatusFilter(status)
+    setRefundPage(0)
   }
 
   async function handleApplyFilters() {
@@ -301,45 +456,62 @@ function PartnerOrdersPage() {
     }
   }
 
-  async function openRefundDialog(order: OrderSummary) {
-    setRefundDialogOrder(order)
-    setRefundPaymentInfo(null)
+  async function openRefundDialog(orderCode: string) {
+    setRefundDialogOrderCode(orderCode)
+    setRefundDecisionNote('')
     setLoadingRefundInfo(true)
     setError('')
 
     try {
-      const response = await apis().get(endpoints.payments.getByOrderCode(order.orderCode))
-      const data = extractApiData<PaymentTransactionResponse>(response)
-      setRefundPaymentInfo(data || null)
+      const [_, detail] = await Promise.all([loadRefundDetail(orderCode), getOrderDetail(orderCode)])
+      setRefundDialogOrderDetail(detail)
     } catch (err) {
-      setError(extractApiErrorMessage(err, `Cannot load payment transaction for ${order.orderCode}.`))
+      setError(extractApiErrorMessage(err, `Cannot load refund request for ${orderCode}.`))
     } finally {
       setLoadingRefundInfo(false)
     }
   }
 
   function closeRefundDialog() {
-    setRefundDialogOrder(null)
-    setRefundPaymentInfo(null)
+    setRefundDialogOrderCode('')
+    setRefundDialogOrderDetail(null)
+    setRefundDecisionNote('')
     setLoadingRefundInfo(false)
   }
 
-  async function handleConfirmRefund(orderCode: string) {
+  async function handleRefundDecision(orderCode: string, decision: 'APPROVE' | 'REJECT') {
     setError('')
     setSuccess('')
     setProcessingOrderCode(orderCode)
     try {
-      await apis().patch(endpoints.orders.updateStatus(orderCode), {
-        status: 'FAILED',
-        actor: 'SHOP_PARTNER',
-        note: 'Refund confirmed by partner via VNPay/manual',
+      const response = await apis().post(endpoints.orders.refundDecision(orderCode), {
+        decision,
+        note: refundDecisionNote.trim() || undefined,
+        actor: session?.userId || 'SHOP_PARTNER',
       })
+      const refundResult = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: refundResult || null,
+      }))
+      setRefundRequests((previous) =>
+        previous.map((refund) => (refund.orderCode === orderCode ? refundResult : refund)),
+      )
 
-      setSuccess(`Refund confirmed and order ${orderCode} moved to FAILED.`)
+      const decisionLabel = decision === 'APPROVE' ? 'approved' : 'rejected'
+      if (decision === 'APPROVE' && refundResult?.providerRefundUrl) {
+        window.open(refundResult.providerRefundUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      setSuccess(
+        decision === 'APPROVE' && refundResult?.providerRefundUrl
+          ? `Refund request for order ${orderCode} was ${decisionLabel}. VNPay refund URL has been opened.`
+          : `Refund request for order ${orderCode} was ${decisionLabel}.`,
+      )
       closeRefundDialog()
-      await loadOrders()
+      await Promise.all([loadOrders(), loadRefundRequests(refundPage, refundPageSize)])
     } catch (err) {
-      setError(extractApiErrorMessage(err, `Cannot confirm refund for order ${orderCode}.`))
+      setError(extractApiErrorMessage(err, `Cannot process refund decision for order ${orderCode}.`))
     } finally {
       setProcessingOrderCode('')
     }
@@ -348,35 +520,35 @@ function PartnerOrdersPage() {
   return (
     <section className="partner-orders-page role-page-stack">
       <article className="role-card">
-        <h2>Shopee Orders</h2>
+        <h2>{t('pages.partnerOrders.title')}</h2>
         <p className="role-muted">
-          Orders are scoped to products in your shop. This prevents cross-shop overlap.
+          {t('pages.partnerOrders.subtitle')}
         </p>
         <p className="partner-orders-page-scope">
-          Current shop scope: <strong>{scopeLabel}</strong>
+          {t('pages.partnerOrders.currentShopScope', undefined, { shop: scopeLabel })}
         </p>
 
         <div className="role-inline-form partner-orders-page-filter">
           <label>
-            Search order code
+            {t('pages.partnerOrders.filters.searchOrderCode')}
             <input
               value={keywordInput}
               onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="Ex: ORD-20260515-123456"
+              placeholder={t('pages.partnerOrders.filters.placeholders.searchOrderCode')}
             />
           </label>
           <label>
-            Status
+            {t('pages.partnerOrders.filters.status')}
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              {ORDER_STATUSES.map((status) => (
+              {ORDER_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
-                  {status || 'All'}
+                  {status || t('statuses.order.all')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Items / page
+            {t('pages.partnerOrders.filters.itemsPerPage')}
             <select
               value={orderPageSize}
               onChange={(event) => setOrderPageSize(Number(event.target.value))}
@@ -389,25 +561,27 @@ function PartnerOrdersPage() {
             </select>
           </label>
           <button type="button" className="role-btn-primary" onClick={() => void handleApplyFilters()}>
-            Apply Filters
+            {t('pages.partnerOrders.filters.applyFilters')}
           </button>
-        </div>
-
-        <div className="role-inline-actions">
-          <button type="button" className="role-btn-ghost" onClick={() => void handleRefreshOrders()}>
-            {loading ? 'Loading...' : 'Reload Orders'}
+          <button
+            type="button"
+            className="role-btn-primary partner-orders-reload-btn"
+            onClick={() => void handleRefreshOrders()}
+          >
+            {loading ? t('pages.partnerOrders.filters.loading') : t('pages.partnerOrders.filters.reloadOrders')}
           </button>
         </div>
 
         {error && <p className="role-error">{error}</p>}
         {success && <p className="role-muted">{success}</p>}
-      </article>
 
-      <article className="role-card">
         <div className="partner-orders-page-summary">
-          <span>Total scoped orders: {totalOrdersResult}</span>
+          <span>{t('pages.partnerOrders.summary.totalScopedOrders', undefined, { count: totalOrdersResult })}</span>
           <span>
-            Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}
+            {t('pages.partnerOrders.summary.page', undefined, {
+              current: totalOrderPages === 0 ? 0 : orderPage + 1,
+              total: totalOrderPages || 0,
+            })}
           </span>
         </div>
 
@@ -415,23 +589,26 @@ function PartnerOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Total Amount</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('pages.partnerOrders.table.orderCode')}</th>
+                <th>{t('pages.partnerOrders.table.status')}</th>
+                <th>{t('pages.partnerOrders.table.totalAmount')}</th>
+                <th>{t('pages.partnerOrders.table.createdAt')}</th>
+                <th>{t('pages.partnerOrders.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {pagedOrders.map((order) => {
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
-                const canRefund = order.status === 'PAID'
                 const isProcessing = processingOrderCode === order.orderCode
 
                 return (
                   <tr key={order.orderCode}>
                     <td>{order.orderCode}</td>
-                    <td>{order.status}</td>
+                    <td>
+                      <span className={`partner-orders-order-status-badge status-${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                    </td>
                     <td>{formatMoney(order.totalAmount, order.currency)}</td>
                     <td>{formatDate(order.createdAt)}</td>
                     <td>
@@ -443,20 +620,10 @@ function PartnerOrdersPage() {
                             onClick={() => void handleCancelOrder(order.orderCode)}
                             disabled={isProcessing}
                           >
-                            {isProcessing ? 'Processing...' : 'Cancel'}
+                            {isProcessing ? t('pages.partnerOrders.common.processing') : t('pages.partnerOrders.common.cancel')}
                           </button>
                         )}
-                        {canRefund && (
-                          <button
-                            type="button"
-                            className="role-btn-primary"
-                            onClick={() => void openRefundDialog(order)}
-                            disabled={isProcessing}
-                          >
-                            Refund
-                          </button>
-                        )}
-                        {!canCancel && !canRefund && <span className="role-muted">No actions</span>}
+                        {!canCancel && <span className="role-muted">{t('pages.partnerOrders.table.noActions')}</span>}
                       </div>
                     </td>
                   </tr>
@@ -465,7 +632,7 @@ function PartnerOrdersPage() {
               {!pagedOrders.length && (
                 <tr>
                   <td colSpan={5} className="role-empty-cell">
-                    No orders found in your current shop scope.
+                    {t('pages.partnerOrders.table.empty')}
                   </td>
                 </tr>
               )}
@@ -476,7 +643,11 @@ function PartnerOrdersPage() {
         {totalOrderPages > 0 && (
           <div className="partner-orders-page-pagination">
             <p className="partner-orders-page-pagination-summary">
-              Showing {currentOrderPageStart}-{currentOrderPageEnd} of {totalOrdersResult}
+              {t('pages.partnerOrders.pagination.summary', undefined, {
+                start: currentOrderPageStart,
+                end: currentOrderPageEnd,
+                total: totalOrdersResult,
+              })}
             </p>
             <div className="partner-orders-page-pagination-controls">
               <button
@@ -485,7 +656,7 @@ function PartnerOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.max(0, prev - 1))}
                 disabled={orderPage <= 0}
               >
-                Prev
+                {t('pages.partnerOrders.pagination.prev')}
               </button>
               {orderPaginationPages.map((pageNumber) => (
                 <button
@@ -503,70 +674,267 @@ function PartnerOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.min(totalOrderPages - 1, prev + 1))}
                 disabled={orderPage >= totalOrderPages - 1}
               >
-                Next
+                {t('pages.partnerOrders.pagination.next')}
               </button>
             </div>
           </div>
         )}
       </article>
 
-      {refundDialogOrder && (
+      <article className="role-card">
+        <div className="partner-orders-page-summary">
+          <span>{t('pages.partnerOrders.refundTable.refundRequests', undefined, { count: refundRequestsTotal })}</span>
+          <span>
+            {t('pages.partnerOrders.summary.page', undefined, {
+              current: refundTotalPages === 0 ? 0 : refundPage + 1,
+              total: refundTotalPages || 0,
+            })}
+          </span>
+        </div>
+
+        <div className="role-inline-form partner-orders-refund-filter-row">
+          <label>
+            {t('pages.partnerOrders.filters.status')}
+            <select
+              value={refundStatusFilter}
+              onChange={(event) => handleRefundStatusChange(event.target.value)}
+            >
+              {ORDER_REFUND_STATUS_FILTER_OPTIONS.map((status) => (
+                <option key={status || 'ALL'} value={status}>
+                  {status || t('statuses.order.all')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t('pages.partnerOrders.refundTable.refundsPerPage')}
+            <select
+              value={refundPageSize}
+              onChange={(event) => setRefundPageSize(Number(event.target.value))}
+            >
+              {REFUND_PAGE_SIZE_OPTIONS.map((sizeOption) => (
+                <option key={sizeOption} value={sizeOption}>
+                  {sizeOption}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="role-btn-primary partner-orders-refund-reload-btn"
+            onClick={() => void loadRefundRequests(refundPage, refundPageSize)}
+            disabled={loadingRefundList}
+          >
+            {loadingRefundList ? t('pages.partnerOrders.filters.loading') : t('pages.partnerOrders.refundTable.reload')}
+          </button>
+        </div>
+
+        <div className="role-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('pages.partnerOrders.refundTable.orderCode')}</th>
+                <th>{t('pages.partnerOrders.refundTable.status')}</th>
+                <th>{t('pages.partnerOrders.refundTable.amount')}</th>
+                <th>{t('pages.partnerOrders.refundTable.reason')}</th>
+                <th>{t('pages.partnerOrders.refundTable.requestedAt')}</th>
+                <th>{t('pages.partnerOrders.refundTable.action')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {refundRequests.map((refund) => (
+                <tr key={refund.refundId}>
+                  <td>{refund.orderCode}</td>
+                  <td>
+                    <span className={`partner-orders-refund-badge status-${refund.status.toLowerCase()}`}>
+                      {refund.status}
+                    </span>
+                  </td>
+                  <td>{formatMoney(refund.refundAmount, refund.currency)}</td>
+                  <td className="partner-orders-refund-reason">{refund.refundReason}</td>
+                  <td>{formatDate(refund.createdAt)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="role-btn-primary"
+                      onClick={() => void openRefundDialog(refund.orderCode)}
+                    >
+                      {t('pages.partnerOrders.refundTable.review')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!refundRequests.length && (
+                <tr>
+                  <td colSpan={6} className="role-empty-cell">
+                    {t('pages.partnerOrders.refundTable.empty')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {refundTotalPages > 0 && (
+          <div className="partner-orders-page-pagination">
+            <p className="partner-orders-page-pagination-summary">
+              {t('pages.partnerOrders.pagination.summary', undefined, {
+                start: currentRefundPageStart,
+                end: currentRefundPageEnd,
+                total: refundRequestsTotal,
+              })}
+            </p>
+            <div className="partner-orders-page-pagination-controls">
+              <button
+                type="button"
+                className="role-btn-ghost partner-orders-page-btn-page"
+                onClick={() => setRefundPage((prev) => Math.max(0, prev - 1))}
+                disabled={refundPage <= 0}
+              >
+                {t('pages.partnerOrders.pagination.prev')}
+              </button>
+              {refundPaginationPages.map((pageNumber) => (
+                <button
+                  key={`partner-refund-page-${pageNumber}`}
+                  type="button"
+                  className={`role-btn-ghost partner-orders-page-btn-page ${pageNumber === refundPage ? 'is-active' : ''}`}
+                  onClick={() => setRefundPage(pageNumber)}
+                >
+                  {pageNumber + 1}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="role-btn-ghost partner-orders-page-btn-page"
+                onClick={() => setRefundPage((prev) => Math.min(refundTotalPages - 1, prev + 1))}
+                disabled={refundPage >= refundTotalPages - 1}
+              >
+                {t('pages.partnerOrders.pagination.next')}
+              </button>
+            </div>
+          </div>
+        )}
+      </article>
+
+      {refundDialogOrderCode && (
         <div className="partner-orders-refund-overlay" onClick={closeRefundDialog}>
           <div className="partner-orders-refund-dialog" onClick={(event) => event.stopPropagation()}>
             <header className="partner-orders-refund-header">
-              <h3>Refund Order</h3>
+              <h3>{t('pages.partnerOrders.refundDialog.title')}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeRefundDialog}>
-                Close
+                {t('pages.partnerOrders.common.close')}
               </button>
             </header>
 
             <p className="partner-orders-refund-message">
-              Order <strong>{refundDialogOrder.orderCode}</strong> is already PAID. Use VNPay link
-              below to process refund, then confirm refund in system.
+              {t('pages.partnerOrders.refundDialog.message', undefined, { code: refundDialogOrderCode })}
             </p>
 
-            {loadingRefundInfo && <p className="role-muted">Loading payment transaction...</p>}
+            {loadingRefundInfo && <p className="role-muted">{t('pages.partnerOrders.refundDialog.loading')}</p>}
 
-            {!loadingRefundInfo && (
+            {!loadingRefundInfo && selectedRefund && (
               <dl className="partner-orders-refund-meta">
                 <div>
-                  <dt>Payment Status</dt>
-                  <dd>{refundPaymentInfo?.status || 'UNKNOWN'}</dd>
+                  <dt>{t('pages.partnerOrders.refundDialog.status')}</dt>
+                  <dd>{selectedRefund.status}</dd>
                 </div>
                 <div>
-                  <dt>Provider Txn</dt>
-                  <dd>{refundPaymentInfo?.providerTransactionId || '-'}</dd>
+                  <dt>{t('pages.partnerOrders.refundDialog.orderStatus')}</dt>
+                  <dd>{refundDialogOrderDetail?.status || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Updated At</dt>
-                  <dd>{formatDate(refundPaymentInfo?.updatedAt)}</dd>
+                  <dt>{t('pages.partnerOrders.refundDialog.amount')}</dt>
+                  <dd>{formatMoney(selectedRefund.refundAmount, selectedRefund.currency)}</dd>
                 </div>
+                <div>
+                  <dt>{t('pages.partnerOrders.refundDialog.orderTotal')}</dt>
+                  <dd>
+                    {refundDialogOrderDetail
+                      ? formatMoney(refundDialogOrderDetail.totalAmount, refundDialogOrderDetail.currency)
+                      : '-'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('pages.partnerOrders.refundDialog.requestedAt')}</dt>
+                  <dd>{formatDate(selectedRefund.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt>{t('pages.partnerOrders.refundDialog.accountName')}</dt>
+                  <dd>{selectedRefund.refundAccountName}</dd>
+                </div>
+                <div>
+                  <dt>{t('pages.partnerOrders.refundDialog.accountNumber')}</dt>
+                  <dd>{selectedRefund.refundAccountNumberMasked || '-'}</dd>
+                </div>
+                <div>
+                  <dt>{t('pages.partnerOrders.refundDialog.bankCode')}</dt>
+                  <dd>{selectedRefund.refundBankCode}</dd>
+                </div>
+                <div className="partner-orders-refund-note-block">
+                  <dt>{t('pages.partnerOrders.refundDialog.reason')}</dt>
+                  <dd>{selectedRefund.refundReason}</dd>
+                </div>
+                {selectedRefund.providerRefundUrl && (
+                  <div className="partner-orders-refund-note-block">
+                    <dt>{t('pages.partnerOrders.refundDialog.vnpayRefundUrl')}</dt>
+                    <dd className="partner-orders-refund-url">{selectedRefund.providerRefundUrl}</dd>
+                  </div>
+                )}
               </dl>
             )}
 
+            {!loadingRefundInfo && !selectedRefund && (
+              <p className="role-muted">
+                {t('pages.partnerOrders.refundDialog.notFound')}
+              </p>
+            )}
+
+            {selectedRefund?.status === 'REQUESTED' && (
+              <label className="partner-orders-refund-note-input">
+                {t('pages.partnerOrders.refundDialog.decisionNoteOptional')}
+                <textarea
+                  value={refundDecisionNote}
+                  onChange={(event) => setRefundDecisionNote(event.target.value)}
+                  rows={3}
+                  placeholder={t('pages.partnerOrders.refundDialog.placeholders.decisionNote')}
+                />
+              </label>
+            )}
+
             <div className="partner-orders-refund-actions">
-              <button
-                type="button"
-                className="role-btn-primary"
-                onClick={() => {
-                  if (refundPaymentInfo?.paymentUrl) {
-                    window.open(refundPaymentInfo.paymentUrl, '_blank', 'noopener,noreferrer')
-                  }
-                }}
-                disabled={!refundPaymentInfo?.paymentUrl}
-              >
-                Open VNPay
-              </button>
-              <button
-                type="button"
-                className="role-btn-ghost"
-                onClick={() => void handleConfirmRefund(refundDialogOrder.orderCode)}
-                disabled={processingOrderCode === refundDialogOrder.orderCode}
-              >
-                {processingOrderCode === refundDialogOrder.orderCode
-                  ? 'Confirming...'
-                  : 'Confirm Refunded'}
-              </button>
+              {selectedRefund?.status === 'REQUESTED' && (
+                <>
+                  <button
+                    type="button"
+                    className="role-btn-primary"
+                    onClick={() => void handleRefundDecision(refundDialogOrderCode, 'APPROVE')}
+                    disabled={processingOrderCode === refundDialogOrderCode}
+                  >
+                    {processingOrderCode === refundDialogOrderCode
+                      ? t('pages.partnerOrders.common.processing')
+                      : t('pages.partnerOrders.refundDialog.approveAndCreateVnpayUrl')}
+                  </button>
+                  <button
+                    type="button"
+                    className="role-btn-ghost"
+                    onClick={() => void handleRefundDecision(refundDialogOrderCode, 'REJECT')}
+                    disabled={processingOrderCode === refundDialogOrderCode}
+                  >
+                    {processingOrderCode === refundDialogOrderCode
+                      ? t('pages.partnerOrders.common.processing')
+                      : t('pages.partnerOrders.refundDialog.rejectRequest')}
+                  </button>
+                </>
+              )}
+              {selectedRefund?.providerRefundUrl && (
+                <button
+                  type="button"
+                  className="role-btn-ghost"
+                  onClick={() => window.open(selectedRefund.providerRefundUrl, '_blank', 'noopener,noreferrer')}
+                >
+                  {t('pages.partnerOrders.refundDialog.openVnpayRefundUrl')}
+                </button>
+              )}
             </div>
           </div>
         </div>

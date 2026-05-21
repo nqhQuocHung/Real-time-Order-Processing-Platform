@@ -6,10 +6,15 @@ import com.nqh.paymentservice.common.messages.MessageCode;
 import com.nqh.paymentservice.configurations.VnpayProperties;
 import com.nqh.paymentservice.dtos.CreatePaymentIntentRequest;
 import com.nqh.paymentservice.dtos.PaymentActionRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundResponse;
 import com.nqh.paymentservice.dtos.PaymentTransactionResponse;
 import com.nqh.paymentservice.enums.PaymentMethodEnum;
+import com.nqh.paymentservice.enums.PaymentRefundStatusEnum;
 import com.nqh.paymentservice.enums.PaymentStatusEnum;
+import com.nqh.paymentservice.pojos.PaymentRefund;
 import com.nqh.paymentservice.pojos.PaymentTransaction;
+import com.nqh.paymentservice.repositories.PaymentRefundRepository;
 import com.nqh.paymentservice.repositories.PaymentTransactionRepository;
 import com.nqh.paymentservice.services.PaymentService;
 import java.math.BigDecimal;
@@ -48,6 +53,7 @@ public class PaymentServiceImpl implements PaymentService {
     private static final int VNPAY_TXN_REF_MAX_LENGTH = 100;
 
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final PaymentRefundRepository paymentRefundRepository;
     private final VnpayProperties vnpayProperties;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
@@ -55,18 +61,24 @@ public class PaymentServiceImpl implements PaymentService {
     private final long idempotencyTtlSeconds;
     private final String topicPaymentSucceeded;
     private final String topicPaymentFailed;
+    private final String topicPaymentRefundSucceeded;
+    private final String topicPaymentRefundFailed;
 
     public PaymentServiceImpl(
             PaymentTransactionRepository paymentTransactionRepository,
+            PaymentRefundRepository paymentRefundRepository,
             VnpayProperties vnpayProperties,
             StringRedisTemplate stringRedisTemplate,
             ObjectMapper objectMapper,
             KafkaTemplate<String, String> kafkaTemplate,
             @org.springframework.beans.factory.annotation.Value("${app.payment.idempotency.ttl-seconds:300}") long idempotencyTtlSeconds,
             @org.springframework.beans.factory.annotation.Value("${app.payment.topic.transaction-succeeded:payment.transaction.succeeded.v1}") String topicPaymentSucceeded,
-            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.transaction-failed:payment.transaction.failed.v1}") String topicPaymentFailed
+            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.transaction-failed:payment.transaction.failed.v1}") String topicPaymentFailed,
+            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.refund-succeeded:payment.refund.succeeded.v1}") String topicPaymentRefundSucceeded,
+            @org.springframework.beans.factory.annotation.Value("${app.payment.topic.refund-failed:payment.refund.failed.v1}") String topicPaymentRefundFailed
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.paymentRefundRepository = paymentRefundRepository;
         this.vnpayProperties = vnpayProperties;
         this.stringRedisTemplate = stringRedisTemplate;
         this.objectMapper = objectMapper;
@@ -74,6 +86,8 @@ public class PaymentServiceImpl implements PaymentService {
         this.idempotencyTtlSeconds = idempotencyTtlSeconds;
         this.topicPaymentSucceeded = topicPaymentSucceeded;
         this.topicPaymentFailed = topicPaymentFailed;
+        this.topicPaymentRefundSucceeded = topicPaymentRefundSucceeded;
+        this.topicPaymentRefundFailed = topicPaymentRefundFailed;
     }
 
     @Override
@@ -132,9 +146,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (paymentTransaction.getStatus() == PaymentStatusEnum.FAILED) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_FAILED);
         }
-        if (paymentTransaction.getStatus() == PaymentStatusEnum.CANCELLED) {
-            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_CANCELLED);
-        }
         if (paymentTransaction.getStatus() != PaymentStatusEnum.PENDING) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_INVALID_STATE);
         }
@@ -174,9 +185,6 @@ public class PaymentServiceImpl implements PaymentService {
         if (paymentTransaction.getStatus() == PaymentStatusEnum.SUCCESS) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_SUCCESS);
         }
-        if (paymentTransaction.getStatus() == PaymentStatusEnum.CANCELLED) {
-            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_ALREADY_CANCELLED);
-        }
         if (paymentTransaction.getStatus() != PaymentStatusEnum.PENDING) {
             throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_INVALID_STATE);
         }
@@ -191,10 +199,128 @@ public class PaymentServiceImpl implements PaymentService {
         return mapToResponse(saved, false);
     }
 
+    @Override
+    @Transactional
+    public PaymentRefundResponse refundPayment(PaymentRefundRequest request) {
+        validateRefundRequest(request);
+
+        PaymentTransaction paymentTransaction = findByOrderCodeOrThrow(request.getOrderCode());
+        if (paymentTransaction.getStatus() != PaymentStatusEnum.SUCCESS) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_REFUND_NOT_ALLOWED);
+        }
+        if (paymentTransaction.getMethod() != PaymentMethodEnum.VNPAY) {
+            throw new AppException(HttpStatus.CONFLICT, MessageCode.PAYMENT_REFUND_METHOD_NOT_SUPPORTED);
+        }
+
+        PaymentRefund existingRefundByOrder = paymentRefundRepository.findByOrderCode(paymentTransaction.getOrderCode())
+                .orElse(null);
+        if (existingRefundByOrder != null) {
+            return mapToRefundResponse(existingRefundByOrder);
+        }
+
+        PaymentRefund existingRefundByIdempotency = paymentRefundRepository
+                .findByIdempotencyKey(request.getIdempotencyKey().trim())
+                .orElse(null);
+        if (existingRefundByIdempotency != null) {
+            return mapToRefundResponse(existingRefundByIdempotency);
+        }
+
+        BigDecimal refundAmount = resolveRefundAmount(request.getRefundAmount(), paymentTransaction.getAmount());
+        PaymentRefund refund = PaymentRefund.builder()
+                .paymentTransaction(paymentTransaction)
+                .orderCode(paymentTransaction.getOrderCode())
+                .customerId(paymentTransaction.getCustomerId())
+                .amount(refundAmount)
+                .currency(resolveRefundCurrency(request.getCurrency(), paymentTransaction.getCurrency()))
+                .refundAccountName(request.getRefundAccountName().trim())
+                .refundAccountNumber(request.getRefundAccountNumber().trim())
+                .refundBankCode(request.getRefundBankCode().trim().toUpperCase(Locale.ROOT))
+                .refundReason(request.getRefundReason().trim())
+                .status(PaymentRefundStatusEnum.REQUESTED)
+                .providerRefundId(null)
+                .refundUrl(null)
+                .actor(resolveActor(request.getActor()))
+                .idempotencyKey(request.getIdempotencyKey().trim())
+                .note(trimToNull(request.getNote()))
+                .processedAt(null)
+                .build();
+
+        try {
+            String providerRefundId = buildProviderRefundId(paymentTransaction.getOrderCode());
+            String refundUrl = buildRefundUrl(
+                    paymentTransaction.getOrderCode(),
+                    refundAmount,
+                    refund.getCurrency(),
+                    providerRefundId
+            );
+            refund.setStatus(PaymentRefundStatusEnum.REFUNDED);
+            refund.setProviderRefundId(providerRefundId);
+            refund.setRefundUrl(refundUrl);
+            refund.setProcessedAt(LocalDateTime.now());
+            if (paymentTransaction.getMethod() == PaymentMethodEnum.VNPAY) {
+                refund.setNote(mergeNote(refund.getNote(), "VNPAY refund executed"));
+            }
+            PaymentRefund saved = paymentRefundRepository.save(refund);
+            publishPaymentRefundEvent(saved);
+            return mapToRefundResponse(saved);
+        } catch (Exception ex) {
+            refund.setStatus(PaymentRefundStatusEnum.FAILED);
+            refund.setProcessedAt(LocalDateTime.now());
+            refund.setNote(mergeNote(refund.getNote(), trimToNull(ex.getMessage())));
+            PaymentRefund failed = paymentRefundRepository.save(refund);
+            publishPaymentRefundEvent(failed);
+            throw new AppException(HttpStatus.BAD_GATEWAY, MessageCode.PAYMENT_REFUND_EXECUTION_FAILED);
+        }
+    }
+
     private PaymentTransaction findByOrderCodeOrThrow(String orderCode) {
         String normalized = normalizeOrderCode(orderCode);
         return paymentTransactionRepository.findByOrderCode(normalized)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageCode.PAYMENT_NOT_FOUND));
+    }
+
+    private void validateRefundRequest(PaymentRefundRequest request) {
+        if (!StringUtils.hasText(request.getIdempotencyKey())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.PAYMENT_REFUND_IDEMPOTENCY_KEY_REQUIRED);
+        }
+        if (!StringUtils.hasText(request.getRefundAccountName())
+                || !StringUtils.hasText(request.getRefundAccountNumber())
+                || !StringUtils.hasText(request.getRefundBankCode())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.PAYMENT_REFUND_ACCOUNT_INFO_REQUIRED);
+        }
+        if (!StringUtils.hasText(request.getRefundReason())) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+    }
+
+    private BigDecimal resolveRefundAmount(BigDecimal requestedAmount, BigDecimal paymentAmount) {
+        BigDecimal baseAmount = paymentAmount != null
+                ? paymentAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+
+        if (requestedAmount == null) {
+            return baseAmount;
+        }
+
+        BigDecimal normalized = requestedAmount.setScale(2, RoundingMode.HALF_UP);
+        if (normalized.signum() <= 0 || normalized.compareTo(baseAmount) > 0) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.PAYMENT_REFUND_INVALID_AMOUNT);
+        }
+        return normalized;
+    }
+
+    private String resolveRefundCurrency(String requestedCurrency, String paymentCurrency) {
+        String normalizedPaymentCurrency = normalizeCurrency(paymentCurrency);
+        String normalizedRequestCurrency = trimToNull(requestedCurrency);
+        if (!StringUtils.hasText(normalizedRequestCurrency)) {
+            return normalizedPaymentCurrency;
+        }
+
+        String upper = normalizedRequestCurrency.toUpperCase(Locale.ROOT);
+        if (!upper.equals(normalizedPaymentCurrency)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.PAYMENT_REFUND_INVALID_AMOUNT);
+        }
+        return upper;
     }
 
     private String normalizeOrderCode(String orderCode) {
@@ -316,6 +442,22 @@ public class PaymentServiceImpl implements PaymentService {
         return prefix + normalizedOrderCode + timestamp;
     }
 
+    private String buildProviderRefundId(String orderCode) {
+        String normalizedOrderCode = normalizeAlphaNumeric(orderCode);
+        String timestamp = LocalDateTime.now(VNPAY_TIME_ZONE).format(REFERENCE_TIME_FORMAT);
+        String prefix = "RFD";
+        int remaining = VNPAY_TXN_REF_MAX_LENGTH - prefix.length() - timestamp.length();
+        if (remaining < 1) {
+            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, MessageCode.COMMON_INTERNAL_ERROR);
+        }
+
+        if (normalizedOrderCode.length() > remaining) {
+            normalizedOrderCode = normalizedOrderCode.substring(normalizedOrderCode.length() - remaining);
+        }
+
+        return prefix + normalizedOrderCode + timestamp;
+    }
+
     private String urlEncode(String input) {
         return URLEncoder.encode(input, StandardCharsets.UTF_8);
     }
@@ -414,6 +556,72 @@ public class PaymentServiceImpl implements PaymentService {
         return "Thanh toan don hang " + normalizedOrderCode;
     }
 
+    private String buildVnpayRefundOrderInfo(String orderCode) {
+        String normalizedOrderCode = normalizeAlphaNumeric(orderCode);
+        return "Hoan tien don hang " + normalizedOrderCode;
+    }
+
+    private String buildRefundUrl(
+            String orderCode,
+            BigDecimal amount,
+            String currency,
+            String providerRefundId
+    ) {
+        if (!StringUtils.hasText(providerRefundId) || !StringUtils.hasText(vnpayProperties.getPayUrl())) {
+            return null;
+        }
+
+        LocalDateTime now = LocalDateTime.now(VNPAY_TIME_ZONE);
+        String createDate = now.format(VNPAY_DATE_FORMAT);
+        String expireDate = now.plusMinutes(15).format(VNPAY_DATE_FORMAT);
+
+        String currCode = normalizeCurrency(currency);
+        if (!"VND".equals(currCode)) {
+            throw new AppException(HttpStatus.BAD_REQUEST, MessageCode.COMMON_BAD_REQUEST);
+        }
+
+        long amountInMinorUnit = amount
+                .setScale(2, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .longValueExact();
+
+        Map<String, String> params = new TreeMap<>();
+        putIfHasText(params, "vnp_Amount", String.valueOf(amountInMinorUnit));
+        putIfHasText(params, "vnp_Command", vnpayProperties.getCommand());
+        putIfHasText(params, "vnp_CreateDate", createDate);
+        putIfHasText(params, "vnp_CurrCode", currCode);
+        putIfHasText(params, "vnp_ExpireDate", expireDate);
+        putIfHasText(params, "vnp_IpAddr", "127.0.0.1");
+        putIfHasText(params, "vnp_Locale", vnpayProperties.getLocale());
+        putIfHasText(params, "vnp_OrderInfo", buildVnpayRefundOrderInfo(orderCode));
+        putIfHasText(params, "vnp_OrderType", vnpayProperties.getOrderType());
+        putIfHasText(params, "vnp_ReturnUrl", buildRefundReturnUrl());
+        putIfHasText(params, "vnp_TmnCode", vnpayProperties.getTmnCode());
+        putIfHasText(params, "vnp_TxnRef", normalizeTxnRef(providerRefundId));
+        putIfHasText(params, "vnp_Version", vnpayProperties.getVersion());
+
+        validateRequiredVnpParams(params);
+
+        String hashData = buildHashData(params);
+        String secureHash = hmacSha512(trimToNull(vnpayProperties.getHashSecret()), hashData);
+        String queryString = buildQueryString(params);
+
+        return vnpayProperties.getPayUrl().trim() + "?" + queryString + "&vnp_SecureHash=" + secureHash;
+    }
+
+    private String buildRefundReturnUrl() {
+        String baseReturnUrl = trimToNull(vnpayProperties.getReturnUrl());
+        if (!StringUtils.hasText(baseReturnUrl)) {
+            throw new AppException(HttpStatus.INTERNAL_SERVER_ERROR, MessageCode.COMMON_INTERNAL_ERROR);
+        }
+
+        String separator = baseReturnUrl.contains("?") ? "&" : "?";
+        return baseReturnUrl
+                + separator
+                + "paymentContext=refund"
+                + "&returnTargetPath=%2Fpartner%2Forders";
+    }
+
     private String normalizeCurrency(String currency) {
         String normalized = trimToNull(currency);
         if (normalized == null) {
@@ -502,6 +710,76 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
+    private void publishPaymentRefundEvent(PaymentRefund paymentRefund) {
+        String topic;
+        String eventType;
+        if (paymentRefund.getStatus() == PaymentRefundStatusEnum.REFUNDED) {
+            topic = topicPaymentRefundSucceeded;
+            eventType = "PaymentRefundSucceeded";
+        } else if (paymentRefund.getStatus() == PaymentRefundStatusEnum.FAILED) {
+            topic = topicPaymentRefundFailed;
+            eventType = "PaymentRefundFailed";
+        } else {
+            return;
+        }
+
+        try {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("refundId", paymentRefund.getId());
+            payload.put("refundUuid", paymentRefund.getUuid());
+            payload.put("paymentId", paymentRefund.getPaymentTransaction().getId());
+            payload.put("orderCode", paymentRefund.getOrderCode());
+            payload.put("customerId", paymentRefund.getCustomerId());
+            payload.put("amount", paymentRefund.getAmount());
+            payload.put("currency", paymentRefund.getCurrency());
+            payload.put("status", paymentRefund.getStatus().name());
+            payload.put("providerRefundId", paymentRefund.getProviderRefundId());
+            payload.put("refundUrl", paymentRefund.getRefundUrl());
+            payload.put("refundBankCode", paymentRefund.getRefundBankCode());
+            payload.put("refundAccountNumberMasked", maskAccountNumber(paymentRefund.getRefundAccountNumber()));
+            payload.put("refundReason", paymentRefund.getRefundReason());
+            payload.put("actor", paymentRefund.getActor());
+            payload.put("note", paymentRefund.getNote());
+            payload.put("processedAt", paymentRefund.getProcessedAt());
+            payload.put("createdAt", paymentRefund.getCreatedAt());
+            payload.put("updatedAt", paymentRefund.getUpdatedAt());
+
+            Map<String, Object> envelope = new LinkedHashMap<>();
+            envelope.put("eventId", UUID.randomUUID().toString());
+            envelope.put("eventType", eventType);
+            envelope.put("eventVersion", "v1");
+            envelope.put("occurredAt", LocalDateTime.now());
+            envelope.put("source", "payment-service");
+            envelope.put("correlationId", paymentRefund.getOrderCode());
+            envelope.put("payload", payload);
+
+            kafkaTemplate.send(
+                    topic,
+                    paymentRefund.getOrderCode(),
+                    objectMapper.writeValueAsString(envelope)
+            );
+        } catch (Exception ex) {
+            LOGGER.warn(
+                    "Failed to publish payment refund event. topic={}, orderCode={}, status={}",
+                    topic,
+                    paymentRefund.getOrderCode(),
+                    paymentRefund.getStatus(),
+                    ex
+            );
+        }
+    }
+
+    private String maskAccountNumber(String accountNumber) {
+        String normalized = trimToNull(accountNumber);
+        if (!StringUtils.hasText(normalized)) {
+            return null;
+        }
+        if (normalized.length() <= 4) {
+            return "***" + normalized;
+        }
+        return "***" + normalized.substring(normalized.length() - 4);
+    }
+
     private PaymentTransactionResponse mapToResponse(PaymentTransaction paymentTransaction, boolean replayed) {
         return PaymentTransactionResponse.builder()
                 .paymentId(paymentTransaction.getId())
@@ -520,6 +798,27 @@ public class PaymentServiceImpl implements PaymentService {
                 .note(paymentTransaction.getNote())
                 .createdAt(paymentTransaction.getCreatedAt())
                 .updatedAt(paymentTransaction.getUpdatedAt())
+                .build();
+    }
+
+    private PaymentRefundResponse mapToRefundResponse(PaymentRefund paymentRefund) {
+        return PaymentRefundResponse.builder()
+                .refundId(paymentRefund.getId())
+                .refundUuid(paymentRefund.getUuid())
+                .paymentId(paymentRefund.getPaymentTransaction().getId())
+                .orderCode(paymentRefund.getOrderCode())
+                .customerId(paymentRefund.getCustomerId())
+                .amount(paymentRefund.getAmount())
+                .currency(paymentRefund.getCurrency())
+                .status(paymentRefund.getStatus())
+                .providerRefundId(paymentRefund.getProviderRefundId())
+                .refundUrl(paymentRefund.getRefundUrl())
+                .actor(paymentRefund.getActor())
+                .idempotencyKey(paymentRefund.getIdempotencyKey())
+                .note(paymentRefund.getNote())
+                .processedAt(paymentRefund.getProcessedAt())
+                .createdAt(paymentRefund.getCreatedAt())
+                .updatedAt(paymentRefund.getUpdatedAt())
                 .build();
     }
 }

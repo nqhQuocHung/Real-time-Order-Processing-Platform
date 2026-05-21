@@ -58,15 +58,14 @@
   cursor: pointer;
 }
 
-.role-brand-badge {
+.role-brand-logo {
   width: 40px;
   height: 40px;
   border-radius: 11px;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  color: #05253d;
-  background: linear-gradient(135deg, var(--role-brand), var(--role-brand-2));
+  display: block;
+  object-fit: cover;
+  border: 1px solid rgba(39, 194, 255, 0.45);
+  box-shadow: 0 4px 14px rgba(3, 137, 239, 0.28);
 }
 
 .role-brand h1 {
@@ -197,6 +196,60 @@
   gap: 10px;
 }
 
+.role-language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  border-radius: 10px;
+  padding: 3px;
+  background: rgba(7, 23, 38, 0.72);
+}
+
+.role-language-switch.compact {
+  border-radius: 9px;
+}
+
+.role-language-btn {
+  width: 42px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0;
+  background-color: rgba(5, 16, 28, 0.72);
+  cursor: pointer;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  overflow: hidden;
+  opacity: 0.55;
+  filter: saturate(0.78) brightness(0.72);
+}
+
+.role-language-btn.is-vi {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 40'%3E%3Crect width='60' height='40' fill='%23da251d'/%3E%3Cpolygon fill='%23ffde00' points='30,9.2 33.18,16.7 41.3,17.35 35.1,22.65 37.02,30.6 30,26.05 22.98,30.6 24.9,22.65 18.7,17.35 26.82,16.7'/%3E%3C/svg%3E");
+}
+
+.role-language-btn.is-en {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 30'%3E%3CclipPath id='t'%3E%3Cpath d='M0,0 v30 h60 v-30 z'/%3E%3C/clipPath%3E%3Cpath d='M0,0 v30 h60 v-30 z' fill='%23012169'/%3E%3Cpath d='M0,0 60,30 M60,0 0,30' stroke='%23fff' stroke-width='6' clip-path='url(%23t)'/%3E%3Cpath d='M0,0 60,30 M60,0 0,30' stroke='%23c8102e' stroke-width='3.5' clip-path='url(%23t)'/%3E%3Cpath d='M30,0 v30 M0,15 h60' stroke='%23fff' stroke-width='10'/%3E%3Cpath d='M30,0 v30 M0,15 h60' stroke='%23c8102e' stroke-width='6'/%3E%3C/svg%3E");
+}
+
+.role-language-btn:hover {
+  border-color: rgba(39, 194, 255, 0.45);
+  filter: saturate(0.9) brightness(0.82);
+}
+
+.role-language-btn.active {
+  opacity: 1;
+  border-color: rgba(39, 194, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(39, 194, 255, 0.35) inset;
+  filter: none;
+}
+
+.role-language-btn.active:hover {
+  filter: brightness(1.05);
+}
+
 .role-user-controls {
   display: flex;
   align-items: center;
@@ -205,6 +258,25 @@
 
 .role-user-controls-compact {
   gap: 6px;
+}
+
+.role-user-controls-mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.role-user-controls-mobile-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-user-controls-mobile-language {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
 }
 
 .role-user-menu {
@@ -700,11 +772,10 @@
     gap: 8px;
   }
 
-  .role-brand-badge {
+  .role-brand-logo {
     width: 30px;
     height: 30px;
     border-radius: 8px;
-    font-size: 0.68rem;
   }
 
   .role-brand h1 {
@@ -731,9 +802,26 @@
     max-width: 66px;
   }
 
+  .role-user-controls-mobile {
+    gap: 4px;
+  }
+
+  .role-user-controls-mobile-top {
+    gap: 5px;
+  }
+
   .role-mobile-menu-toggle {
     width: 38px;
     height: 34px;
+  }
+
+  .role-language-switch.compact {
+    padding: 2px;
+  }
+
+  .role-language-switch.compact .role-language-btn {
+    width: 36px;
+    height: 24px;
   }
 
   .role-header {

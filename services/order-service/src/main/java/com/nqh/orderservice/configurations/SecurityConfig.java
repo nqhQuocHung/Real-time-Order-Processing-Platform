@@ -64,8 +64,16 @@ public class SecurityConfig {
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(HttpMethod.GET, "/api/v1/orders", "/api/v1/orders/*", "/api/v1/orders/*/timeline")
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/refunds")
+                        .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/*/refunds")
+                        .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/cancel")
                         .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/refunds")
+                        .hasAnyAuthority("PERM_MANAGE_SELF_ORDERS", "PERM_MANAGE_ALL_ORDERS")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders/*/refunds/decision")
+                        .hasAnyAuthority("PERM_MANAGE_ALL_ORDERS", "PERM_MANAGE_PARTNER_ORDERS")
                         .requestMatchers(
                                 HttpMethod.PATCH,
                                 "/api/v1/orders/*/status"

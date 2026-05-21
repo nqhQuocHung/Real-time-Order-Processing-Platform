@@ -21,6 +21,7 @@ import {
   APP_OPEN_MESSAGE_CONVERSATION_EVENT,
   type OpenMessageConversationDetail,
 } from '../../../constants/messageEvents'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './UserProductsPage.css'
 
 const DEFAULT_PRODUCT_PAGE_SIZE = 8
@@ -250,6 +251,7 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalog: ProductCardData[])
 }
 
 function UserProductsPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
   const session = getAuthSession()
@@ -863,14 +865,14 @@ function UserProductsPage() {
       <article className="role-card user-products-page-catalog-card">
         <div className="user-products-page-catalog-header">
           <div>
-            <h2>Product Catalog</h2>
+            <h2>{t('pages.userProducts.title')}</h2>
             <p className="role-muted">
-              Browse all products currently sold by partners. Use Refresh Catalog to sync latest stock.
+              {t('pages.userProducts.subtitle')}
             </p>
           </div>
-          <div className="user-products-page-catalog-metrics" aria-label="Catalog summary">
-            <span>{filteredProducts.length} products</span>
-            <span>{categoryOptions.length} categories</span>
+          <div className="user-products-page-catalog-metrics" aria-label={t('pages.userProducts.catalogSummaryAria')}>
+            <span>{t('pages.userProducts.metrics.products', undefined, { count: filteredProducts.length })}</span>
+            <span>{t('pages.userProducts.metrics.categories', undefined, { count: categoryOptions.length })}</span>
           </div>
         </div>
 
@@ -878,10 +880,10 @@ function UserProductsPage() {
 
         <div className="role-inline-actions user-products-page-catalog-actions">
           <button type="button" className="role-btn-primary" onClick={() => void loadCatalog()}>
-            {loading ? 'Loading...' : 'Refresh Catalog'}
+            {loading ? t('pages.userProducts.loading') : t('pages.userProducts.refreshCatalog')}
           </button>
           <label className="user-products-page-page-size">
-            <span>Items / page</span>
+            <span>{t('pages.userProducts.itemsPerPage')}</span>
             <select
               value={pageSize}
               onChange={(event) => setPageSize(Number(event.target.value))}
@@ -896,34 +898,36 @@ function UserProductsPage() {
         </div>
 
         <p className="role-muted user-products-page-cart-summary">
-          Cart selected: {cartProductCount} product(s), total quantity {cartQuantity}. Continue the
-          checkout flow from the floating cart button.
+          {t('pages.userProducts.cartSummary', undefined, {
+            productCount: cartProductCount,
+            totalQuantity: cartQuantity,
+          })}
         </p>
 
         <div className="role-inline-form user-products-page-filter">
           <label>
-            Search Product
+            {t('pages.userProducts.filters.searchProduct')}
             <input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="Name, SKU, brand, ID..."
+              placeholder={t('pages.userProducts.filters.placeholders.searchProduct')}
             />
           </label>
           <label>
-            Search Shop
+            {t('pages.userProducts.filters.searchShop')}
             <input
               value={shopKeyword}
               onChange={(event) => setShopKeyword(event.target.value)}
-              placeholder="Shop name"
+              placeholder={t('pages.userProducts.filters.placeholders.searchShop')}
             />
           </label>
           <label>
-            Category
+            {t('pages.userProducts.filters.category')}
             <select
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
             >
-              <option value="">All categories</option>
+              <option value="">{t('pages.userProducts.filters.allCategories')}</option>
               {categoryOptions.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -990,7 +994,7 @@ function UserProductsPage() {
                               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16h-6.3l-3.7 3a1 1 0 0 1-1.6-.78V16.2A2.5 2.5 0 0 1 4 13.8v-8.3Z" />
                             </svg>
                           </span>
-                          <span>Message Shop</span>
+                          <span>{t('pages.userProducts.messageShop')}</span>
                         </span>
                       </button>
                     </div>
@@ -1022,7 +1026,7 @@ function UserProductsPage() {
                               <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8A2.5 2.5 0 0 1 17.5 16h-6.3l-3.7 3a1 1 0 0 1-1.6-.78V16.2A2.5 2.5 0 0 1 4 13.8v-8.3Z" />
                             </svg>
                           </span>
-                          <span>Message Shop</span>
+                          <span>{t('pages.userProducts.messageShop')}</span>
                         </span>
                       </button>
                     </div>
@@ -1034,7 +1038,7 @@ function UserProductsPage() {
 
           {!filteredProducts.length && (
             <p className="role-empty-cell user-products-page-empty">
-              No products matched the current filters.
+              {t('pages.userProducts.empty')}
             </p>
           )}
         </div>
@@ -1042,9 +1046,11 @@ function UserProductsPage() {
         {totalPages > 0 && (
           <div className="user-products-page-pagination">
             <p className="user-products-page-pagination-summary">
-              Showing {Math.min(page * pageSize + 1, filteredProducts.length)}-
-              {Math.min((page + 1) * pageSize, filteredProducts.length)} of{' '}
-              {filteredProducts.length}
+              {t('pages.userProducts.pagination.summary', undefined, {
+                start: Math.min(page * pageSize + 1, filteredProducts.length),
+                end: Math.min((page + 1) * pageSize, filteredProducts.length),
+                total: filteredProducts.length,
+              })}
             </p>
             <div className="user-products-page-pagination-controls">
               <button
@@ -1053,7 +1059,7 @@ function UserProductsPage() {
                 onClick={() => setPage((prev) => Math.max(0, prev - 1))}
                 disabled={page <= 0}
               >
-                Prev
+                {t('pages.userProducts.pagination.prev')}
               </button>
               {paginationPages.map((pageNumber) => (
                 <button
@@ -1071,7 +1077,7 @@ function UserProductsPage() {
                 onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
                 disabled={page >= totalPages - 1}
               >
-                Next
+                {t('pages.userProducts.pagination.next')}
               </button>
             </div>
           </div>
@@ -1082,14 +1088,14 @@ function UserProductsPage() {
         type="button"
         className="user-products-page-floating-cart"
         onClick={() => navigate('/user/orders')}
-        aria-label={`Open Orders with ${cartQuantity} item(s) in cart`}
+        aria-label={t('pages.userProducts.floatingCartAria', undefined, { count: cartQuantity })}
       >
         <span className="user-products-page-floating-cart-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" role="img">
             <path d="M7 4h-2.4a1 1 0 1 0 0 2h1.66l1.58 8.34a2 2 0 0 0 1.96 1.66h7.6a2 2 0 0 0 1.94-1.51l1.22-4.86a1 1 0 0 0-.97-1.25H8.54L8.16 6H7zm3.1 13a1.9 1.9 0 1 0 .01 3.8 1.9 1.9 0 0 0-.01-3.8zm7.2 0a1.9 1.9 0 1 0 .01 3.8 1.9 1.9 0 0 0-.01-3.8z" />
           </svg>
         </span>
-        <span className="user-products-page-floating-cart-label">Order Cart</span>
+        <span className="user-products-page-floating-cart-label">{t('pages.userProducts.orderCart')}</span>
         <span className="user-products-page-floating-cart-badge">{cartQuantity}</span>
       </button>
 
@@ -1102,7 +1108,7 @@ function UserProductsPage() {
             <header>
               <h3>{detailProductName}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeProductDetail}>
-                Close
+                {t('pages.userProducts.common.close')}
               </button>
             </header>
             <div className="user-products-page-modal-content">
@@ -1110,50 +1116,50 @@ function UserProductsPage() {
                 {selectedProduct.imageUrl ? (
                   <img src={selectedProduct.imageUrl} alt={detailProductName} />
                 ) : (
-                  <span>No image</span>
+                  <span>{t('pages.userProducts.detail.noImage')}</span>
                 )}
               </div>
               <dl className="user-products-page-modal-fields">
                 <div>
-                  <dt>Price</dt>
+                  <dt>{t('pages.userProducts.detail.price')}</dt>
                   <dd>{formatProductPrice(selectedProduct.price, selectedProduct.currency || 'VND')}</dd>
                 </div>
                 <div>
-                  <dt>Shop Name</dt>
+                  <dt>{t('pages.userProducts.detail.shopName')}</dt>
                   <dd>{detailShopName}</dd>
                 </div>
                 <div>
-                  <dt>Category</dt>
+                  <dt>{t('pages.userProducts.detail.category')}</dt>
                   <dd>{selectedProduct.categoryName?.trim() || selectedProduct.categoryId?.trim() || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Brand</dt>
+                  <dt>{t('pages.userProducts.detail.brand')}</dt>
                   <dd>{selectedProduct.brand?.trim() || '-'}</dd>
                 </div>
                 <div>
-                  <dt>SKU</dt>
+                  <dt>{t('pages.userProducts.detail.sku')}</dt>
                   <dd>{selectedProduct.sku?.trim() || '-'}</dd>
                 </div>
                 <div>
-                  <dt>Product ID</dt>
+                  <dt>{t('pages.userProducts.detail.productId')}</dt>
                   <dd>{selectedProduct.productId}</dd>
                 </div>
                 <div>
-                  <dt>Available</dt>
+                  <dt>{t('pages.userProducts.detail.available')}</dt>
                   <dd>{normalizeQuantity(selectedProduct.availableQuantity)}</dd>
                 </div>
                 <div>
-                  <dt>Paid</dt>
+                  <dt>{t('pages.userProducts.detail.paid')}</dt>
                   <dd>{normalizeQuantity(selectedProduct.soldQuantity)}</dd>
                 </div>
                 <div>
-                  <dt>Total</dt>
+                  <dt>{t('pages.userProducts.detail.total')}</dt>
                   <dd>{normalizeQuantity(selectedProduct.totalQuantity)}</dd>
                 </div>
               </dl>
             </div>
             <p className="user-products-page-modal-description">
-              {selectedProduct.description?.trim() || 'No description available.'}
+              {selectedProduct.description?.trim() || t('pages.userProducts.detail.noDescription')}
             </p>
 
             <div className="user-products-page-review-entry">
@@ -1169,12 +1175,14 @@ function UserProductsPage() {
                   handleOpenReviewPanel()
                 }}
               >
-                {isReviewPanelVisible ? 'Hide Ratings & Comments' : 'Show Ratings & Comments'}
+                {isReviewPanelVisible
+                  ? t('pages.userProducts.reviews.hideRatings')
+                  : t('pages.userProducts.reviews.showRatings')}
               </button>
               {detailReviewStats && (
                 <div className="user-products-page-reviews-metrics">
                   <span>{normalizeRatingValue(detailReviewStats.averageRating).toFixed(1)} / 5</span>
-                  <span>{detailReviewStats.totalReviews || 0} review(s)</span>
+                  <span>{t('pages.userProducts.reviews.reviewCount', undefined, { count: detailReviewStats.totalReviews || 0 })}</span>
                 </div>
               )}
             </div>
@@ -1182,7 +1190,7 @@ function UserProductsPage() {
             {isReviewPanelVisible && (
               <section className="user-products-page-reviews">
                 <div className="user-products-page-reviews-header">
-                  <h4>Ratings & Reviews</h4>
+                  <h4>{t('pages.userProducts.reviews.title')}</h4>
                 </div>
 
                 {reviewError && <p className="role-error">{reviewError}</p>}
@@ -1211,38 +1219,40 @@ function UserProductsPage() {
                       setIsReviewComposerOpen(true)
                     }}
                   >
-                    {myReview ? 'Update Your Review' : 'Write a Review'}
+                    {myReview
+                      ? t('pages.userProducts.reviews.updateYourReview')
+                      : t('pages.userProducts.reviews.writeReview')}
                   </button>
                   {myReview && (
                     <span className="role-muted">
-                      You already reviewed this product. You can update it anytime.
+                      {t('pages.userProducts.reviews.alreadyReviewed')}
                     </span>
                   )}
                 </div>
 
                 <div className="user-products-page-review-toolbar">
                   <label>
-                    Sort
+                    {t('pages.userProducts.reviews.sort')}
                     <select
                       value={reviewSort}
                       onChange={(event) => handleChangeReviewSort(event.target.value)}
                       disabled={reviewLoading}
                     >
-                      <option value="latest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="rating_desc">Rating High to Low</option>
-                      <option value="rating_asc">Rating Low to High</option>
+                      <option value="latest">{t('pages.userProducts.reviews.sortOptions.latest')}</option>
+                      <option value="oldest">{t('pages.userProducts.reviews.sortOptions.oldest')}</option>
+                      <option value="rating_desc">{t('pages.userProducts.reviews.sortOptions.ratingDesc')}</option>
+                      <option value="rating_asc">{t('pages.userProducts.reviews.sortOptions.ratingAsc')}</option>
                     </select>
                   </label>
-                  <span>{reviewTotalElements} review(s)</span>
+                  <span>{t('pages.userProducts.reviews.reviewCount', undefined, { count: reviewTotalElements })}</span>
                 </div>
 
                 {reviewLoading ? (
-                  <p className="role-muted">Loading reviews...</p>
+                  <p className="role-muted">{t('pages.userProducts.reviews.loading')}</p>
                 ) : (
                   <div className="user-products-page-review-list">
                     {!reviewList.length && (
-                      <p className="role-muted">No reviews yet. Be the first to review this product.</p>
+                      <p className="role-muted">{t('pages.userProducts.reviews.empty')}</p>
                     )}
 
                     {reviewList.map((review) => {
@@ -1274,7 +1284,7 @@ function UserProductsPage() {
                               </small>
                             </div>
                             {review.verifiedPurchase && (
-                              <span className="user-products-page-review-verified">Verified purchase</span>
+                              <span className="user-products-page-review-verified">{t('pages.userProducts.reviews.verifiedPurchase')}</span>
                             )}
                           </header>
 
@@ -1290,9 +1300,9 @@ function UserProductsPage() {
                                 setActiveCommentReviewId(review.reviewId)
                               }}
                             >
-                              View comments
+                              {t('pages.userProducts.reviews.viewComments')}
                             </button>
-                            <span>{comments.length} comment(s)</span>
+                            <span>{t('pages.userProducts.reviews.commentCount', undefined, { count: comments.length })}</span>
                           </div>
                         </article>
                       )
@@ -1308,7 +1318,7 @@ function UserProductsPage() {
                       onClick={() => handleGoToReviewPage(Math.max(0, reviewPage - 1))}
                       disabled={reviewPage <= 0 || reviewLoading}
                     >
-                      Prev
+                      {t('pages.userProducts.pagination.prev')}
                     </button>
                     {reviewPaginationPages.map((pageNumber) => (
                       <button
@@ -1327,7 +1337,7 @@ function UserProductsPage() {
                       onClick={() => handleGoToReviewPage(Math.min(reviewTotalPages - 1, reviewPage + 1))}
                       disabled={reviewPage >= reviewTotalPages - 1 || reviewLoading}
                     >
-                      Next
+                      {t('pages.userProducts.pagination.next')}
                     </button>
                   </div>
                 )}
@@ -1344,20 +1354,22 @@ function UserProductsPage() {
                   onClick={(event) => event.stopPropagation()}
                 >
                   <header>
-                    <h5>{myReview ? 'Update Your Review' : 'Write a Review'}</h5>
+                    <h5>{myReview
+                      ? t('pages.userProducts.reviews.updateYourReview')
+                      : t('pages.userProducts.reviews.writeReview')}</h5>
                     <button
                       type="button"
                       className="role-btn-ghost"
                       onClick={() => setIsReviewComposerOpen(false)}
                     >
-                      Close
+                      {t('pages.userProducts.common.close')}
                     </button>
                   </header>
 
                   <form className="user-products-page-review-form" onSubmit={handleSubmitReview}>
                     <label>
-                      Rating
-                      <div className="user-products-page-rating-picker" role="radiogroup" aria-label="Select rating">
+                      {t('pages.userProducts.reviews.rating')}
+                      <div className="user-products-page-rating-picker" role="radiogroup" aria-label={t('pages.userProducts.reviews.selectRatingAria')}>
                         {[1, 2, 3, 4, 5].map((starValue) => (
                           <button
                             key={`review-form-rating-${starValue}`}
@@ -1372,28 +1384,28 @@ function UserProductsPage() {
                         ))}
                       </div>
                       <span className="user-products-page-rating-picker-caption">
-                        {reviewFormRating} / 5 star
+                        {t('pages.userProducts.reviews.ratingCaption', undefined, { value: reviewFormRating })}
                       </span>
                     </label>
 
                     <label>
-                      Title (optional)
+                      {t('pages.userProducts.reviews.titleOptional')}
                       <input
                         value={reviewFormTitle}
                         onChange={(event) => setReviewFormTitle(event.target.value)}
                         maxLength={160}
-                        placeholder="Short summary..."
+                        placeholder={t('pages.userProducts.reviews.placeholders.title')}
                         disabled={reviewSubmitting}
                       />
                     </label>
 
                     <label>
-                      Review
+                      {t('pages.userProducts.reviews.review')}
                       <textarea
                         value={reviewFormContent}
                         onChange={(event) => setReviewFormContent(event.target.value)}
                         maxLength={2000}
-                        placeholder="Share your experience with this product..."
+                        placeholder={t('pages.userProducts.reviews.placeholders.review')}
                         disabled={reviewSubmitting}
                       />
                     </label>
@@ -1405,14 +1417,18 @@ function UserProductsPage() {
                         onClick={() => setIsReviewComposerOpen(false)}
                         disabled={reviewSubmitting}
                       >
-                        Cancel
+                        {t('pages.userProducts.common.cancel')}
                       </button>
                       <button
                         type="submit"
                         className="role-btn-primary"
                         disabled={reviewSubmitting}
                       >
-                        {reviewSubmitting ? 'Saving...' : myReview ? 'Update Review' : 'Post Review'}
+                        {reviewSubmitting
+                          ? t('pages.userProducts.reviews.saving')
+                          : myReview
+                            ? t('pages.userProducts.reviews.updateReview')
+                            : t('pages.userProducts.reviews.postReview')}
                       </button>
                     </div>
                   </form>
@@ -1430,13 +1446,13 @@ function UserProductsPage() {
                   onClick={(event) => event.stopPropagation()}
                 >
                   <header>
-                    <h5>Comment On Review</h5>
+                    <h5>{t('pages.userProducts.comments.title')}</h5>
                     <button
                       type="button"
                       className="role-btn-ghost"
                       onClick={() => setActiveCommentReviewId('')}
                     >
-                      Close
+                      {t('pages.userProducts.common.close')}
                     </button>
                   </header>
 
@@ -1479,7 +1495,7 @@ function UserProductsPage() {
                         </div>
                       ))
                     ) : (
-                      <p className="role-muted">No comments yet.</p>
+                      <p className="role-muted">{t('pages.userProducts.comments.empty')}</p>
                     )}
                   </div>
 
@@ -1494,14 +1510,14 @@ function UserProductsPage() {
                     }}
                   >
                     <label>
-                      Add Comment
+                      {t('pages.userProducts.comments.addComment')}
                     <textarea
                       value={activeCommentDraft}
                       onChange={(event) => setCommentDraftByReviewId((previous) => ({
                         ...previous,
                         [activeCommentReview.reviewId]: event.target.value,
                       }))}
-                      placeholder="Write your comment..."
+                      placeholder={t('pages.userProducts.comments.placeholders.comment')}
                       maxLength={1500}
                       disabled={activeCommentSubmitting}
                     />
@@ -1514,14 +1530,16 @@ function UserProductsPage() {
                         onClick={() => setActiveCommentReviewId('')}
                         disabled={activeCommentSubmitting}
                       >
-                        Cancel
+                        {t('pages.userProducts.common.cancel')}
                       </button>
                       <button
                         type="submit"
                         className="role-btn-primary"
                         disabled={activeCommentSubmitting || !normalizeReviewText(activeCommentDraft)}
                       >
-                        {activeCommentSubmitting ? 'Sending...' : 'Send Comment'}
+                        {activeCommentSubmitting
+                          ? t('pages.userProducts.comments.sending')
+                          : t('pages.userProducts.comments.send')}
                       </button>
                     </div>
                   </form>
@@ -1536,4 +1554,3 @@ function UserProductsPage() {
 }
 
 export default UserProductsPage
-

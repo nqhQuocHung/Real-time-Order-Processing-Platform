@@ -41,7 +41,7 @@ function PublicOnlyRoute() {
   }, [])
 
   if (guardState.loading) {
-    return <Loading fullScreen text="Đang kiểm tra phiên đăng nhập..." />
+    return <Loading fullScreen text="Checking authentication session..." />
   }
 
   if (guardState.isAuthenticated) {
@@ -56,3 +56,4 @@ function PublicOnlyRoute() {
 }
 
 export default PublicOnlyRoute
+

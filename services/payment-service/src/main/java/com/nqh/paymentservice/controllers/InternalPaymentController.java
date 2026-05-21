@@ -6,6 +6,8 @@ import com.nqh.paymentservice.common.response.ApiResponseFactory;
 import com.nqh.paymentservice.common.response.BaseResponse;
 import com.nqh.paymentservice.dtos.CreatePaymentIntentRequest;
 import com.nqh.paymentservice.dtos.PaymentActionRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundRequest;
+import com.nqh.paymentservice.dtos.PaymentRefundResponse;
 import com.nqh.paymentservice.dtos.PaymentTransactionResponse;
 import com.nqh.paymentservice.enums.PaymentStatusEnum;
 import com.nqh.paymentservice.services.PaymentService;
@@ -71,6 +73,17 @@ public class InternalPaymentController {
         validateInternalToken(internalToken);
         PaymentTransactionResponse response = paymentService.failPayment(request);
         return apiResponseFactory.success(HttpStatus.OK, MessageCode.PAYMENT_FAIL_SUCCESS, response, httpServletRequest);
+    }
+
+    @PostMapping("/refunds")
+    public ResponseEntity<BaseResponse<PaymentRefundResponse>> refundPayment(
+            @RequestHeader(name = INTERNAL_TOKEN_HEADER, required = false) String internalToken,
+            @RequestBody @Valid PaymentRefundRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        validateInternalToken(internalToken);
+        PaymentRefundResponse response = paymentService.refundPayment(request);
+        return apiResponseFactory.success(HttpStatus.OK, MessageCode.PAYMENT_REFUND_SUCCESS, response, httpServletRequest);
     }
 
     private void validateInternalToken(String token) {

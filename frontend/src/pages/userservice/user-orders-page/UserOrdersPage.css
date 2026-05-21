@@ -57,6 +57,93 @@
   align-items: center;
 }
 
+.user-orders-refund-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 210, 255, 0.4);
+  padding: 4px 9px;
+  min-width: 110px;
+  font-size: 0.74rem;
+  background: rgba(10, 33, 52, 0.82);
+}
+
+.user-orders-refund-badge.status-requested {
+  border-color: rgba(255, 206, 112, 0.55);
+  color: #ffdca4;
+}
+
+.user-orders-refund-badge.status-approved {
+  border-color: rgba(125, 214, 255, 0.55);
+  color: #bce7ff;
+}
+
+.user-orders-refund-badge.status-rejected,
+.user-orders-refund-badge.status-failed {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+}
+
+.user-orders-refund-badge.status-refunded {
+  border-color: rgba(113, 226, 175, 0.55);
+  color: #b8f5d7;
+}
+
+.user-orders-refund-none {
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+}
+
+.user-orders-order-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(98, 210, 255, 0.42);
+  padding: 4px 9px;
+  min-width: 110px;
+  margin-right: 8px;
+  font-size: 0.74rem;
+  background: rgba(10, 33, 52, 0.82);
+}
+
+.user-orders-order-status-badge.status-created {
+  border-color: rgba(255, 177, 97, 0.55);
+  color: #ffd4a3;
+}
+
+.user-orders-order-status-badge.status-reserved {
+  border-color: rgba(167, 151, 255, 0.55);
+  color: #d5c5ff;
+}
+
+.user-orders-order-status-badge.status-paid {
+  border-color: rgba(125, 214, 255, 0.55);
+  color: #bce7ff;
+}
+
+.user-orders-order-status-badge.status-completed {
+  border-color: rgba(113, 226, 175, 0.55);
+  color: #b8f5d7;
+}
+
+.user-orders-order-status-badge.status-failed {
+  border-color: rgba(255, 143, 161, 0.55);
+  color: #ffc5d0;
+}
+
+.user-orders-order-status-badge.status-cancelled {
+  border-color: rgba(220, 120, 134, 0.55);
+  color: #ffc5d0;
+}
+
+.user-orders-payment-status-label {
+  display: inline-block;
+  font-size: 0.74rem;
+  color: var(--role-text-sub);
+}
+
 .user-orders-pay-button {
   padding-inline: 12px;
 }
@@ -189,6 +276,85 @@
   justify-content: flex-end;
 }
 
+.user-orders-refund-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1210;
+  background: rgba(3, 10, 18, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.user-orders-refund-dialog {
+  width: min(620px, 100%);
+  border: 1px solid rgba(133, 169, 214, 0.34);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(8, 24, 40, 0.98);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.4);
+  display: grid;
+  gap: 12px;
+}
+
+.user-orders-refund-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.user-orders-refund-header h3 {
+  margin: 0;
+}
+
+.user-orders-refund-message {
+  margin: 0;
+  color: var(--role-text-sub);
+}
+
+.user-orders-refund-existing {
+  border: 1px solid rgba(98, 210, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(9, 31, 51, 0.72);
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.user-orders-refund-existing p {
+  margin: 0;
+  color: var(--role-text-sub);
+}
+
+.user-orders-refund-existing strong {
+  color: var(--role-text);
+}
+
+.user-orders-refund-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.user-orders-refund-form label:last-child {
+  grid-column: 1 / -1;
+}
+
+.user-orders-refund-form textarea {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(133, 169, 214, 0.35);
+  background: rgba(8, 23, 39, 0.86);
+  color: var(--role-text);
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+}
+
+.user-orders-refund-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .user-orders-page-pagination {
   margin-top: 10px;
   display: flex;
@@ -207,13 +373,22 @@
 .user-orders-page-pagination-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
 }
 
 .user-orders-page-btn-page {
-  min-width: 40px;
-  padding: 7px 10px;
+  min-width: 44px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
   font-size: 0.76rem;
+}
+
+.user-orders-page-pagination-controls .user-orders-page-btn-page:first-child,
+.user-orders-page-pagination-controls .user-orders-page-btn-page:last-child {
+  min-width: 72px;
 }
 
 .user-orders-page-btn-page.is-active {
@@ -254,6 +429,18 @@
 
   .payment-dialog-actions .role-btn-primary,
   .payment-dialog-actions .role-btn-ghost {
+    width: 100%;
+  }
+
+  .user-orders-refund-form {
+    grid-template-columns: 1fr;
+  }
+
+  .user-orders-refund-actions {
+    justify-content: stretch;
+  }
+
+  .user-orders-refund-actions .role-btn-primary {
     width: 100%;
   }
 }

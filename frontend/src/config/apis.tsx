@@ -169,9 +169,14 @@ const endpoints = {
   orders: {
     create: '/api/v1/orders',
     list: '/api/v1/orders',
+    refundList: '/api/v1/orders/refunds',
     detail: (orderCode: string) => `/api/v1/orders/${orderCode}`,
     timeline: (orderCode: string) => `/api/v1/orders/${orderCode}/timeline`,
     cancel: (orderCode: string) => `/api/v1/orders/${orderCode}/cancel`,
+    refundDetail: (orderCode: string) => `/api/v1/orders/${orderCode}/refunds`,
+    refundRequest: (orderCode: string) => `/api/v1/orders/${orderCode}/refunds`,
+    refundDecision: (orderCode: string) =>
+      `/api/v1/orders/${orderCode}/refunds/decision`,
     updateStatus: (orderCode: string) => `/api/v1/orders/${orderCode}/status`,
     paymentConfirm: (orderCode: string) =>
       `/api/v1/orders/${orderCode}/payment-confirm`,
@@ -209,6 +214,7 @@ const endpoints = {
     getByOrderCode: (orderCode: string) => `/api/v1/payments/${orderCode}`,
     confirm: '/api/v1/payments/confirm',
     fail: '/api/v1/payments/fail',
+    refund: '/api/v1/payments/refunds',
   },
   notifications: {
     create: '/api/v1/notifications',
@@ -294,6 +300,42 @@ function parseBackendMenus(): BackendMenuItem[] {
   } catch {
     return []
   }
+}
+
+function resolveRoleFromPath(pathname?: string): AppRole | undefined {
+  if (!pathname) {
+    return undefined
+  }
+
+  const normalizedPath = pathname.trim().toLowerCase()
+  if (!normalizedPath) {
+    return undefined
+  }
+
+  if (normalizedPath.startsWith('/partner/')) {
+    return 'SHOPEE_PARTNER'
+  }
+
+  if (normalizedPath.startsWith('/admin/')) {
+    return 'ADMIN'
+  }
+
+  if (normalizedPath.startsWith('/user/') || normalizedPath === '/payment-return') {
+    return 'USER'
+  }
+
+  return undefined
+}
+
+function resolveForwardedRole(sessionRole?: AppRole): AppRole | undefined {
+  if (typeof window !== 'undefined') {
+    const roleFromPath = resolveRoleFromPath(window.location.pathname)
+    if (roleFromPath) {
+      return roleFromPath
+    }
+  }
+
+  return sessionRole
 }
 
 function setLocalStorageValue(key: string, value: string) {
@@ -474,10 +516,21 @@ function createApiInstance(accessToken?: string) {
   instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     beginApiLoading(config)
 
-    const token = accessToken || getAuthSession()?.accessToken
+    const session = getAuthSession()
+    const token = accessToken || session?.accessToken
 
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+
+    const forwardedRole = resolveForwardedRole(session?.role)
+    if (forwardedRole && !config.headers['X-User-Role']) {
+      config.headers['X-User-Role'] = forwardedRole
+    }
+
+    const forwardedUserId = session?.userId?.trim()
+    if (forwardedUserId && !config.headers['X-User-Id']) {
+      config.headers['X-User-Id'] = forwardedUserId
     }
 
     if (!config.headers['X-Correlation-Id']) {

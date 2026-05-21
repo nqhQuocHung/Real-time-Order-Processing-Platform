@@ -2,6 +2,12 @@ import { forwardRef } from 'react'
 import defaultAvatar from '../../assets/default-avatar.svg'
 import './MessageCenter.css'
 
+type TranslateFn = (
+  key: string,
+  fallback?: string,
+  params?: Record<string, string | number>,
+) => string
+
 export type MessageConversationItem = {
   conversationId: string
   userId: string
@@ -33,6 +39,8 @@ type MessageCenterProps = {
   compact?: boolean
   isOpen: boolean
   isThreadOpen: boolean
+  language: 'en' | 'vi'
+  t: TranslateFn
   error?: string
   unreadCount: number
   conversations: MessageConversationItem[]
@@ -52,7 +60,7 @@ type MessageCenterProps = {
   onSend: () => void
 }
 
-function formatOccurredAt(value?: string) {
+function formatOccurredAt(value: string | undefined, language: 'en' | 'vi') {
   if (!value) {
     return '-'
   }
@@ -60,7 +68,8 @@ function formatOccurredAt(value?: string) {
   if (Number.isNaN(parsed.getTime())) {
     return value
   }
-  return new Intl.DateTimeFormat('vi-VN', {
+  const locale = language === 'vi' ? 'vi-VN' : 'en-US'
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(parsed)
@@ -77,7 +86,7 @@ function toDateBucket(value?: string) {
   return `${parsed.getFullYear()}-${parsed.getMonth()}-${parsed.getDate()}`
 }
 
-function formatDateDivider(value?: string) {
+function formatDateDivider(value: string | undefined, language: 'en' | 'vi') {
   if (!value) {
     return ''
   }
@@ -85,20 +94,25 @@ function formatDateDivider(value?: string) {
   if (Number.isNaN(parsed.getTime())) {
     return ''
   }
-  return new Intl.DateTimeFormat('en-GB', {
+  const locale = language === 'vi' ? 'vi-VN' : 'en-GB'
+  return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(parsed)
 }
 
-function resolveConversationTitle(conversation: MessageConversationItem, currentUserId: string) {
+function resolveConversationTitle(
+  conversation: MessageConversationItem,
+  currentUserId: string,
+  fallbackTitle: string,
+) {
   const isUserSide = currentUserId === conversation.userId
   const defaultTitle = isUserSide ? conversation.partnerId : conversation.userId
   const preferredName = isUserSide
     ? conversation.partnerDisplayName?.trim()
     : conversation.userDisplayName?.trim()
-  return preferredName || defaultTitle || 'Conversation'
+  return preferredName || defaultTitle || fallbackTitle
 }
 
 function resolveConversationPeerId(conversation: MessageConversationItem, currentUserId: string) {
@@ -124,6 +138,8 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
     compact = false,
     isOpen,
     isThreadOpen,
+    language,
+    t,
     error = '',
     unreadCount,
     conversations,
@@ -160,7 +176,7 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
       threadRows.push({
         kind: 'date',
         key: `${bucket}-${index}`,
-        label: formatDateDivider(message.createdAt),
+        label: formatDateDivider(message.createdAt, language),
       })
       previousBucket = bucket
     }
@@ -174,7 +190,7 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
         className={`role-message-trigger ${isOpen ? 'open' : ''}`}
         onClick={onToggle}
         aria-expanded={isOpen}
-        aria-label="Open message center"
+        aria-label={t('messageCenter.openAria', 'Open message center')}
       >
         <span className="role-message-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" focusable="false">
@@ -189,20 +205,28 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
       {isOpen && (
         <div className="role-message-dropdown">
           <div className="role-message-header">
-            <strong>Messages</strong>
+            <strong>{t('messageCenter.header', 'Messages')}</strong>
             <span>{conversations.length}</span>
           </div>
           {error && <p className="role-message-error">{error}</p>}
 
           <aside className="role-message-conversations role-message-conversations-list-only">
             {loadingConversations ? (
-              <p className="role-message-empty">Loading conversations...</p>
+              <p className="role-message-empty">
+                {t('messageCenter.loadingConversations', 'Loading conversations...')}
+              </p>
             ) : conversations.length === 0 ? (
-              <p className="role-message-empty">No conversation yet.</p>
+              <p className="role-message-empty">
+                {t('messageCenter.emptyConversations', 'No conversation yet.')}
+              </p>
             ) : (
               <ul>
                 {conversations.map((conversation) => {
-                  const title = resolveConversationTitle(conversation, currentUserId)
+                  const title = resolveConversationTitle(
+                    conversation,
+                    currentUserId,
+                    t('messageCenter.conversationFallback', 'Conversation'),
+                  )
                   const peerId = resolveConversationPeerId(conversation, currentUserId)
                   const peerAvatar = resolveAvatar(peerId, avatarByUserId)
                   const unread = Math.max(0, Number(conversation.unreadCount) || 0)
@@ -224,9 +248,12 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
                           <div className="role-message-conversation-content">
                             <div className="role-message-conversation-top">
                               <strong>{title}</strong>
-                              <time>{formatOccurredAt(conversation.lastMessageAt)}</time>
+                              <time>{formatOccurredAt(conversation.lastMessageAt, language)}</time>
                             </div>
-                            <p>{conversation.lastMessagePreview || 'Start conversation...'}</p>
+                            <p>
+                              {conversation.lastMessagePreview ||
+                                t('messageCenter.startConversation', 'Start conversation...')}
+                            </p>
                           </div>
                         </div>
                         {unread > 0 && <span className="role-message-conversation-unread">{unread}</span>}
@@ -245,30 +272,44 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
           <div className="role-message-thread-header">
             <img
               src={resolveAvatar(resolveConversationPeerId(activeConversation, currentUserId), avatarByUserId)}
-              alt={resolveConversationTitle(activeConversation, currentUserId)}
+              alt={resolveConversationTitle(
+                activeConversation,
+                currentUserId,
+                t('messageCenter.conversationFallback', 'Conversation'),
+              )}
               className="role-message-thread-avatar"
             />
             <div className="role-message-thread-header-info">
               <div className="role-message-thread-title-row">
-                <strong>{resolveConversationTitle(activeConversation, currentUserId)}</strong>
+                <strong>
+                  {resolveConversationTitle(
+                    activeConversation,
+                    currentUserId,
+                    t('messageCenter.conversationFallback', 'Conversation'),
+                  )}
+                </strong>
                 <span className="role-message-online-dot" aria-hidden="true" />
               </div>
-              <span>Direct message</span>
+              <span>{t('messageCenter.directMessage', 'Direct message')}</span>
             </div>
             <button
               type="button"
               className="role-message-thread-close"
               onClick={onCloseThread}
-              aria-label="Close chat box"
+              aria-label={t('messageCenter.closeThreadAria', 'Close chat box')}
             >
               &times;
             </button>
           </div>
           <div className="role-message-thread-body">
             {loadingMessages ? (
-              <p className="role-message-empty">Loading messages...</p>
+              <p className="role-message-empty">
+                {t('messageCenter.loadingMessages', 'Loading messages...')}
+              </p>
             ) : messages.length === 0 ? (
-              <p className="role-message-empty">No messages yet.</p>
+              <p className="role-message-empty">
+                {t('messageCenter.emptyMessages', 'No messages yet.')}
+              </p>
             ) : (
               <ul>
                 {threadRows.map((row) => {
@@ -291,19 +332,21 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
                       {!mine && (
                         <img
                           src={senderAvatar}
-                          alt={message.senderName?.trim() || 'User'}
+                          alt={message.senderName?.trim() || t('messageCenter.userFallback', 'User')}
                           className="role-message-item-avatar"
                         />
                       )}
                       <div className="role-message-bubble">
                         {!mine && (
                           <span className="role-message-sender">
-                            {message.senderName?.trim() || message.senderRole || 'User'}
+                            {message.senderName?.trim() ||
+                              message.senderRole ||
+                              t('messageCenter.userFallback', 'User')}
                           </span>
                         )}
                         <p>{message.content}</p>
                         <div className="role-message-bubble-meta">
-                          <time>{formatOccurredAt(message.createdAt)}</time>
+                          <time>{formatOccurredAt(message.createdAt, language)}</time>
                           {mine && (
                             <span className="role-message-read-mark" aria-hidden="true">
                               <svg viewBox="0 0 24 24" focusable="false">
@@ -337,13 +380,13 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
                     }
                   }
                 }}
-                placeholder="Type your message..."
+                placeholder={t('messageCenter.composePlaceholder', 'Type your message...')}
                 rows={1}
               />
               <button
                 type="button"
                 className="role-message-emoji-btn"
-                aria-label="Emoji picker"
+                aria-label={t('messageCenter.emojiPickerAria', 'Emoji picker')}
                 disabled
               >
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -356,7 +399,11 @@ const MessageCenter = forwardRef<HTMLDivElement, MessageCenterProps>(function Me
               className="role-message-send-btn"
               onClick={onSend}
               disabled={sending || !draft.trim()}
-              aria-label={sending ? 'Sending message' : 'Send message'}
+              aria-label={
+                sending
+                  ? t('messageCenter.sendingMessageAria', 'Sending message')
+                  : t('messageCenter.sendMessageAria', 'Send message')
+              }
             >
               {sending ? (
                 <span className="role-message-send-loading" />

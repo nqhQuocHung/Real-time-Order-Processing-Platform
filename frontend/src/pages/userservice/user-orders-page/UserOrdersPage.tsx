@@ -13,18 +13,30 @@ import {
   type UserCartMap,
   writeUserCartToStorage,
 } from '../../../features/cart/userCartStorage'
+import {
+  ORDER_STATUS_FILTER_OPTIONS,
+  type OrderRefundStatus,
+  type PaymentStatus,
+} from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './UserOrdersPage.css'
 import { QRCodeCanvas } from 'qrcode.react'
 
-const orderStatuses = ['', 'CREATED', 'RESERVED', 'PAID', 'COMPLETED', 'FAILED', 'CANCELLED']
 const paymentReturnRoutePath = '/payment-return'
 const paymentReturnFlashStorageKey = 'user-orders-payment-return-flash-v1'
 const paymentReturnHandledStorageKey = 'user-orders-payment-return-handled-v1'
 const PAYMENT_RETURN_HANDLED_TTL_MS = 30 * 60 * 1000
 const DEFAULT_ORDER_PAGE_SIZE = 8
 const ORDER_PAGE_SIZE_OPTIONS = [8, 12, 20, 30]
+const APP_NOTIFICATION_EVENT = 'app-notification-event'
 
 type PaymentFlashType = 'success' | 'error'
+type AppNotificationEventDetail = {
+  eventName?: string
+  payload?: {
+    orderCode?: string
+  }
+}
 
 type PaymentDialogState = {
   orderCode: string
@@ -67,11 +79,31 @@ type CreateOrderResponse = {
 
 type PaymentTransactionResponse = {
   orderCode: string
-  status: string
+  status: PaymentStatus
   paymentUrl?: string
   method?: string
   amount?: number
   currency?: string
+  updatedAt?: string
+}
+
+type OrderRefundResponse = {
+  refundId: string
+  orderCode: string
+  customerId: string
+  refundAmount: number
+  currency: string
+  refundAccountName: string
+  refundAccountNumberMasked?: string
+  refundBankCode: string
+  refundReason: string
+  status: OrderRefundStatus
+  sellerDecisionNote?: string
+  sellerDecisionBy?: string
+  providerRefundId?: string
+  providerNote?: string
+  processedAt?: string
+  createdAt?: string
   updatedAt?: string
 }
 
@@ -102,25 +134,19 @@ function normalizePrice(value: number | null | undefined): number {
   return normalized > 0 ? Number(normalized.toFixed(2)) : 0
 }
 
-function buildPaginationPages(currentPage: number, totalPages: number, maxButtons = 5): number[] {
+function buildPaginationPages(currentPage: number, totalPages: number): number[] {
   if (totalPages <= 0) {
     return []
   }
 
-  const half = Math.floor(maxButtons / 2)
-  let start = Math.max(0, currentPage - half)
-  let end = Math.min(totalPages - 1, start + maxButtons - 1)
-
-  if (end - start + 1 < maxButtons) {
-    start = Math.max(0, end - maxButtons + 1)
+  if (totalPages <= 4) {
+    return Array.from({ length: totalPages }, (_, index) => index)
   }
 
-  const pages: number[] = []
-  for (let i = start; i <= end; i += 1) {
-    pages.push(i)
-  }
-
-  return pages
+  const candidatePages = [currentPage - 1, currentPage, currentPage + 1, totalPages - 1]
+  return Array.from(new Set(candidatePages.filter((page) => page >= 0 && page < totalPages))).sort(
+    (left, right) => left - right,
+  )
 }
 
 function buildIdempotencyKey(): string {
@@ -184,6 +210,27 @@ function parseVnpOrderCode(orderInfo: string | null, txnRef: string | null): str
   }
 
   return undefined
+}
+
+function isRefundPaymentReturn(orderInfo: string | null, paymentContext: string | null): boolean {
+  const normalizedContext = (paymentContext || '').trim().toLowerCase()
+  if (normalizedContext === 'refund') {
+    return true
+  }
+
+  const normalizedOrderInfo = (orderInfo || '').trim().toLowerCase()
+  return normalizedOrderInfo.includes('hoan tien') || normalizedOrderInfo.includes('refund')
+}
+
+function resolvePaymentReturnTargetPath(
+  returnTargetPath: string | null,
+  isRefundReturn: boolean,
+): string {
+  const normalizedTargetPath = (returnTargetPath || '').trim()
+  if (normalizedTargetPath.startsWith('/')) {
+    return normalizedTargetPath
+  }
+  return isRefundReturn ? '/partner/orders' : '/user/orders'
 }
 
 function readPaymentFlash(): { type: PaymentFlashType; message: string } | null {
@@ -334,6 +381,7 @@ function reconcileCartWithCatalog(cart: UserCartMap, catalogMap: Record<string, 
 }
 
 function UserOrdersPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const location = useLocation()
   const session = getAuthSession()
@@ -355,7 +403,16 @@ function UserOrdersPage() {
   const [checkoutSuccess, setCheckoutSuccess] = useState('')
   const [latestCreatedOrder, setLatestCreatedOrder] = useState<CreateOrderResponse | null>(null)
   const [paymentByOrder, setPaymentByOrder] = useState<Record<string, PaymentTransactionResponse>>({})
+  const [refundByOrder, setRefundByOrder] = useState<Record<string, OrderRefundResponse | null>>({})
   const [refreshingPaymentOrder, setRefreshingPaymentOrder] = useState('')
+  const [loadingRefundOrderCode, setLoadingRefundOrderCode] = useState('')
+  const [requestingRefundOrderCode, setRequestingRefundOrderCode] = useState('')
+  const [refundDialogOrderCode, setRefundDialogOrderCode] = useState('')
+  const [refundAccountName, setRefundAccountName] = useState('')
+  const [refundAccountNumber, setRefundAccountNumber] = useState('')
+  const [refundBankCode, setRefundBankCode] = useState('')
+  const [refundReason, setRefundReason] = useState('')
+  const [refundFormError, setRefundFormError] = useState('')
   const [nowTick, setNowTick] = useState(Date.now())
 
   const loadOrders = useCallback(async (targetPage = orderPage, targetPageSize = orderPageSize) => {
@@ -466,6 +523,51 @@ function UserOrdersPage() {
   }, [])
 
   useEffect(() => {
+    function handleNotificationEvent(event: Event) {
+      const customEvent = event as CustomEvent<AppNotificationEventDetail>
+      const eventName = (customEvent.detail?.eventName || '').trim()
+      if (
+        eventName !== 'payment.transaction.succeeded' &&
+        eventName !== 'payment.transaction.failed' &&
+        eventName !== 'order.refund.approved' &&
+        eventName !== 'order.refund.rejected' &&
+        eventName !== 'order.refund.completed' &&
+        eventName !== 'order.refund.failed' &&
+        eventName !== 'payment.refund.succeeded' &&
+        eventName !== 'payment.refund.failed'
+      ) {
+        return
+      }
+
+      const orderCode = customEvent.detail?.payload?.orderCode?.trim() || ''
+      if (orderCode) {
+        void loadRefundState(orderCode, true)
+      }
+      void loadOrders(orderPage, orderPageSize)
+      void loadCatalog()
+    }
+
+    window.addEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    return () => {
+      window.removeEventListener(APP_NOTIFICATION_EVENT, handleNotificationEvent as EventListener)
+    }
+  }, [loadCatalog, loadOrders, orderPage, orderPageSize])
+
+  useEffect(() => {
+    const refundableOrders = orders
+      .filter((order) => order.status === 'PAID' || order.status === 'COMPLETED')
+      .map((order) => order.orderCode)
+
+    if (!refundableOrders.length) {
+      return
+    }
+
+    refundableOrders.forEach((orderCode) => {
+      void loadRefundState(orderCode)
+    })
+  }, [orders])
+
+  useEffect(() => {
     const flash = readPaymentFlash()
     if (!flash) {
       return
@@ -498,6 +600,14 @@ function UserOrdersPage() {
       searchParams.get('vnp_OrderInfo'),
       searchParams.get('vnp_TxnRef'),
     )
+    const isRefundReturn = isRefundPaymentReturn(
+      searchParams.get('vnp_OrderInfo'),
+      searchParams.get('paymentContext'),
+    )
+    const targetPath = resolvePaymentReturnTargetPath(
+      searchParams.get('returnTargetPath'),
+      isRefundReturn,
+    )
     const txnRef = searchParams.get('vnp_TxnRef')?.trim() || ''
     const providerTransactionId =
       searchParams.get('vnp_TransactionNo')?.trim() || txnRef || undefined
@@ -510,9 +620,12 @@ function UserOrdersPage() {
       transactionStatus || 'unknown-status',
     ].join('|')
     const defaultMessage = isSuccess
-      ? `Payment successful${orderCodeLabel}. You can continue from your cart now.`
-      : `Payment failed${orderCodeLabel}. Please check order status and try again.`
-    const targetPath = '/user/orders'
+      ? isRefundReturn
+        ? `Refund payment successful${orderCodeLabel}.`
+        : `Payment successful${orderCodeLabel}. You can continue from your cart now.`
+      : isRefundReturn
+        ? `Refund payment failed${orderCodeLabel}. Please verify refund status.`
+        : `Payment failed${orderCodeLabel}. Please check order status and try again.`
 
     if (hasHandledPaymentReturn(paymentReturnSignature)) {
       if (location.pathname !== targetPath || location.search) {
@@ -527,7 +640,7 @@ function UserOrdersPage() {
       let flashType: PaymentFlashType = isSuccess ? 'success' : 'error'
       let flashMessage = defaultMessage
 
-      if (orderCode) {
+      if (orderCode && !isRefundReturn) {
         const payload = {
           orderCode,
           providerTransactionId,
@@ -561,7 +674,7 @@ function UserOrdersPage() {
             `Cannot reconcile payment status${orderCodeLabel}. Please refresh and check again.`,
           )
         }
-      } else {
+      } else if (!orderCode) {
         flashType = 'error'
         flashMessage =
           'Cannot identify order from payment return. Please refresh orders and verify status manually.'
@@ -799,6 +912,95 @@ function UserOrdersPage() {
     }
   }
 
+  async function loadRefundState(orderCode: string, force = false) {
+    if (!force && Object.prototype.hasOwnProperty.call(refundByOrder, orderCode)) {
+      return
+    }
+
+    setLoadingRefundOrderCode(orderCode)
+    try {
+      const response = await apis().get(endpoints.orders.refundDetail(orderCode))
+      const data = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: data || null,
+      }))
+    } catch (err) {
+      const typedError = err as { response?: { status?: number } }
+      if (typedError.response?.status === 404) {
+        setRefundByOrder((previous) => ({
+          ...previous,
+          [orderCode]: null,
+        }))
+        return
+      }
+      setError(extractApiErrorMessage(err, `Cannot load refund status for order ${orderCode}.`))
+    } finally {
+      setLoadingRefundOrderCode('')
+    }
+  }
+
+  function openRefundDialog(orderCode: string) {
+    setRefundDialogOrderCode(orderCode)
+    setRefundFormError('')
+    setRefundAccountName('')
+    setRefundAccountNumber('')
+    setRefundBankCode('')
+    setRefundReason('')
+  }
+
+  function closeRefundDialog() {
+    setRefundDialogOrderCode('')
+    setRefundFormError('')
+  }
+
+  async function handleSubmitRefundRequest() {
+    const orderCode = refundDialogOrderCode.trim()
+    if (!orderCode) {
+      return
+    }
+
+    const accountName = refundAccountName.trim()
+    const accountNumber = refundAccountNumber.trim()
+    const bankCode = refundBankCode.trim().toUpperCase()
+    const reason = refundReason.trim()
+
+    if (!accountName || !accountNumber || !bankCode || !reason) {
+      setRefundFormError('Please fill in account name, account number, bank code, and refund reason.')
+      return
+    }
+
+    setRefundFormError('')
+    setError('')
+    setCheckoutSuccess('')
+    setCheckoutError('')
+    setRequestingRefundOrderCode(orderCode)
+
+    try {
+      const response = await apis().post(endpoints.orders.refundRequest(orderCode), {
+        refundAccountName: accountName,
+        refundAccountNumber: accountNumber,
+        refundBankCode: bankCode,
+        refundReason: reason,
+        actor: session?.userId || 'CUSTOMER',
+      })
+      const data = extractApiData<OrderRefundResponse>(response)
+      setRefundByOrder((previous) => ({
+        ...previous,
+        [orderCode]: data || null,
+      }))
+      setCheckoutSuccess(`Refund request for order ${orderCode} has been submitted.`)
+      closeRefundDialog()
+      await loadOrders(orderPage, orderPageSize)
+    } catch (err) {
+      setRefundFormError(
+        extractApiErrorMessage(err, `Cannot submit refund request for order ${orderCode}.`),
+      )
+    } finally {
+      setRequestingRefundOrderCode('')
+    }
+  }
+
   function openPaymentDialog(
     orderCode: string,
     paymentUrl: string,
@@ -836,14 +1038,14 @@ function UserOrdersPage() {
   const activeDialogExpired = activePaymentDialog
     ? isPaymentDeadlineExpired(activePaymentDialog.paymentDeadlineAt, nowTick)
     : false
+  const selectedRefund = refundDialogOrderCode ? refundByOrder[refundDialogOrderCode] : null
 
   return (
     <section className="user-orders-page role-page-stack">
       <article className="role-card">
-        <h2>Checkout Cart</h2>
+        <h2>{t('pages.userOrders.checkout.title')}</h2>
         <p className="role-muted">
-          Cart is synced from the Products tab and saved locally. Stock is revalidated before
-          creating an order.
+          {t('pages.userOrders.checkout.subtitle')}
         </p>
 
         <div className="role-inline-actions">
@@ -853,7 +1055,9 @@ function UserOrdersPage() {
             onClick={() => void handleCreateOrder()}
             disabled={checkoutLoading || cartItems.length === 0}
           >
-            {checkoutLoading ? 'Creating Order...' : 'Create Order & Open Payment'}
+            {checkoutLoading
+              ? t('pages.userOrders.checkout.creatingOrder')
+              : t('pages.userOrders.checkout.createOrderAndPay')}
           </button>
           <button
             type="button"
@@ -864,13 +1068,16 @@ function UserOrdersPage() {
             }}
             disabled={!cartItems.length}
           >
-            Clear Cart
+            {t('pages.userOrders.checkout.clearCart')}
           </button>
         </div>
 
         <p className="role-muted">
-          Cart items: {cartItems.length} product(s), total quantity {cartTotalQuantity}, subtotal{' '}
-          {formatMoney(cartTotalAmount, cartItems[0]?.currency || 'VND')}.
+          {t('pages.userOrders.checkout.cartSummary', undefined, {
+            items: cartItems.length,
+            quantity: cartTotalQuantity,
+            subtotal: formatMoney(cartTotalAmount, cartItems[0]?.currency || 'VND'),
+          })}
         </p>
 
         {checkoutError && <p className="role-error">{checkoutError}</p>}
@@ -879,12 +1086,17 @@ function UserOrdersPage() {
         {latestCreatedOrder && (
           <div className="user-orders-payment-hint">
             <span>
-              Latest order: <strong>{latestCreatedOrder.orderCode}</strong> ({latestCreatedOrder.status})
+              {t('pages.userOrders.checkout.latestOrder', undefined, {
+                code: latestCreatedOrder.orderCode,
+                status: latestCreatedOrder.status,
+              })}
             </span>
             <small>
               {latestCreatedOrder.paymentDeadlineAt
-                ? `Pay before ${formatDate(latestCreatedOrder.paymentDeadlineAt)}`
-                : 'Payment deadline is managed by order service.'}
+                ? t('pages.userOrders.checkout.payBefore', undefined, {
+                  date: formatDate(latestCreatedOrder.paymentDeadlineAt),
+                })
+                : t('pages.userOrders.checkout.deadlineManagedByService')}
             </small>
           </div>
         )}
@@ -893,28 +1105,29 @@ function UserOrdersPage() {
           <div className="payment-dialog-overlay" onClick={closePaymentDialog}>
             <div className="payment-dialog" onClick={(event) => event.stopPropagation()}>
               <header className="payment-dialog-header">
-                <h3>Complete Payment</h3>
+                <h3>{t('pages.userOrders.paymentDialog.title')}</h3>
                 <button
                   type="button"
                   className="role-btn-ghost payment-dialog-close"
                   onClick={closePaymentDialog}
                 >
-                  Close
+                  {t('pages.userOrders.common.close')}
                 </button>
               </header>
 
               <p className="payment-dialog-message">
-                Order <strong>{activePaymentDialog.orderCode}</strong> is reserved. Complete payment
-                before it expires.
+                {t('pages.userOrders.paymentDialog.message', undefined, {
+                  code: activePaymentDialog.orderCode,
+                })}
               </p>
               <p className={`payment-dialog-deadline ${activeDialogExpired ? 'is-expired' : ''}`}>
-                Remaining: {activeDialogRemaining}
+                {t('pages.userOrders.paymentDialog.remaining', undefined, { value: activeDialogRemaining })}
               </p>
 
               {showQrCode && (
                 <div className="payment-qrcode">
                   <QRCodeCanvas value={activePaymentDialog.paymentUrl} size={220} includeMargin />
-                  <p>Scan QR to continue payment.</p>
+                  <p>{t('pages.userOrders.paymentDialog.scanQr')}</p>
                 </div>
               )}
 
@@ -927,7 +1140,9 @@ function UserOrdersPage() {
                   }}
                   disabled={activeDialogExpired}
                 >
-                  {activeDialogExpired ? 'Payment Expired' : 'Pay Now'}
+                  {activeDialogExpired
+                    ? t('pages.userOrders.paymentDialog.paymentExpired')
+                    : t('pages.userOrders.paymentDialog.payNow')}
                 </button>
                 <button
                   type="button"
@@ -937,14 +1152,16 @@ function UserOrdersPage() {
                   }}
                   disabled={activeDialogExpired}
                 >
-                  Open New Tab
+                  {t('pages.userOrders.paymentDialog.openNewTab')}
                 </button>
                 <button
                   type="button"
                   className="role-btn-ghost"
                   onClick={() => setShowQrCode((previous) => !previous)}
                 >
-                  {showQrCode ? 'Hide QR Code' : 'Show QR Code'}
+                  {showQrCode
+                    ? t('pages.userOrders.paymentDialog.hideQrCode')
+                    : t('pages.userOrders.paymentDialog.showQrCode')}
                 </button>
               </div>
             </div>
@@ -954,12 +1171,12 @@ function UserOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Qty</th>
-                <th>Available</th>
-                <th>Price</th>
-                <th>Total</th>
-                <th>Actions</th>
+                <th>{t('pages.userOrders.checkoutTable.product')}</th>
+                <th>{t('pages.userOrders.checkoutTable.quantity')}</th>
+                <th>{t('pages.userOrders.checkoutTable.available')}</th>
+                <th>{t('pages.userOrders.checkoutTable.price')}</th>
+                <th>{t('pages.userOrders.checkoutTable.total')}</th>
+                <th>{t('pages.userOrders.checkoutTable.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -993,7 +1210,7 @@ function UserOrdersPage() {
                         className="role-btn-ghost"
                         onClick={() => handleRemoveCartItem(item.productId)}
                       >
-                        Remove
+                        {t('pages.userOrders.checkoutTable.remove')}
                       </button>
                     </div>
                   </td>
@@ -1002,7 +1219,7 @@ function UserOrdersPage() {
               {!cartItems.length && (
                 <tr>
                   <td colSpan={6} className="role-empty-cell">
-                    Cart is empty.
+                    {t('pages.userOrders.checkoutTable.empty')}
                   </td>
                 </tr>
               )}
@@ -1014,33 +1231,38 @@ function UserOrdersPage() {
       <article className="role-card user-orders-page-orders-card">
         <div className="user-orders-page-orders-header">
           <div>
-            <h2>My Orders</h2>
+            <h2>{t('pages.userOrders.title')}</h2>
             <p className="role-muted">
-              Orders in RESERVED state are holding stock. If payment times out, stock is auto-released.
+              {t('pages.userOrders.subtitle')}
             </p>
           </div>
           <div className="user-orders-page-orders-metrics">
-            <span>Total: {totalOrdersResult}</span>
-            <span>Page: {totalOrderPages === 0 ? 0 : orderPage + 1}/{totalOrderPages || 0}</span>
+            <span>{t('pages.userOrders.metrics.total', undefined, { value: totalOrdersResult })}</span>
+            <span>
+              {t('pages.userOrders.metrics.page', undefined, {
+                current: totalOrderPages === 0 ? 0 : orderPage + 1,
+                total: totalOrderPages || 0,
+              })}
+            </span>
           </div>
         </div>
 
         <div className="role-inline-form user-orders-filter-bar">
           <label>
-            Status
+            {t('pages.userOrders.filters.status')}
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              {orderStatuses.map((status) => (
+              {ORDER_STATUS_FILTER_OPTIONS.map((status) => (
                 <option key={status || 'ALL'} value={status}>
-                  {status || 'All'}
+                  {status || t('statuses.order.all')}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            Items / page
+            {t('pages.userOrders.filters.itemsPerPage')}
             <select
               value={orderPageSize}
               onChange={(event) => setOrderPageSize(Number(event.target.value))}
@@ -1060,7 +1282,7 @@ function UserOrdersPage() {
               void loadOrders(0, orderPageSize)
             }}
           >
-            {loading ? 'Loading...' : 'Filter Orders'}
+            {loading ? t('pages.userOrders.filters.loading') : t('pages.userOrders.filters.filterOrders')}
           </button>
         </div>
 
@@ -1070,20 +1292,32 @@ function UserOrdersPage() {
           <table>
             <thead>
               <tr>
-                <th>Order Code</th>
-                <th>Status</th>
-                <th>Total Amount</th>
-                <th>Pay Before</th>
-                <th>Created At</th>
-                <th>Actions</th>
+                <th>{t('pages.userOrders.table.orderCode')}</th>
+                <th>{t('pages.userOrders.table.status')}</th>
+                <th>{t('pages.userOrders.table.refund')}</th>
+                <th>{t('pages.userOrders.table.totalAmount')}</th>
+                <th>{t('pages.userOrders.table.payBefore')}</th>
+                <th>{t('pages.userOrders.table.createdAt')}</th>
+                <th>{t('pages.userOrders.table.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {orders.map((order) => {
                 const paymentInfo = paymentByOrder[order.orderCode]
+                const hasRefundLookup = Object.prototype.hasOwnProperty.call(
+                  refundByOrder,
+                  order.orderCode,
+                )
+                const refundInfo = refundByOrder[order.orderCode]
+                const refundStatus = refundInfo?.status || ''
+                const isRefundLookupLoading = loadingRefundOrderCode === order.orderCode
                 const paymentUrl = paymentInfo?.paymentUrl || order.paymentUrl
                 const canCancel = order.status === 'CREATED' || order.status === 'RESERVED'
                 const isReserved = order.status === 'RESERVED'
+                const canRequestRefundBase =
+                  order.status === 'PAID' || order.status === 'COMPLETED'
+                const canRequestRefund =
+                  canRequestRefundBase && hasRefundLookup && !refundInfo && !isRefundLookupLoading
                 const isPendingPayment = !paymentInfo?.status || paymentInfo.status === 'PENDING'
                 const isPaymentExpired = isReserved
                   && isPendingPayment
@@ -1099,8 +1333,30 @@ function UserOrdersPage() {
                   <tr key={order.orderCode}>
                     <td>{order.orderCode}</td>
                     <td>
-                      {order.status}
-                      {paymentInfo?.status ? ` / Payment: ${paymentInfo.status}` : ''}
+                      <span className={`user-orders-order-status-badge status-${order.status.toLowerCase()}`}>
+                        {order.status}
+                      </span>
+                      {paymentInfo?.status && (
+                        <span className="user-orders-payment-status-label">
+                          {t('pages.userOrders.table.paymentLabel', undefined, { status: paymentInfo.status })}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {refundInfo && (
+                        <span
+                          className={`user-orders-refund-badge status-${refundStatus.toLowerCase()}`}
+                        >
+                          {refundStatus}
+                        </span>
+                      )}
+                      {!refundInfo && canRequestRefundBase && hasRefundLookup && (
+                        <span className="user-orders-refund-none">{t('pages.userOrders.table.refundNotRequested')}</span>
+                      )}
+                      {!refundInfo && canRequestRefundBase && !hasRefundLookup && (
+                        <span className="role-muted">{t('pages.userOrders.table.checking')}</span>
+                      )}
+                      {!refundInfo && !canRequestRefundBase && <span className="role-muted">-</span>}
                     </td>
                     <td>{formatMoney(order.totalAmount, order.currency)}</td>
                     <td>
@@ -1124,7 +1380,7 @@ function UserOrdersPage() {
                               )
                             }
                           >
-                            Continue Payment
+                            {t('pages.userOrders.table.continuePayment')}
                           </button>
                         )}
                         {isReserved && (
@@ -1135,8 +1391,8 @@ function UserOrdersPage() {
                             disabled={refreshingPaymentOrder === order.orderCode}
                           >
                             {refreshingPaymentOrder === order.orderCode
-                              ? 'Refreshing...'
-                              : 'Refresh Payment'}
+                              ? t('pages.userOrders.table.refreshing')
+                              : t('pages.userOrders.table.refreshPayment')}
                           </button>
                         )}
                         {canCancel && (
@@ -1145,7 +1401,28 @@ function UserOrdersPage() {
                             className="role-btn-ghost"
                             onClick={() => void handleCancelOrder(order.orderCode)}
                           >
-                            Cancel
+                            {t('pages.userOrders.common.cancel')}
+                          </button>
+                        )}
+                        {canRequestRefund && (
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => openRefundDialog(order.orderCode)}
+                          >
+                            {t('pages.userOrders.table.requestRefund')}
+                          </button>
+                        )}
+                        {canRequestRefundBase && !hasRefundLookup && (
+                          <button
+                            type="button"
+                            className="role-btn-ghost"
+                            onClick={() => void loadRefundState(order.orderCode, true)}
+                            disabled={isRefundLookupLoading}
+                          >
+                            {isRefundLookupLoading
+                              ? t('pages.userOrders.table.checking')
+                              : t('pages.userOrders.table.checkRefund')}
                           </button>
                         )}
                       </div>
@@ -1155,8 +1432,8 @@ function UserOrdersPage() {
               })}
               {!orders.length && (
                 <tr>
-                  <td colSpan={6} className="role-empty-cell">
-                    No orders found.
+                  <td colSpan={7} className="role-empty-cell">
+                    {t('pages.userOrders.table.empty')}
                   </td>
                 </tr>
               )}
@@ -1167,7 +1444,11 @@ function UserOrdersPage() {
         {totalOrderPages > 0 && (
           <div className="user-orders-page-pagination">
             <p className="user-orders-page-pagination-summary">
-              Showing {currentOrderPageStart}-{currentOrderPageEnd} of {totalOrdersResult}
+              {t('pages.userOrders.pagination.summary', undefined, {
+                start: currentOrderPageStart,
+                end: currentOrderPageEnd,
+                total: totalOrdersResult,
+              })}
             </p>
             <div className="user-orders-page-pagination-controls">
               <button
@@ -1176,7 +1457,7 @@ function UserOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.max(0, prev - 1))}
                 disabled={orderPage <= 0}
               >
-                Prev
+                {t('pages.userOrders.pagination.prev')}
               </button>
               {orderPaginationPages.map((pageNumber) => (
                 <button
@@ -1194,15 +1475,105 @@ function UserOrdersPage() {
                 onClick={() => setOrderPage((prev) => Math.min(totalOrderPages - 1, prev + 1))}
                 disabled={orderPage >= totalOrderPages - 1}
               >
-                Next
+                {t('pages.userOrders.pagination.next')}
               </button>
             </div>
           </div>
         )}
       </article>
+
+      {refundDialogOrderCode && (
+        <div className="user-orders-refund-overlay" onClick={closeRefundDialog}>
+          <div
+            className="user-orders-refund-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="user-orders-refund-header">
+              <h3>{t('pages.userOrders.refundDialog.title')}</h3>
+              <button
+                type="button"
+                className="role-btn-ghost"
+                onClick={closeRefundDialog}
+              >
+                {t('pages.userOrders.common.close')}
+              </button>
+            </header>
+
+            <p className="user-orders-refund-message">
+              {t('pages.userOrders.refundDialog.message', undefined, { code: refundDialogOrderCode })}
+            </p>
+
+            {selectedRefund && (
+              <div className="user-orders-refund-existing">
+                <p>
+                  {t('pages.userOrders.refundDialog.existingStatus')}{' '}
+                  <strong>{selectedRefund.status}</strong>
+                </p>
+                <p>
+                  {t('pages.userOrders.refundDialog.reason', undefined, { value: selectedRefund.refundReason || '-' })}
+                </p>
+              </div>
+            )}
+
+            {!selectedRefund && (
+              <>
+                <div className="role-inline-form user-orders-refund-form">
+                  <label>
+                    {t('pages.userOrders.refundDialog.accountName')}
+                    <input
+                      value={refundAccountName}
+                      onChange={(event) => setRefundAccountName(event.target.value)}
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.accountName')}
+                    />
+                  </label>
+                  <label>
+                    {t('pages.userOrders.refundDialog.accountNumber')}
+                    <input
+                      value={refundAccountNumber}
+                      onChange={(event) => setRefundAccountNumber(event.target.value)}
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.accountNumber')}
+                    />
+                  </label>
+                  <label>
+                    {t('pages.userOrders.refundDialog.bankCode')}
+                    <input
+                      value={refundBankCode}
+                      onChange={(event) => setRefundBankCode(event.target.value)}
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.bankCode')}
+                    />
+                  </label>
+                  <label>
+                    {t('pages.userOrders.refundDialog.refundReason')}
+                    <textarea
+                      value={refundReason}
+                      onChange={(event) => setRefundReason(event.target.value)}
+                      placeholder={t('pages.userOrders.refundDialog.placeholders.refundReason')}
+                      rows={4}
+                    />
+                  </label>
+                </div>
+
+                {refundFormError && <p className="role-error">{refundFormError}</p>}
+
+                <div className="user-orders-refund-actions">
+                  <button
+                    type="button"
+                    className="role-btn-primary"
+                    onClick={() => void handleSubmitRefundRequest()}
+                    disabled={requestingRefundOrderCode === refundDialogOrderCode}
+                  >
+                    {requestingRefundOrderCode === refundDialogOrderCode
+                      ? t('pages.userOrders.refundDialog.submitting')
+                      : t('pages.userOrders.refundDialog.submit')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
 
 export default UserOrdersPage
-

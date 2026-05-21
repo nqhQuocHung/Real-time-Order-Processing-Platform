@@ -6,6 +6,7 @@ import {
   extractApiErrorMessage,
   getAuthSession,
 } from '../../../config/apis'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './PartnerDashboardPage.css'
 
 type NotificationStreamEventDetail = {
@@ -74,6 +75,7 @@ function resolveProductLabel(item: PartnerProductStock): string {
 }
 
 function PartnerDashboardPage() {
+  const { t } = useI18n()
   const session = getAuthSession()
   const [products, setProducts] = useState<PartnerProductStock[]>([])
   const [error, setError] = useState('')
@@ -81,7 +83,7 @@ function PartnerDashboardPage() {
 
   const loadPartnerData = useCallback(async (showLoading = true) => {
     if (!session?.userId) {
-      setError('Cannot find partner ID from session.')
+      setError(t('pages.partnerDashboard.errors.missingPartnerId'))
       setLoading(false)
       return
     }
@@ -95,14 +97,14 @@ function PartnerDashboardPage() {
       const data = extractApiData<PartnerProductStock[]>(response)
       setProducts(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Cannot load Partner Dashboard.'))
+      setError(extractApiErrorMessage(err, t('pages.partnerDashboard.errors.loadFailed')))
       setProducts([])
     } finally {
       if (showLoading) {
         setLoading(false)
       }
     }
-  }, [session?.userId])
+  }, [session?.userId, t])
 
   useEffect(() => {
     void loadPartnerData(true)
@@ -168,11 +170,11 @@ function PartnerDashboardPage() {
 
   const stockChartItems = useMemo(
     () => [
-      { label: 'Available', value: totalAvailableStock, tone: 'is-stock' },
-      { label: 'Reserved', value: totalReservedStock, tone: 'is-reserved' },
-      { label: 'Paid Units', value: totalPaidUnits, tone: 'is-paid' },
+      { label: t('pages.partnerDashboard.stockChart.available'), value: totalAvailableStock, tone: 'is-stock' },
+      { label: t('pages.partnerDashboard.stockChart.reserved'), value: totalReservedStock, tone: 'is-reserved' },
+      { label: t('pages.partnerDashboard.stockChart.paidUnits'), value: totalPaidUnits, tone: 'is-paid' },
     ],
-    [totalAvailableStock, totalReservedStock, totalPaidUnits],
+    [t, totalAvailableStock, totalReservedStock, totalPaidUnits],
   )
 
   const maxStockChartValue = useMemo(
@@ -249,7 +251,7 @@ function PartnerDashboardPage() {
     return (
       <section className="partner-dashboard-page role-page-stack">
         <article className="role-card partner-dashboard-loading">
-          <p className="role-muted">Loading Partner Dashboard...</p>
+          <p className="role-muted">{t('pages.partnerDashboard.loading')}</p>
         </article>
       </section>
     )
@@ -261,37 +263,37 @@ function PartnerDashboardPage() {
 
       <article className="role-card partner-dashboard-hero">
         <div className="partner-dashboard-hero-main">
-          <p className="partner-dashboard-overline">Partner Intelligence</p>
-          <h2>Sales and Inventory Command Deck</h2>
+          <p className="partner-dashboard-overline">{t('pages.partnerDashboard.overline')}</p>
+          <h2>{t('pages.partnerDashboard.title')}</h2>
           <p className="role-muted">
-            Realtime snapshot for your shop inventory movement, sold units, and stock pressure.
+            {t('pages.partnerDashboard.subtitle')}
           </p>
           <p className="partner-dashboard-scope">
-            Current shop scope: <strong>{scopedShopName}</strong>
+            {t('pages.partnerDashboard.currentShopScope', undefined, { shop: scopedShopName })}
           </p>
         </div>
 
         <div className="partner-dashboard-hero-kpis">
           <div>
-            <span>Stock Pressure</span>
+            <span>{t('pages.partnerDashboard.kpis.stockPressure')}</span>
             <strong>{stockPressurePercent}%</strong>
-            <small>Reserved / (Reserved + Available)</small>
+            <small>{t('pages.partnerDashboard.kpis.stockPressureFormula')}</small>
           </div>
           <div>
-            <span>Sold Throughput</span>
+            <span>{t('pages.partnerDashboard.kpis.soldThroughput')}</span>
             <strong>{soldThroughputPercent}%</strong>
-            <small>Paid / (Available + Reserved + Paid)</small>
+            <small>{t('pages.partnerDashboard.kpis.soldThroughputFormula')}</small>
           </div>
           <div>
-            <span>Live Revenue View</span>
+            <span>{t('pages.partnerDashboard.kpis.liveRevenue')}</span>
             <strong>{formatMoney(estimatedRevenue, 'VND')}</strong>
-            <small>Paid units x current price</small>
+            <small>{t('pages.partnerDashboard.kpis.liveRevenueFormula')}</small>
           </div>
         </div>
 
         <div className="role-inline-actions partner-dashboard-actions">
           <button type="button" className="role-btn-ghost" onClick={() => void loadPartnerData()}>
-            Refresh Dashboard
+            {t('pages.partnerDashboard.refreshDashboard')}
           </button>
         </div>
       </article>
@@ -299,23 +301,23 @@ function PartnerDashboardPage() {
       <article className="role-card partner-dashboard-metrics-wrap">
         <div className="partner-dashboard-metric-grid">
           <div className="partner-dashboard-metric-card">
-            <span>Total Products</span>
+            <span>{t('pages.partnerDashboard.metrics.totalProducts')}</span>
             <strong>{formatCount(totalProducts)}</strong>
           </div>
           <div className="partner-dashboard-metric-card">
-            <span>Active Products</span>
+            <span>{t('pages.partnerDashboard.metrics.activeProducts')}</span>
             <strong>{formatCount(activeProducts)}</strong>
           </div>
           <div className="partner-dashboard-metric-card">
-            <span>Available Units</span>
+            <span>{t('pages.partnerDashboard.metrics.availableUnits')}</span>
             <strong>{formatCount(totalAvailableStock)}</strong>
           </div>
           <div className="partner-dashboard-metric-card">
-            <span>Reserved Units</span>
+            <span>{t('pages.partnerDashboard.metrics.reservedUnits')}</span>
             <strong>{formatCount(totalReservedStock)}</strong>
           </div>
           <div className="partner-dashboard-metric-card">
-            <span>Paid Units</span>
+            <span>{t('pages.partnerDashboard.metrics.paidUnits')}</span>
             <strong>{formatCount(totalPaidUnits)}</strong>
           </div>
         </div>
@@ -323,7 +325,7 @@ function PartnerDashboardPage() {
 
       <div className="partner-dashboard-board">
         <article className="role-card partner-dashboard-surface">
-          <h3>Stock Balance</h3>
+          <h3>{t('pages.partnerDashboard.stockBalance')}</h3>
           <div className={`partner-dashboard-health ${stockHealthTone}`}>
             <div className="partner-dashboard-health-track">
               <div
@@ -332,7 +334,7 @@ function PartnerDashboardPage() {
               />
             </div>
             <small>
-              Reserved pressure is <strong>{stockPressurePercent}%</strong>.
+              {t('pages.partnerDashboard.reservedPressure', undefined, { percent: stockPressurePercent })}
             </small>
           </div>
 
@@ -356,8 +358,8 @@ function PartnerDashboardPage() {
         </article>
 
         <article className="role-card partner-dashboard-surface">
-          <h3>Status Distribution</h3>
-          {!statusDistribution.length && <p className="role-muted">No status data available.</p>}
+          <h3>{t('pages.partnerDashboard.statusDistribution')}</h3>
+          {!statusDistribution.length && <p className="role-muted">{t('pages.partnerDashboard.emptyStatusData')}</p>}
           {!!statusDistribution.length && (
             <div className="partner-dashboard-chart">
               {statusDistribution.map((item) => {
@@ -381,8 +383,8 @@ function PartnerDashboardPage() {
       </div>
 
       <article className="role-card partner-dashboard-top-sales">
-        <h3>Top Selling Products</h3>
-        {!topSellingProducts.length && <p className="role-muted">No sales data yet.</p>}
+        <h3>{t('pages.partnerDashboard.topSellingProducts')}</h3>
+        {!topSellingProducts.length && <p className="role-muted">{t('pages.partnerDashboard.emptySalesData')}</p>}
         {!!topSellingProducts.length && (
           <div className="partner-dashboard-rank-list">
             {topSellingProducts.map((item, index) => {

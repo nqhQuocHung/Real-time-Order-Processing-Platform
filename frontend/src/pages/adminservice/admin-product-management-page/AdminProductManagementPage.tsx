@@ -6,6 +6,7 @@ import {
   extractApiErrorMessage,
 } from '../../../config/apis'
 import ProductCard, { type ProductCardData } from '../../../components/products/ProductCard'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminProductManagementPage.css'
 
 type UpsertAdminProductRequest = {
@@ -96,6 +97,7 @@ function resolveProductDisplayName(product: ProductCardData): string {
 }
 
 function AdminProductManagementPage() {
+  const { t } = useI18n()
   const [products, setProducts] = useState<ProductCardData[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
   const [partners, setPartners] = useState<AdminPartnerSummary[]>([])
@@ -526,45 +528,47 @@ function AdminProductManagementPage() {
     }
   }
 
-  const editorTitle = editingProductId ? 'Edit Product' : 'Create Product'
+  const editorTitle = editingProductId ? t('pages.adminProductManagement.editProduct') : t('pages.adminProductManagement.createProduct')
   const editorImagePreview = selectedImagePreviewUrl || existingImageUrl || DEFAULT_PRODUCT_IMAGE_URL
 
   return (
     <section className="admin-product-page role-page-stack">
       <article className="role-card">
-        <h2>Product Management</h2>
+        <h2>{t('pages.adminProductManagement.title')}</h2>
         <p className="role-muted">
-          Admin can manage products across all partner shops in one place.
+          {t('pages.adminProductManagement.subtitle')}
         </p>
 
         <div className="role-inline-actions">
           <button type="button" className="role-btn-primary" onClick={openCreateEditor}>
-            Create Product
+            {t('pages.adminProductManagement.createProduct')}
           </button>
           <button type="button" className="role-btn-ghost" onClick={() => void refreshAll()}>
-            {loadingProducts || loadingCategories || loadingPartners ? 'Loading...' : 'Reload Data'}
+            {loadingProducts || loadingCategories || loadingPartners
+              ? t('pages.adminProductManagement.loading')
+              : t('pages.adminProductManagement.reloadData')}
           </button>
         </div>
 
         <div className="role-metric-grid admin-product-page-metrics">
           <div className="role-metric-card">
-            <span>Total Products (Current Filter)</span>
+            <span>{t('pages.adminProductManagement.metrics.totalProductsCurrentFilter')}</span>
             <strong>{filteredProducts.length}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Total Categories</span>
+            <span>{t('pages.adminProductManagement.metrics.totalCategories')}</span>
             <strong>{categories.length}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Total Partners</span>
+            <span>{t('pages.adminProductManagement.metrics.totalPartners')}</span>
             <strong>{partnerOptions.length}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Available Units</span>
+            <span>{t('pages.adminProductManagement.metrics.availableUnits')}</span>
             <strong>{totalAvailableQuantity}</strong>
           </div>
           <div className="role-metric-card">
-            <span>Inventory Value</span>
+            <span>{t('pages.adminProductManagement.metrics.inventoryValue')}</span>
             <strong>{formatMoney(totalInventoryValue, 'VND')}</strong>
           </div>
         </div>
@@ -576,18 +580,18 @@ function AdminProductManagementPage() {
       <article className="role-card">
         <div className="role-inline-form admin-product-page-filter">
           <label>
-            Search product
+            {t('pages.adminProductManagement.searchProduct')}
             <input
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
-              placeholder="Name, SKU, ID, shop..."
+              placeholder={t('pages.adminProductManagement.placeholders.searchProduct')}
             />
           </label>
 
           <label>
-            Partner shop
+            {t('pages.adminProductManagement.partnerShop')}
             <select value={shopFilter} onChange={(event) => setShopFilter(event.target.value)}>
-              <option value="">All shops</option>
+              <option value="">{t('pages.adminProductManagement.allShops')}</option>
               {partnerOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -597,9 +601,9 @@ function AdminProductManagementPage() {
           </label>
 
           <label>
-            Category
+            {t('pages.adminProductManagement.category')}
             <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-              <option value="">All categories</option>
+              <option value="">{t('pages.adminProductManagement.allCategories')}</option>
               {categories.map((category) => (
                 <option key={category.categoryId} value={category.categoryId}>
                   {category.categoryName}
@@ -609,9 +613,9 @@ function AdminProductManagementPage() {
           </label>
 
           <label>
-            Status
+            {t('pages.adminProductManagement.status')}
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">All statuses</option>
+              <option value="">{t('pages.adminProductManagement.allStatuses')}</option>
               <option value="ACTIVE">ACTIVE</option>
               <option value="INACTIVE">INACTIVE</option>
               <option value="DRAFT">DRAFT</option>
@@ -630,7 +634,7 @@ function AdminProductManagementPage() {
               setStatusFilter('')
             }}
           >
-            Clear Filters
+            {t('pages.adminProductManagement.clearFilters')}
           </button>
         </div>
 
@@ -647,7 +651,7 @@ function AdminProductManagementPage() {
 
           {!filteredProducts.length && (
             <p className="role-empty-cell admin-product-page-empty">
-              No products found for current filters.
+              {t('pages.adminProductManagement.empty')}
             </p>
           )}
         </div>
@@ -655,9 +659,11 @@ function AdminProductManagementPage() {
         {totalPages > 0 && (
           <div className="admin-product-page-pagination">
             <p className="admin-product-page-pagination-summary">
-              Showing {Math.min(page * PRODUCT_PAGE_SIZE + 1, filteredProducts.length)}-
-              {Math.min((page + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length)} of{' '}
-              {filteredProducts.length}
+              {t('pages.adminProductManagement.pagination.summary', undefined, {
+                start: Math.min(page * PRODUCT_PAGE_SIZE + 1, filteredProducts.length),
+                end: Math.min((page + 1) * PRODUCT_PAGE_SIZE, filteredProducts.length),
+                total: filteredProducts.length,
+              })}
             </p>
             <div className="admin-product-page-pagination-controls">
               <button
@@ -666,7 +672,7 @@ function AdminProductManagementPage() {
                 onClick={() => setPage((prev) => Math.max(0, prev - 1))}
                 disabled={page <= 0}
               >
-                Prev
+                {t('pages.adminProductManagement.pagination.prev')}
               </button>
               {paginationPages.map((pageNumber) => (
                 <button
@@ -684,7 +690,7 @@ function AdminProductManagementPage() {
                 onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
                 disabled={page >= totalPages - 1}
               >
-                Next
+                {t('pages.adminProductManagement.pagination.next')}
               </button>
             </div>
           </div>
@@ -697,7 +703,7 @@ function AdminProductManagementPage() {
             <header>
               <h3>{editorTitle}</h3>
               <button type="button" className="role-btn-ghost" onClick={closeEditor}>
-                Close
+                {t('pages.adminProductManagement.common.close')}
               </button>
             </header>
 
@@ -705,16 +711,16 @@ function AdminProductManagementPage() {
               <div className="admin-product-page-modal-image">
                 <img src={editorImagePreview} alt={name || 'Product preview'} />
                 <label className="admin-product-page-upload-label">
-                  Product image
+                  {t('pages.adminProductManagement.productImage')}
                   <input type="file" accept="image/*" onChange={handleImageFileChange} />
                 </label>
               </div>
 
               <div className="admin-product-page-modal-fields">
                 <label>
-                  Shop
+                  {t('pages.adminProductManagement.shop')}
                   <select value={shopId} onChange={(event) => handleShopChange(event.target.value)}>
-                    <option value="">Select shop</option>
+                    <option value="">{t('pages.adminProductManagement.selectShop')}</option>
                     {partnerOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
@@ -724,27 +730,27 @@ function AdminProductManagementPage() {
                 </label>
 
                 <label>
-                  Shop name
+                  {t('pages.adminProductManagement.shopName')}
                   <input
                     value={shopName}
                     onChange={(event) => setShopName(event.target.value)}
-                    placeholder="Display name for shop"
+                    placeholder={t('pages.adminProductManagement.placeholders.shopName')}
                   />
                 </label>
 
                 <label>
-                  Product name
+                  {t('pages.adminProductManagement.productName')}
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    placeholder="Product name"
+                    placeholder={t('pages.adminProductManagement.placeholders.productName')}
                   />
                 </label>
 
                 <label>
-                  Category
+                  {t('pages.adminProductManagement.category')}
                   <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                    <option value="">Select category</option>
+                    <option value="">{t('pages.adminProductManagement.selectCategory')}</option>
                     {categories.map((category) => (
                       <option key={category.categoryId} value={category.categoryId}>
                         {category.categoryName}
@@ -754,48 +760,48 @@ function AdminProductManagementPage() {
                 </label>
 
                 <label>
-                  Brand
+                  {t('pages.adminProductManagement.brand')}
                   <input
                     value={brand}
                     onChange={(event) => setBrand(event.target.value)}
-                    placeholder="Brand"
+                    placeholder={t('pages.adminProductManagement.placeholders.brand')}
                   />
                 </label>
 
                 <label>
-                  SKU
+                  {t('pages.adminProductManagement.sku')}
                   <input
                     value={sku}
                     onChange={(event) => setSku(event.target.value)}
-                    placeholder="SKU"
+                    placeholder={t('pages.adminProductManagement.placeholders.sku')}
                   />
                 </label>
 
                 <label>
-                  Price (VND)
+                  {t('pages.adminProductManagement.priceVnd')}
                   <input
                     type="number"
                     min={0}
                     step="1000"
                     value={price}
                     onChange={(event) => setPrice(event.target.value)}
-                    placeholder="Ex: 150000"
+                    placeholder={t('pages.adminProductManagement.placeholders.price')}
                   />
                 </label>
 
                 <label>
-                  Available quantity
+                  {t('pages.adminProductManagement.availableQuantity')}
                   <input
                     type="number"
                     min={0}
                     value={availableQuantity}
                     onChange={(event) => setAvailableQuantity(event.target.value)}
-                    placeholder="0"
+                    placeholder={t('pages.adminProductManagement.placeholders.available')}
                   />
                 </label>
 
                 <label>
-                  Status
+                  {t('pages.adminProductManagement.status')}
                   <select value={status} onChange={(event) => setStatus(event.target.value)}>
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="INACTIVE">INACTIVE</option>
@@ -804,12 +810,12 @@ function AdminProductManagementPage() {
                 </label>
 
                 <label className="admin-product-page-modal-full-width">
-                  Description
+                  {t('pages.adminProductManagement.description')}
                   <textarea
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     rows={4}
-                    placeholder="Description"
+                    placeholder={t('pages.adminProductManagement.placeholders.description')}
                   />
                 </label>
               </div>
@@ -819,14 +825,14 @@ function AdminProductManagementPage() {
               <button type="button" className="role-btn-primary" onClick={() => void handleSaveProduct()}>
                 {saving || uploadingImage
                   ? editingProductId
-                    ? 'Updating...'
-                    : 'Creating...'
+                    ? t('pages.adminProductManagement.updating')
+                    : t('pages.adminProductManagement.creating')
                   : editingProductId
-                    ? 'Update Product'
-                    : 'Create Product'}
+                    ? t('pages.adminProductManagement.updateProduct')
+                    : t('pages.adminProductManagement.createProduct')}
               </button>
               <button type="button" className="role-btn-ghost" onClick={closeEditor}>
-                Cancel
+                {t('pages.adminProductManagement.common.cancel')}
               </button>
             </div>
           </div>

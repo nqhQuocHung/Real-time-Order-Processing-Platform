@@ -6,16 +6,11 @@ import {
   extractApiData,
   extractApiErrorMessage,
 } from '../../../config/apis'
+import { ORDER_STATUSES } from '../../../constants/orderStatus'
+import { useI18n } from '../../../i18n/I18nProvider'
 import './AdminOrderManagementPage.css'
 
-const orderStatuses = [
-  'CREATED',
-  'RESERVED',
-  'PAID',
-  'COMPLETED',
-  'FAILED',
-  'CANCELLED',
-]
+const orderStatuses = ORDER_STATUSES
 
 type OrderSummary = {
   orderCode: string
@@ -70,6 +65,7 @@ function formatDate(value?: string) {
 }
 
 function AdminOrderManagementPage() {
+  const { t } = useI18n()
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -77,7 +73,7 @@ function AdminOrderManagementPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
   const [selectedOrderCode, setSelectedOrderCode] = useState('')
-  const [targetStatus, setTargetStatus] = useState(orderStatuses[0])
+  const [targetStatus, setTargetStatus] = useState<string>(orderStatuses[0])
   const [actor, setActor] = useState('admin-console')
   const [note, setNote] = useState('')
   const pageSize = 12
@@ -102,7 +98,7 @@ function AdminOrderManagementPage() {
       setTotalPages(Math.max(0, safeTotalPages))
       setPage(Math.max(0, safePage))
     } catch (err) {
-      setError(extractApiErrorMessage(err, 'Không tải được danh sách đơn hàng.'))
+      setError(extractApiErrorMessage(err, t('pages.adminOrderManagement.errors.loadFailed')))
       setOrders([])
       setTotalOrdersResult(0)
       setTotalPages(0)
@@ -114,7 +110,7 @@ function AdminOrderManagementPage() {
 
   async function updateOrderStatus() {
     if (!selectedOrderCode.trim()) {
-      toast.error('Vui lòng chọn order để cập nhật trạng thái.')
+      toast.error(t('pages.adminOrderManagement.errors.selectOrderRequired'))
       return
     }
 
@@ -125,10 +121,10 @@ function AdminOrderManagementPage() {
         actor: actor.trim() || undefined,
         note: note.trim() || undefined,
       })
-      toast.success('Cập nhật trạng thái đơn hàng thành công.')
+      toast.success(t('pages.adminOrderManagement.success.updated'))
       await loadOrders(page)
     } catch (err) {
-      toast.error(extractApiErrorMessage(err, 'Không thể cập nhật trạng thái đơn hàng.'))
+      toast.error(extractApiErrorMessage(err, t('pages.adminOrderManagement.errors.updateFailed')))
     } finally {
       setLoading(false)
     }
@@ -174,23 +170,23 @@ function AdminOrderManagementPage() {
   return (
     <section className="admin-order-management-page role-page-stack">
       <article className="role-card">
-        <h2>Quản lý đơn hàng</h2>
+        <h2>{t('pages.adminOrderManagement.title')}</h2>
         <p className="role-muted">
-          Admin có thể rà soát danh sách đơn và cập nhật trạng thái thủ công.
+          {t('pages.adminOrderManagement.subtitle')}
         </p>
         {error && <p className="role-error">{error}</p>}
 
         <div className="role-inline-form">
           <label>
-            Order Code
+            {t('pages.adminOrderManagement.orderCode')}
             <input
               value={selectedOrderCode}
               onChange={(event) => setSelectedOrderCode(event.target.value)}
-              placeholder="ORD-..."
+              placeholder={t('pages.adminOrderManagement.placeholders.orderCode')}
             />
           </label>
           <label>
-            Status
+            {t('pages.adminOrderManagement.orderStatus')}
             <select
               value={targetStatus}
               onChange={(event) => setTargetStatus(event.target.value)}
@@ -203,21 +199,21 @@ function AdminOrderManagementPage() {
             </select>
           </label>
           <label>
-            Actor
+            {t('pages.adminOrderManagement.actor')}
             <input value={actor} onChange={(event) => setActor(event.target.value)} />
           </label>
           <label>
-            Note
+            {t('pages.adminOrderManagement.note')}
             <input value={note} onChange={(event) => setNote(event.target.value)} />
           </label>
         </div>
 
         <div className="role-inline-actions">
           <button type="button" className="role-btn-primary" onClick={() => void updateOrderStatus()}>
-            {loading ? 'Đang xử lý...' : 'Cập nhật trạng thái'}
+            {loading ? t('pages.adminOrderManagement.processing') : t('pages.adminOrderManagement.updateStatus')}
           </button>
           <button type="button" className="role-btn-ghost" onClick={() => void loadOrders(page)}>
-            Tải lại danh sách
+            {t('pages.adminOrderManagement.reloadList')}
           </button>
         </div>
       </article>
@@ -227,10 +223,10 @@ function AdminOrderManagementPage() {
           <table>
             <thead>
               <tr>
-                <th>Mã đơn</th>
-                <th>Trạng thái</th>
-                <th>Tổng tiền</th>
-                <th>Thời gian tạo</th>
+                <th>{t('pages.adminOrderManagement.table.orderCode')}</th>
+                <th>{t('pages.adminOrderManagement.table.status')}</th>
+                <th>{t('pages.adminOrderManagement.table.totalAmount')}</th>
+                <th>{t('pages.adminOrderManagement.table.createdAt')}</th>
               </tr>
             </thead>
             <tbody>
@@ -244,7 +240,11 @@ function AdminOrderManagementPage() {
                   }}
                 >
                   <td>{order.orderCode}</td>
-                  <td>{order.status}</td>
+                  <td>
+                    <span className={`admin-order-management-status-badge status-${order.status.toLowerCase()}`}>
+                      {order.status}
+                    </span>
+                  </td>
                   <td>{formatMoney(order.totalAmount, order.currency)}</td>
                   <td>{formatDate(order.createdAt)}</td>
                 </tr>
@@ -252,7 +252,7 @@ function AdminOrderManagementPage() {
               {!orders.length && (
                 <tr>
                   <td colSpan={4} className="role-empty-cell">
-                    Không có dữ liệu đơn hàng.
+                    {t('pages.adminOrderManagement.table.empty')}
                   </td>
                 </tr>
               )}
@@ -262,7 +262,11 @@ function AdminOrderManagementPage() {
 
         <div className="admin-order-management-pagination">
           <p className="admin-order-management-pagination-summary">
-            Showing {currentPageStart}-{currentPageEnd} of {totalOrdersResult}
+            {t('pages.adminOrderManagement.pagination.summary', undefined, {
+              start: currentPageStart,
+              end: currentPageEnd,
+              total: totalOrdersResult,
+            })}
           </p>
 
           <div className="admin-order-management-pagination-controls">
@@ -272,7 +276,7 @@ function AdminOrderManagementPage() {
               onClick={() => void handleGoToPage(page - 1)}
               disabled={!hasPreviousPage || loading}
             >
-              Previous
+              {t('pages.adminOrderManagement.pagination.prev')}
             </button>
 
             {paginationPages.map((pageNumber) => (
@@ -293,7 +297,7 @@ function AdminOrderManagementPage() {
               onClick={() => void handleGoToPage(page + 1)}
               disabled={!hasNextPage || loading}
             >
-              Next
+              {t('pages.adminOrderManagement.pagination.next')}
             </button>
           </div>
         </div>

@@ -110,9 +110,9 @@ public class NotificationController {
             @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        String userId = normalize(forwardedUserId);
-        if (userId == null && jwt != null) {
-            userId = normalize(jwt.getSubject());
+        String userId = jwt != null ? normalize(jwt.getSubject()) : null;
+        if (userId == null) {
+            userId = normalize(forwardedUserId);
         }
         if (userId == null) {
             throw new IllegalStateException("Cannot resolve userId for notification stream.");
