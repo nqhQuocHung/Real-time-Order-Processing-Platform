@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import PageTransition from '../../../components/transition/PageTransition'
 import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
-import architectureModel1 from '../../../assets/illustrations/architecture-model-1.png'
+import architectureModel1 from '../../../assets/illustrations/platform-architecture.svg'
 import architectureModel2 from '../../../assets/illustrations/architecture-model-2.png'
 import architectureModel3 from '../../../assets/illustrations/architecture-model-3.png'
 import architectureModel4 from '../../../assets/illustrations/architecture-model-4.png'
@@ -84,10 +84,11 @@ function AboutPage() {
       {
         name: 'Notification Service',
         overview: 'Realtime notification and message delivery domain.',
-        responsibility: 'Consumes order/payment/partner/review events, writes notification logs, resolves recipients, and pushes SSE/chat realtime.',
+        responsibility: 'Consumes Kafka events, resolves recipients, and serves an internal gRPC server stream over HTTP/2.',
         highlights: [
           'Consumes business events and stores notification log entries.',
-          'Pushes realtime updates through /api/v1/notifications/stream.',
+          'Streams protobuf NotificationEvent messages to API Gateway on port 9095.',
+          'API Gateway bridges the internal gRPC stream to /api/v1/notifications/stream (SSE).',
           'Resolves recipients by order/review context and supports chat updates.',
         ],
       },
@@ -128,7 +129,7 @@ function AboutPage() {
       },
       {
         title: 'Realtime notifications and deep-link',
-        description: 'Notification Service consumes Kafka events and pushes SSE updates with navigation context so frontend can open exact order/review screens.',
+        description: 'Notification Service consumes Kafka events and streams protobuf updates to API Gateway through gRPC/HTTP2. Gateway bridges them to SSE with navigation context for the frontend.',
       },
     ],
     [],
@@ -142,7 +143,7 @@ function AboutPage() {
       },
       {
         name: 'Backend',
-        note: 'Spring Boot microservices with REST public APIs and internal RPC protected by X-Internal-Token.',
+        note: 'Spring Boot microservices with REST public APIs, internal JSON RPC, and gRPC server-streaming protected by X-Internal-Token.',
       },
       {
         name: 'Messaging',
@@ -150,7 +151,7 @@ function AboutPage() {
       },
       {
         name: 'Realtime',
-        note: 'Server-Sent Events from /api/v1/notifications/stream for notification and chat updates.',
+        note: 'Kafka -> Notification gRPC server stream over HTTP/2 -> Gateway SSE bridge -> React.',
       },
       {
         name: 'Data',
@@ -169,11 +170,11 @@ function AboutPage() {
       {
         title: 'Model 1 - Overall architecture',
         image: architectureModel1,
-        alt: 'Model 1 diagram showing gateway, services, PostgreSQL, Redis, Kafka, and SSE',
+        alt: 'Model 1 diagram showing Kafka, notification gRPC HTTP/2 stream, gateway SSE bridge, services, and data stores',
         highlights: [
           'Gateway is the only client entry point to /api/v1/* routes.',
           'Each service owns its PostgreSQL schema; cross-service sync uses RPC or events.',
-          'Notification Service pushes realtime updates to frontend via SSE.',
+          'Notification Service streams protobuf events to Gateway using gRPC/HTTP2; Gateway exposes SSE to the browser.',
         ],
       },
       {
@@ -193,7 +194,7 @@ function AboutPage() {
         highlights: [
           'Payment confirmation starts at Payment Service, then publishes payment.transaction.succeeded.v1.',
           'Order Service consumes payment events and calls inventory confirm-deduct.',
-          'order.lifecycle.paid.v1 and failed events are fanout to Notification Service for SSE delivery.',
+          'order.lifecycle.paid.v1 and failed events are fanout to Notification Service, then delivered through gRPC-to-SSE streaming.',
         ],
       },
       {
@@ -203,7 +204,7 @@ function AboutPage() {
         highlights: [
           'Primary producers are Auth, Order, Payment, and Inventory services.',
           'Notification Service is mainly a consumer for order/payment/partner/review topics.',
-          'Chat realtime updates are pushed by SSE directly, not through a dedicated Kafka chat topic.',
+          'Chat updates use the same gRPC-to-SSE stream path without a dedicated Kafka chat topic.',
         ],
       },
     ],

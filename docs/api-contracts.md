@@ -362,6 +362,23 @@ Success (`201`):
 - `PATCH /api/v1/notifications/{notificationCode}/status`: Cap nhat trang thai notification (`PENDING`, `SENT`, `FAILED`, `CANCELLED`).
 - `GET /api/v1/notifications/stream`: SSE stream theo user dang dang nhap.
   - Event co the gap tren frontend: `payment.transaction.*`, `order.lifecycle.*`, `partner.request.*`, `product.review.*`, `chat.message.created`.
+  - Endpoint duoc terminate tai `api-gateway`.
+  - Gateway subscribe internal gRPC `NotificationStreamService/Subscribe` va bridge protobuf event thanh SSE.
+
+### 12.1 Internal gRPC Stream Contract
+
+- Transport: HTTP/2 (gRPC, plaintext h2c trong Docker local).
+- Server: `notification-service:9095`.
+- Security metadata: `x-internal-token`.
+- RPC:
+
+```proto
+rpc Subscribe(SubscribeRequest) returns (stream NotificationEvent);
+```
+
+- `SubscribeRequest`: `user_id`, `admin`.
+- `NotificationEvent`: `event_id`, `event_name`, `data_json`, `occurred_at_epoch_millis`.
+- RPC nay chi cho service-to-service; browser khong truy cap truc tiep.
 
 ## 13. Messaging Endpoint Contract (Realtime Chat)
 

@@ -41,7 +41,7 @@ Trinh tu:
 6. `order-service` chuyen order sang `PAID`, publish `order.lifecycle.paid.v1`.
 7. `notification-service` consume payment/order events de:
    - ghi notification log
-   - push SSE realtime cho customer + partner owner lien quan.
+   - push gRPC stream event den gateway; gateway bridge SSE cho customer + partner owner lien quan.
 
 Luu y:
 
@@ -90,7 +90,8 @@ Khi `notification-service` nhan order/payment event:
 4. Hop nhat recipient:
    - customer/user trong payload
    - partner owner theo `shopId`
-5. Push SSE event toi tung recipient.
+5. Publish `NotificationEvent` vao gRPC subscriber cua tung recipient.
+6. `api-gateway` nhan protobuf stream tren HTTP/2 va bridge thanh SSE cho browser.
 
 ## 7. Flow 6 - Review/comment realtime + deep-link notify
 
@@ -113,8 +114,9 @@ Trinh tu:
    - `product.review.updated.v1`
    - `product.review.comment.created.v1`
 5. `notification-service` consume, ghi notification log.
-6. `notification-service` push SSE toi tung recipient voi `navigatePath` den dung product/review/comment context.
-7. Frontend nhan event, day vao bell va cho phep click dieu huong den vi tri comment/review can focus.
+6. `notification-service` push gRPC stream event toi gateway voi `navigatePath` den dung product/review/comment context.
+7. Gateway bridge event thanh SSE.
+8. Frontend nhan event, day vao bell va cho phep click dieu huong den vi tri comment/review can focus.
 
 ## 8. Flow 7 - Mo chat tu product card va nhan tin realtime
 
@@ -133,8 +135,9 @@ Trinh tu:
    - `GET /api/v1/messages/conversations/{conversationId}/messages?markAsRead=true`
 4. Khi gui tin:
    - `POST /api/v1/messages/conversations/{conversationId}/messages`
-5. `notification-service` push SSE `chat.message.created` den ca sender va recipient.
-6. Frontend cap nhat thread va unread count trong message dropdown theo realtime.
+5. `notification-service` push gRPC stream event `chat.message.created` den gateway cho ca sender va recipient.
+6. Gateway bridge event thanh SSE.
+7. Frontend cap nhat thread va unread count trong message dropdown theo realtime.
 
 Luu y:
 
@@ -157,7 +160,7 @@ Trinh tu:
    - requester la owner cua don (trong user flow)
    - moi order chi co 1 refund request
 3. `order-service` luu `order_refunds.status=REQUESTED`, publish `order.refund.requested.v1`.
-4. `notification-service` consume event va push SSE cho seller owner cua product trong order.
+4. `notification-service` consume event, push gRPC stream den gateway va bridge SSE cho seller owner cua product trong order.
 5. Seller review request trong partner UI, gui decision:
    - `APPROVE` -> order-service publish `order.refund.approved.v1`, goi internal RPC:
      - `POST /internal/v1/payments/refunds` sang `payment-service`
@@ -181,6 +184,7 @@ sequenceDiagram
     participant P as Payment Service
     participant K as Kafka
     participant N as Notification Service
+    participant S as gRPC HTTP/2 Stream
 
     C->>G: POST /api/v1/orders
     G->>O: Forward request
@@ -197,5 +201,7 @@ sequenceDiagram
     O->>I: /internal/v1/inventories/confirm-deduct
     O->>K: order.lifecycle.paid.v1
     K->>N: consume payment/order events
-    N-->>C: SSE realtime update
+    N-->>S: NotificationEvent (server stream)
+    S-->>G: protobuf over HTTP/2
+    G-->>C: SSE realtime update
 ```

@@ -1,6 +1,12 @@
 # Real-time Order Processing Platform
 
-Nen tang xu ly don hang thoi gian thuc theo kien truc microservices, ket hop REST gateway, internal RPC, Kafka event bus va SSE realtime.
+Nen tang xu ly don hang thoi gian thuc theo kien truc microservices, ket hop REST gateway, internal RPC, Kafka event bus va realtime streaming.
+
+Realtime transport:
+
+- Kafka dua domain event den `notification-service`.
+- `notification-service` cung cap gRPC server-streaming noi bo tren HTTP/2 (`:9095`).
+- `api-gateway` bridge protobuf stream thanh SSE `/api/v1/notifications/stream` cho React/browser.
 
 ## Cau hinh bien moi truong (bat buoc truoc khi chay)
 

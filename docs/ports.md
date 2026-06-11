@@ -13,9 +13,9 @@
 | `api-gateway` | `8080` | Entry point cho client |
 | `auth-service` | `8081` | Auth APIs |
 | `order-service` | `8082` | Order APIs |
-| `inventory-service` | `8083` | Inventory APIs/gRPC |
-| `payment-service` | `8084` | Payment APIs/gRPC |
-| `notification-service` | `8085` | Notification worker/API |
+| `inventory-service` | `8083` | Inventory REST/internal JSON RPC |
+| `payment-service` | `8084` | Payment REST/internal JSON RPC |
+| `notification-service` | `8085` | Notification worker/REST API |
 
 ## 3. Infra Ports (Host)
 
@@ -27,16 +27,15 @@
 | Kafka Broker (internal) | `29092` | Service trong Docker network dung |
 | Kafka UI (optional) | `8088` | Quan sat topic/consumer |
 
-## 4. Suggested gRPC Ports (internal)
+## 4. gRPC Ports (internal)
 
-Neu trien khai gRPC tach rieng khoi REST trong local:
+| Service | gRPC Port | Trang thai |
+| --- | --- | --- |
+| `notification-service` | `9095` | Dang dung cho `NotificationStreamService/Subscribe` (server-streaming HTTP/2) |
+| `inventory-service` | `9093` | De xuat, chua trien khai |
+| `payment-service` | `9094` | De xuat, chua trien khai |
 
-| Service | gRPC Port |
-| --- | --- |
-| `inventory-service` | `9093` |
-| `payment-service` | `9094` |
-
-Neu chua tach, co the dung chung process va map config phu hop.
+Trong Docker Compose, `9095` chi expose trong `platform-net`, khong publish ra host.
 
 ## 5. Port Collision Checklist
 

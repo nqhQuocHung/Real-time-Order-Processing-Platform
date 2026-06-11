@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package realtime.v1;
+
+option java_multiple_files = true;
+option java_package = "com.nqh.realtime.v1";
+option java_outer_classname = "NotificationStreamProto";
+
+service NotificationStreamService {
+  rpc Subscribe(SubscribeRequest) returns (stream NotificationEvent);
+}
+
+message SubscribeRequest {
+  string user_id = 1;
+  bool admin = 2;
+}
+
+message NotificationEvent {
+  string event_id = 1;
+  string event_name = 2;
+  string data_json = 3;
+  int64 occurred_at_epoch_millis = 4;
+}
