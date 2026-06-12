@@ -2146,18 +2146,20 @@ function RoleLayout() {
       </aside>
 
       <main className="role-main">
-        <header className="role-header">
-          <div>
-            <h2>{currentPageLabel}</h2>
-            <p className="role-muted">{t('header.roleWithValue', 'Role: {role}', { role: currentRoleLabel })}</p>
-          </div>
-          {!isMobileViewport && (
-            <div className="role-header-actions">
-              {renderLanguageSwitcher()}
-              {renderUserMenu()}
+        <div className="role-header-wrap">
+          <header className="role-header">
+            <div>
+              <h2>{currentPageLabel}</h2>
+              <p className="role-muted">{t('header.roleWithValue', 'Role: {role}', { role: currentRoleLabel })}</p>
             </div>
-          )}
-        </header>
+            {!isMobileViewport && (
+              <div className="role-header-actions">
+                {renderLanguageSwitcher()}
+                {renderUserMenu()}
+              </div>
+            )}
+          </header>
+        </div>
 
         <section className="role-content">
           <Outlet />

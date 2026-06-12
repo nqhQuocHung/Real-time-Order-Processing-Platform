@@ -749,113 +749,6 @@ async function loadPartnerRequests(
       </article>
 
       <article className="role-card">
-        <h3>{t('pages.adminAdministration.sections.accountFilters')}</h3>
-        <div className="role-inline-form">
-          <label>
-            Keyword (username/email)
-            <input
-              value={filter.keyword}
-              onChange={(event) =>
-                setFilter((prev) => ({
-                  ...prev,
-                  keyword: event.target.value,
-                }))
-              }
-              placeholder="Search by username/email (optional)"
-            />
-          </label>
-
-          <label>
-            Role
-            <select
-              value={filter.roleCode}
-              onChange={(event) =>
-                setFilter((prev) => ({
-                  ...prev,
-                  roleCode: event.target.value,
-                }))
-              }
-            >
-              <option value="">All</option>
-              {roles.map((role) => (
-                <option key={role.code} value={role.code}>
-                  {role.code}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Status
-            <select
-              value={filter.status}
-              onChange={(event) =>
-                setFilter((prev) => ({
-                  ...prev,
-                  status: event.target.value,
-                }))
-              }
-            >
-              <option value="">All</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="LOCKED">LOCKED</option>
-              <option value="DISABLED">DISABLED</option>
-              <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
-            </select>
-          </label>
-
-          <label>
-            Activation
-            <select
-              value={filter.isActive}
-              onChange={(event) =>
-                setFilter((prev) => ({
-                  ...prev,
-                  isActive: event.target.value,
-                }))
-              }
-            >
-              <option value="">All</option>
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="role-inline-actions">
-          <button
-            type="button"
-            className="role-btn-primary"
-            onClick={() => void handleSearchUsers()}
-            disabled={loadingUsers || isExecutingAction}
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            className="role-btn-ghost"
-            onClick={() => void handleFilterPartners()}
-            disabled={loadingUsers || isExecutingAction}
-          >
-            Partners Only
-          </button>
-          <button
-            type="button"
-            className="role-btn-ghost"
-            onClick={() => void handleClearFilter()}
-            disabled={loadingUsers || isExecutingAction}
-          >
-            Clear Filters
-          </button>
-        </div>
-
-        {loadingRoles && <p className="role-muted">Loading roles...</p>}
-        {error && <p className="role-error">{error}</p>}
-        {roleError && <p className="role-error">{roleError}</p>}
-        {actionError && <p className="role-error">{actionError}</p>}
-      </article>
-
-      <article className="role-card">
         <h3>{t('pages.adminAdministration.sections.partnerUpgradeRequests')}</h3>
         <p className="role-muted">
           New requests are pushed from server events.
@@ -974,6 +867,116 @@ async function loadPartnerRequests(
 
       <article className="role-card">
         <h3>{t('pages.adminAdministration.sections.accountList', undefined, { count: totalUsersResult })}</h3>
+
+        <div className="admin-administration-account-filter-bar">
+          <div className="role-inline-form">
+            <label>
+              Keyword (username/email)
+              <input
+                value={filter.keyword}
+                onChange={(event) =>
+                  setFilter((prev) => ({
+                    ...prev,
+                    keyword: event.target.value,
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void handleSearchUsers()
+                }}
+                placeholder="Search by username/email (optional)"
+              />
+            </label>
+
+            <label>
+              Role
+              <select
+                value={filter.roleCode}
+                onChange={(event) =>
+                  setFilter((prev) => ({
+                    ...prev,
+                    roleCode: event.target.value,
+                  }))
+                }
+              >
+                <option value="">All</option>
+                {roles.map((role) => (
+                  <option key={role.code} value={role.code}>
+                    {role.code}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              Status
+              <select
+                value={filter.status}
+                onChange={(event) =>
+                  setFilter((prev) => ({
+                    ...prev,
+                    status: event.target.value,
+                  }))
+                }
+              >
+                <option value="">All</option>
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="LOCKED">LOCKED</option>
+                <option value="DISABLED">DISABLED</option>
+                <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
+              </select>
+            </label>
+
+            <label>
+              Activation
+              <select
+                value={filter.isActive}
+                onChange={(event) =>
+                  setFilter((prev) => ({
+                    ...prev,
+                    isActive: event.target.value,
+                  }))
+                }
+              >
+                <option value="">All</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="role-inline-actions">
+            <button
+              type="button"
+              className="role-btn-primary"
+              onClick={() => void handleSearchUsers()}
+              disabled={loadingUsers || isExecutingAction}
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              className="role-btn-ghost"
+              onClick={() => void handleFilterPartners()}
+              disabled={loadingUsers || isExecutingAction}
+            >
+              Partners Only
+            </button>
+            <button
+              type="button"
+              className="role-btn-ghost"
+              onClick={() => void handleClearFilter()}
+              disabled={loadingUsers || isExecutingAction}
+            >
+              Clear Filters
+            </button>
+          </div>
+        </div>
+
+        {loadingRoles && <p className="role-muted">Loading roles...</p>}
+        {error && <p className="role-error">{error}</p>}
+        {roleError && <p className="role-error">{roleError}</p>}
+        {actionError && <p className="role-error">{actionError}</p>}
+
         {(loadingUsers || isExecutingAction) && (
           <p className="role-muted">{t('pages.adminAdministration.loadingData')}</p>
         )}

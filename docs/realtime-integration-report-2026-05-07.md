@@ -8,6 +8,7 @@ Tai thoi diem 2026-05-07, da apply thuc te cac thanh phan:
 - RPC noi bo: order-service goi inventory-service + payment-service theo kieu request/response.
 - Redis: idempotency guard cho payment actions, cache ton kho inventory.
 - HTTP/2 readiness: bat `server.http2.enabled=true` cho gateway + cac service backend.
+- Bo sung sau bao cao goc: notification internal stream dung gRPC server-streaming bat buoc tren HTTP/2; gateway bridge sang SSE cho browser.
 
 Muc tieu la co duoc 1 workflow MVP chay end-to-end voi local infra.
 
@@ -88,7 +89,7 @@ Da bo sung:
   - `POST /internal/v1/inventories/confirm-deduct`
 - Bao ve bang `X-Internal-Token` (giong payment-service).
 
-## 2.4 Gateway/Auth/Notification (HTTP/2 readiness)
+## 2.4 Gateway/Auth/Notification (HTTP/2 + gRPC stream)
 
 Da bat:
 
@@ -102,7 +103,9 @@ Da bat:
 
 Luu y:
 
-- Local non-TLS co the fallback HTTP/1.1 tuy runtime client/server da duoc dat san readiness cho HTTP/2.
+- Internal JSON RPC local non-TLS van co the fallback HTTP/1.1.
+- Rieng notification stream tren cong `9095` la gRPC Java/Netty va bat buoc HTTP/2 (h2c trong Docker local).
+- `api-gateway` nhan stream protobuf va bridge ra SSE tai `/api/v1/notifications/stream`.
 
 ## 3) Event contracts dang duoc su dung thuc te
 
@@ -219,8 +222,8 @@ Da verify compile thanh cong (`-DskipTests`) cho:
 - Chua co outbox pattern -> van co kha nang lech du lieu neu crash giua DB commit va publish/send RPC.
 - Chua co retry + DLQ handler trong application layer (topic da co convention).
 - Chua co contract test + integration test automation cho workflow moi.
-- HTTP/2 local chu yeu readiness; neu muon enforce thuc te can setup TLS/ingress phu hop.
-- RPC hien tai la internal HTTP API (request/response). Neu muon chuyen full gRPC can them proto + stub + rollout migration plan.
+- Cac JSON RPC van moi o muc HTTP/2-capable; gRPC notification stream da enforce HTTP/2. Production can them TLS/mTLS cho gRPC channel.
+- RPC order/inventory/payment hien tai van la internal HTTP API (request/response); chi realtime notification stream da chuyen sang gRPC.
 
 ## 8) De xuat sprint tiep theo
 

@@ -1,5 +1,12 @@
-.admin-administration-page .role-inline-form {
+.admin-administration-page .role-inline-form,
+.admin-administration-account-filter-bar .role-inline-form {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.admin-administration-account-filter-bar {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(133, 169, 214, 0.15);
 }
 
 .admin-administration-chart {
