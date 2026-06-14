@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import PageTransition from '../../../components/transition/PageTransition'
 import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
-import architectureModel1 from '../../../assets/illustrations/platform-architecture.svg'
+import model1OverallArchitecture from '../../../assets/illustrations/model-1-overall-system-architecture.svg'
+import model2RealtimeTransport from '../../../assets/illustrations/model-2-realtime-notification-transport.svg'
 import architectureModel2 from '../../../assets/illustrations/architecture-model-2.png'
 import architectureModel3 from '../../../assets/illustrations/architecture-model-3.png'
 import architectureModel4 from '../../../assets/illustrations/architecture-model-4.png'
@@ -34,6 +35,19 @@ type DiagramItem = {
   highlights: string[]
 }
 
+type TransportStage = {
+  step: string
+  title: string
+  protocol: string
+  description: string
+}
+
+type CommunicationFact = {
+  label: string
+  value: string
+  detail: string
+}
+
 function AboutPage() {
   const { t } = useI18n()
   const navigate = useNavigate()
@@ -41,6 +55,17 @@ function AboutPage() {
 
   const services = useMemo<ServiceCard[]>(
     () => [
+      {
+        name: 'API Gateway',
+        overview: 'Public edge, security, routing, and realtime protocol bridge.',
+        responsibility: 'Validates JWTs, routes public REST APIs, subscribes to the internal notification gRPC stream, and exposes browser-compatible SSE.',
+        highlights: [
+          'Single public entry point on port 8080 through Spring Cloud Gateway.',
+          'Creates an authenticated gRPC channel to Notification Service on port 9095.',
+          'Maps JWT subject and roles into the internal Subscribe request.',
+          'Bridges protobuf NotificationEvent messages to text/event-stream responses.',
+        ],
+      },
       {
         name: 'Auth Service',
         overview: 'Identity and access management domain.',
@@ -57,7 +82,7 @@ function AboutPage() {
         responsibility: 'Product catalog, category and stock management, reserve/release/confirm-deduct inventory APIs, and review events.',
         highlights: [
           'Owns product/category/stock data and reservation lifecycle.',
-          'Provides internal APIs for reserve, release, and confirm-deduct.',
+          'Provides token-protected internal JSON RPC APIs for reserve, release, confirm-deduct, and owner lookup.',
           'Publishes product.review.created/updated/comment.created events.',
         ],
       },
@@ -67,6 +92,7 @@ function AboutPage() {
         responsibility: 'Order orchestration with idempotency, payment deadline handling, status history, and payment-event reconciliation.',
         highlights: [
           'Handles create-order state machine and timeline history.',
+          'Calls Inventory and Payment internal APIs with HTTP/2-capable JSON RPC clients.',
           'Consumes payment.transaction.succeeded/failed events.',
           'Publishes order.lifecycle.created/paid/completed/failed topics.',
         ],
@@ -74,10 +100,11 @@ function AboutPage() {
       {
         name: 'Payment Service',
         overview: 'Payment intent and transaction status domain.',
-        responsibility: 'Payment intent creation, confirm/fail transaction handling, and Kafka transaction event publishing.',
+        responsibility: 'VNPAY payment intent, callback, refund, idempotency, compensation, and Kafka transaction event handling.',
         highlights: [
-          'Exposes payment confirmation and failure handling endpoints.',
+          'Creates VNPAY payment URLs and validates provider callbacks.',
           'Uses Redis idempotency lock for confirm/fail actions.',
+          'Supports refund results and failed/timeout compensation flows.',
           'Publishes payment.transaction.succeeded.v1 and payment.transaction.failed.v1.',
         ],
       },
@@ -87,10 +114,84 @@ function AboutPage() {
         responsibility: 'Consumes Kafka events, resolves recipients, and serves an internal gRPC server stream over HTTP/2.',
         highlights: [
           'Consumes business events and stores notification log entries.',
-          'Streams protobuf NotificationEvent messages to API Gateway on port 9095.',
+          'Implements NotificationStreamService/Subscribe as a unary-to-server-streaming RPC.',
+          'Streams protobuf NotificationEvent messages over HTTP/2 on internal port 9095.',
+          'Requires x-internal-token metadata before opening the gRPC stream.',
           'API Gateway bridges the internal gRPC stream to /api/v1/notifications/stream (SSE).',
           'Resolves recipients by order/review context and supports chat updates.',
         ],
+      },
+    ],
+    [],
+  )
+
+  const transportStages = useMemo<TransportStage[]>(
+    () => [
+      {
+        step: '01',
+        title: 'Domain events',
+        protocol: 'Kafka',
+        description: 'Order, payment, partner, review, and refund events enter the asynchronous realtime delivery path.',
+      },
+      {
+        step: '02',
+        title: 'Recipient fanout',
+        protocol: 'Notification Service',
+        description: 'Consumers persist notification logs and resolve customer, partner, or admin recipients from event context.',
+      },
+      {
+        step: '03',
+        title: 'Internal stream',
+        protocol: 'gRPC + HTTP/2',
+        description: 'NotificationStreamService/Subscribe continuously emits protobuf NotificationEvent messages on port 9095.',
+      },
+      {
+        step: '04',
+        title: 'Protocol bridge',
+        protocol: 'API Gateway',
+        description: 'The gateway authenticates the browser with JWT, subscribes internally, and converts each protobuf message to SSE.',
+      },
+      {
+        step: '05',
+        title: 'Browser delivery',
+        protocol: 'SSE',
+        description: 'React listens on GET /api/v1/notifications/stream and updates notifications, dashboards, and chat in real time.',
+      },
+    ],
+    [],
+  )
+
+  const communicationFacts = useMemo<CommunicationFact[]>(
+    () => [
+      {
+        label: 'RPC contract',
+        value: 'NotificationStreamService/Subscribe',
+        detail: 'Unary SubscribeRequest followed by a server stream of NotificationEvent messages.',
+      },
+      {
+        label: 'Wire format',
+        value: 'Protocol Buffers',
+        detail: 'Carries event_id, event_name, data_json, and occurred_at_epoch_millis.',
+      },
+      {
+        label: 'Transport',
+        value: 'HTTP/2 (h2c locally)',
+        detail: 'gRPC Java and Netty enforce HTTP/2 for the internal stream; production can terminate TLS or mTLS.',
+      },
+      {
+        label: 'Internal security',
+        value: 'x-internal-token',
+        detail: 'A gRPC server interceptor rejects missing or invalid service-to-service metadata.',
+      },
+      {
+        label: 'External security',
+        value: 'JWT Bearer token',
+        detail: 'Gateway derives userId and admin access from the authenticated JWT before subscribing.',
+      },
+      {
+        label: 'Browser boundary',
+        value: 'text/event-stream',
+        detail: 'Browsers consume SSE; they never connect directly to the internal gRPC endpoint.',
       },
     ],
     [],
@@ -131,6 +232,14 @@ function AboutPage() {
         title: 'Realtime notifications and deep-link',
         description: 'Notification Service consumes Kafka events and streams protobuf updates to API Gateway through gRPC/HTTP2. Gateway bridges them to SSE with navigation context for the frontend.',
       },
+      {
+        title: 'Partner recipient resolution',
+        description: 'Notification Service calls token-protected Order and Inventory internal JSON RPC APIs to map order products to shop owners before targeted fanout.',
+      },
+      {
+        title: 'Realtime chat delivery',
+        description: 'Chat messages are persisted by Notification Service and delivered to sender and recipient through the same gRPC-to-SSE stream without a dedicated chat Kafka topic.',
+      },
     ],
     [],
   )
@@ -154,8 +263,16 @@ function AboutPage() {
         note: 'Kafka -> Notification gRPC server stream over HTTP/2 -> Gateway SSE bridge -> React.',
       },
       {
+        name: 'Transport',
+        note: 'REST/JSON for public APIs, token-protected JSON RPC for synchronous service calls, and Protocol Buffers for gRPC streaming.',
+      },
+      {
         name: 'Data',
         note: 'PostgreSQL with one schema per service (auth, orders, inventory, payment, notification).',
+      },
+      {
+        name: 'Payments',
+        note: 'VNPAY payment URL, callback verification, refund processing, Redis idempotency, and compensation.',
       },
       {
         name: 'Platform',
@@ -168,9 +285,9 @@ function AboutPage() {
   const diagrams = useMemo<DiagramItem[]>(
     () => [
       {
-        title: 'Model 1 - Overall architecture',
-        image: architectureModel1,
-        alt: 'Model 1 diagram showing Kafka, notification gRPC HTTP/2 stream, gateway SSE bridge, services, and data stores',
+        title: 'Model 1 - Overall System Architecture',
+        image: model1OverallArchitecture,
+        alt: 'Model 1 - Overall System Architecture showing clients, gateway, microservices, gRPC HTTP/2, Kafka, PostgreSQL, and Redis',
         highlights: [
           'Gateway is the only client entry point to /api/v1/* routes.',
           'Each service owns its PostgreSQL schema; cross-service sync uses RPC or events.',
@@ -178,9 +295,19 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 2 - Domain responsibilities',
+        title: 'Model 2 - Realtime Notification Transport',
+        image: model2RealtimeTransport,
+        alt: 'Model 2 - Realtime Notification Transport from Kafka through gRPC HTTP/2 and API Gateway to browser SSE',
+        highlights: [
+          'The internal stream is a real gRPC server-streaming RPC running on HTTP/2.',
+          'x-internal-token protects the service channel while JWT protects the public SSE endpoint.',
+          'Gateway isolates browser clients from protobuf and internal service addressing.',
+        ],
+      },
+      {
+        title: 'Model 3 - Domain Responsibilities',
         image: architectureModel2,
-        alt: 'Model 2 diagram showing functional split by microservices',
+        alt: 'Model 3 - Domain Responsibilities showing functional boundaries across microservices',
         highlights: [
           'Auth, Inventory, Order, Payment, and Notification responsibilities are separated by domain.',
           'Order Service coordinates state transitions and timeout scheduler.',
@@ -188,9 +315,9 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 3 - Order and payment sequence',
+        title: 'Model 4 - Order and Payment Sequence',
         image: architectureModel3,
-        alt: 'Model 3 sequence diagram from order creation to realtime notification',
+        alt: 'Model 4 - Order and Payment Sequence from order creation to realtime notification',
         highlights: [
           'Payment confirmation starts at Payment Service, then publishes payment.transaction.succeeded.v1.',
           'Order Service consumes payment events and calls inventory confirm-deduct.',
@@ -198,9 +325,9 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 4 - Kafka producer/consumer map',
+        title: 'Model 5 - Kafka Producer and Consumer Map',
         image: architectureModel4,
-        alt: 'Model 4 diagram showing Kafka topics and producer consumer mapping',
+        alt: 'Model 5 - Kafka Producer and Consumer Map showing topics and service mappings',
         highlights: [
           'Primary producers are Auth, Order, Payment, and Inventory services.',
           'Notification Service is mainly a consumer for order/payment/partner/review topics.',
@@ -227,6 +354,11 @@ function AboutPage() {
                 <p className="about-page-subtitle">
                   {t('pages.commonAbout.subtitle')}
                 </p>
+                <div className="about-page-hero-badges" aria-label="Core platform technologies">
+                  {['Spring Boot', 'Kafka', 'gRPC', 'HTTP/2', 'Protobuf', 'SSE', 'React'].map((badge) => (
+                    <span key={badge}>{badge}</span>
+                  ))}
+                </div>
               </div>
             </header>
 
@@ -250,6 +382,39 @@ function AboutPage() {
                         <li key={highlight}>{highlight}</li>
                       ))}
                     </ul>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="about-page-section about-page-transport-section">
+              <div className="about-page-section-header">
+                <h2>{t('pages.commonAbout.sections.transport.title')}</h2>
+                <span>{t('pages.commonAbout.sections.transport.subtitle')}</span>
+              </div>
+
+              <div className="about-page-transport-pipeline">
+                {transportStages.map((stage, index) => (
+                  <article key={stage.step} className="about-page-transport-stage">
+                    <div className="about-page-transport-stage-heading">
+                      <span className="about-page-transport-step">{stage.step}</span>
+                      <span className="about-page-transport-protocol">{stage.protocol}</span>
+                    </div>
+                    <h3>{stage.title}</h3>
+                    <p>{stage.description}</p>
+                    {index < transportStages.length - 1 ? (
+                      <span className="about-page-transport-arrow" aria-hidden="true">-&gt;</span>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+
+              <div className="about-page-communication-facts">
+                {communicationFacts.map((fact) => (
+                  <article key={fact.label} className="about-page-communication-fact">
+                    <span>{fact.label}</span>
+                    <strong>{fact.value}</strong>
+                    <p>{fact.detail}</p>
                   </article>
                 ))}
               </div>
@@ -313,8 +478,10 @@ function AboutPage() {
               </div>
               <ul className="about-page-reference-list">
                 <li><code>docs/architecture.md</code> - service boundaries, sync/async communication, storage, reliability.</li>
+                <li><code>services/notification-service/src/main/proto/notification_stream.proto</code> - gRPC server-streaming contract.</li>
                 <li><code>docs/key-flows.md</code> - order/payment/review/chat operational flows and sequence.</li>
                 <li><code>docs/kafka-topics.md</code> - topic naming, producer/consumer mapping, envelope conventions.</li>
+                <li><code>docs/api-contracts.md</code> - public REST/SSE and internal gRPC transport contracts.</li>
                 <li><code>docs/system-functions.md</code> - functional capabilities across user roles and domains.</li>
               </ul>
             </section>

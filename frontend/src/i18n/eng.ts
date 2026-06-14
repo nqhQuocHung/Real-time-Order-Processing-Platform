@@ -386,7 +386,7 @@ const eng = {
     },
     commonAbout: {
       title: 'About',
-      subtitle: 'System overview, architecture, and key capabilities.',
+      subtitle: 'System architecture, business flows, and realtime delivery through Kafka, gRPC/HTTP2, and SSE.',
       mission: 'Mission',
       highlights: 'Highlights',
       technologies: 'Technologies',
@@ -394,7 +394,11 @@ const eng = {
       sections: {
         diagrams: {
           title: 'Validated system diagrams',
-          subtitle: 'Architecture, domain, sequence, and Kafka topics',
+          subtitle: 'Architecture, realtime transport, domain, sequence, and Kafka topics',
+        },
+        transport: {
+          title: 'Realtime and internal communication',
+          subtitle: 'Kafka, JSON RPC, gRPC/HTTP2, and SSE boundaries',
         },
         coreServices: {
           title: 'Core services',

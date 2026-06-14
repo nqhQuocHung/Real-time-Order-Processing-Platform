@@ -1,0 +1,260 @@
+<svg width="1600" height="1050" viewBox="0 0 1600 1050" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="m1-page" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f5f9ff" />
+    </linearGradient>
+    <linearGradient id="m1-header" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0b4b91" />
+      <stop offset="100%" stop-color="#1768b5" />
+    </linearGradient>
+    <linearGradient id="m1-green" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#36b891" />
+      <stop offset="100%" stop-color="#16856f" />
+    </linearGradient>
+    <linearGradient id="m1-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7955d9" />
+      <stop offset="100%" stop-color="#4d2ca7" />
+    </linearGradient>
+    <linearGradient id="m1-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#25a8c5" />
+      <stop offset="100%" stop-color="#14758e" />
+    </linearGradient>
+    <filter id="m1-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#143b68" flood-opacity="0.12" />
+    </filter>
+    <marker id="m1-blue-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#1768b5" />
+    </marker>
+    <marker id="m1-green-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#169370" />
+    </marker>
+    <marker id="m1-purple-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#5c3bb5" />
+    </marker>
+    <style>
+      .m1-title { font: 700 35px Inter, "Segoe UI", Arial, sans-serif; fill: #071b3d; }
+      .m1-section { font: 700 20px Inter, "Segoe UI", Arial, sans-serif; fill: #ffffff; letter-spacing: .4px; }
+      .m1-card-title { font: 700 18px Inter, "Segoe UI", Arial, sans-serif; fill: #081c3d; }
+      .m1-body { font: 500 14px Inter, "Segoe UI", Arial, sans-serif; fill: #243a59; }
+      .m1-small { font: 500 12px Inter, "Segoe UI", Arial, sans-serif; fill: #536985; }
+      .m1-label { font: 700 12px Inter, "Segoe UI", Arial, sans-serif; fill: #155da7; }
+      .m1-white { fill: #ffffff; }
+      .m1-card { fill: #ffffff; stroke: #c7d5e8; stroke-width: 1.4; }
+      .m1-blue-line { fill: none; stroke: #1768b5; stroke-width: 2.4; }
+      .m1-green-line { fill: none; stroke: #169370; stroke-width: 2.4; }
+      .m1-purple-line { fill: none; stroke: #5c3bb5; stroke-width: 2.4; }
+      .m1-dashed { stroke-dasharray: 8 6; }
+    </style>
+  </defs>
+
+  <rect x="8" y="8" width="1584" height="1034" rx="24" fill="url(#m1-page)" stroke="#d3deed" stroke-width="1.5" />
+
+  <rect x="54" y="37" width="140" height="44" rx="22" fill="url(#m1-header)" />
+  <text x="124" y="66" class="m1-section" text-anchor="middle" font-size="17">MODEL 1</text>
+  <text x="220" y="71" class="m1-title">Overall System Architecture</text>
+
+  <!-- Public edge -->
+  <rect x="48" y="124" width="474" height="520" rx="20" fill="#f8fbff" stroke="#c7d5e8" stroke-width="1.5" />
+  <path d="M68 124 H502 Q522 124 522 144 V178 H48 V144 Q48 124 68 124 Z" fill="url(#m1-header)" />
+  <text x="285" y="159" class="m1-section" text-anchor="middle">PUBLIC EDGE</text>
+
+  <!-- Client -->
+  <g filter="url(#m1-shadow)">
+    <rect x="78" y="224" width="176" height="304" rx="18" class="m1-card" />
+    <rect x="78" y="224" width="176" height="52" rx="18" fill="#0d4f94" />
+    <rect x="78" y="258" width="176" height="18" fill="#0d4f94" />
+  </g>
+  <text x="166" y="258" class="m1-section" text-anchor="middle" font-size="17">WEB CLIENT</text>
+  <rect x="119" y="317" width="94" height="64" rx="6" fill="none" stroke="#0b3568" stroke-width="7" />
+  <line x1="166" y1="381" x2="166" y2="397" stroke="#0b3568" stroke-width="7" />
+  <line x1="143" y1="400" x2="189" y2="400" stroke="#0b3568" stroke-width="7" stroke-linecap="round" />
+  <text x="166" y="440" class="m1-card-title" text-anchor="middle">React Client</text>
+  <text x="166" y="468" class="m1-body" text-anchor="middle">TypeScript + Vite</text>
+  <text x="166" y="496" class="m1-small" text-anchor="middle">Customer / Partner / Admin</text>
+
+  <!-- Gateway -->
+  <g filter="url(#m1-shadow)">
+    <rect x="314" y="224" width="178" height="304" rx="18" class="m1-card" />
+    <rect x="314" y="224" width="178" height="52" rx="18" fill="#0d4f94" />
+    <rect x="314" y="258" width="178" height="18" fill="#0d4f94" />
+  </g>
+  <text x="403" y="258" class="m1-section" text-anchor="middle" font-size="17">API GATEWAY</text>
+  <path d="M403 305 L443 322 V355 C443 387 426 410 403 422 C380 410 363 387 363 355 V322 Z" fill="#1768b5" />
+  <path d="M383 359 L397 373 L425 339" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="403" y="454" class="m1-card-title" text-anchor="middle">Routing + Security</text>
+  <text x="403" y="482" class="m1-body" text-anchor="middle">Spring Cloud Gateway :8080</text>
+  <text x="403" y="507" class="m1-small" text-anchor="middle">JWT + protocol bridge</text>
+
+  <!-- Public client connections -->
+  <line x1="254" y1="334" x2="314" y2="334" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="284" y="321" class="m1-label" text-anchor="middle">REST</text>
+  <line x1="314" y1="439" x2="254" y2="439" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="284" y="428" class="m1-label" text-anchor="middle">SSE</text>
+
+  <!-- Microservices boundary -->
+  <rect x="570" y="124" width="982" height="520" rx="20" fill="#fbfdff" stroke="#bfcfe4" stroke-width="1.5" />
+  <path d="M590 124 H1532 Q1552 124 1552 144 V178 H570 V144 Q570 124 590 124 Z" fill="url(#m1-header)" />
+  <text x="1061" y="159" class="m1-section" text-anchor="middle">MICROSERVICES</text>
+
+  <!-- Gateway ingress -->
+  <path d="M492 370 H590 V254 H632" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <path d="M590 254 V434 H632" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <path d="M590 344 H1035 V263 H1076" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <path d="M1035 344 V443 H1076" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="536" y="354" class="m1-label" text-anchor="middle">REST</text>
+  <text x="603" y="205" class="m1-small">Gateway routes /api/v1/*</text>
+
+  <!-- Auth -->
+  <g filter="url(#m1-shadow)">
+    <rect x="632" y="204" width="366" height="118" rx="18" class="m1-card" />
+  </g>
+  <circle cx="692" cy="246" r="15" fill="url(#m1-green)" />
+  <circle cx="724" cy="250" r="12" fill="url(#m1-green)" opacity=".9" />
+  <path d="M665 289 C667 266 678 258 692 258 C707 258 717 267 719 289 Z" fill="url(#m1-green)" />
+  <path d="M706 289 C708 272 716 265 726 265 C738 265 746 273 748 289 Z" fill="url(#m1-green)" opacity=".9" />
+  <text x="775" y="246" class="m1-card-title">Auth Service</text>
+  <text x="775" y="273" class="m1-body">Identity + JWT + RBAC</text>
+  <text x="775" y="298" class="m1-small">REST :8081</text>
+
+  <!-- Order -->
+  <g filter="url(#m1-shadow)">
+    <rect x="1076" y="204" width="414" height="118" rx="18" class="m1-card" />
+  </g>
+  <path d="M1120 231 H1133 L1144 270 H1182 L1192 242 H1140" fill="none" stroke="#199276" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="1151" cy="286" r="6" fill="#199276" />
+  <circle cx="1180" cy="286" r="6" fill="#199276" />
+  <text x="1212" y="246" class="m1-card-title">Order Service</text>
+  <text x="1212" y="273" class="m1-body">Order lifecycle + orchestration</text>
+  <text x="1212" y="298" class="m1-small">REST / internal JSON RPC :8082</text>
+
+  <!-- Inventory -->
+  <g filter="url(#m1-shadow)">
+    <rect x="632" y="384" width="366" height="118" rx="18" class="m1-card" />
+  </g>
+  <path d="M672 423 L702 405 L732 423 L702 441 Z M672 423 V460 L702 478 V441 M732 423 V460 L702 478" fill="none" stroke="#199276" stroke-width="5" stroke-linejoin="round" />
+  <text x="775" y="426" class="m1-card-title">Inventory Service</text>
+  <text x="775" y="453" class="m1-body">Catalog + stock + reviews</text>
+  <text x="775" y="478" class="m1-small">REST / internal JSON RPC :8083</text>
+
+  <!-- Payment -->
+  <g filter="url(#m1-shadow)">
+    <rect x="1076" y="384" width="414" height="118" rx="18" class="m1-card" />
+  </g>
+  <rect x="1118" y="416" width="62" height="44" rx="6" fill="none" stroke="#199276" stroke-width="5" />
+  <line x1="1120" y1="429" x2="1178" y2="429" stroke="#199276" stroke-width="6" />
+  <circle cx="1133" cy="447" r="3.5" fill="#199276" />
+  <line x1="1143" y1="447" x2="1157" y2="447" stroke="#199276" stroke-width="5" />
+  <text x="1212" y="426" class="m1-card-title">Payment Service</text>
+  <text x="1212" y="453" class="m1-body">VNPAY intents + refunds + status</text>
+  <text x="1212" y="478" class="m1-small">REST / internal JSON RPC :8084</text>
+
+  <!-- Internal JSON RPC -->
+  <path d="M1283 322 V354 H1019 V443 H998" class="m1-purple-line m1-dashed" marker-end="url(#m1-purple-arrow)" />
+  <path d="M1283 354 V384" class="m1-purple-line m1-dashed" marker-end="url(#m1-purple-arrow)" />
+  <rect x="1043" y="334" width="204" height="39" rx="18" fill="#f6f1ff" stroke="#d6c9f4" />
+  <text x="1145" y="351" text-anchor="middle" class="m1-small" fill="#4d2ca7">Internal JSON RPC</text>
+  <text x="1145" y="367" text-anchor="middle" class="m1-small" fill="#4d2ca7">+ X-Internal-Token</text>
+
+  <!-- Notification -->
+  <g filter="url(#m1-shadow)">
+    <rect x="770" y="534" width="522" height="86" rx="18" class="m1-card" />
+  </g>
+  <path d="M833 582 H873 C866 574 866 565 866 556 C866 540 857 532 853 532 C849 532 840 540 840 556 C840 565 840 574 833 582 Z" fill="url(#m1-green)" />
+  <path d="M846 588 C848 596 858 596 860 588" fill="none" stroke="#16856f" stroke-width="5" stroke-linecap="round" />
+  <text x="907" y="567" class="m1-card-title">Notification Service</text>
+  <text x="907" y="592" class="m1-body">Kafka consumer + recipient fanout</text>
+  <text x="1160" y="567" class="m1-small">REST :8085</text>
+  <text x="1160" y="592" class="m1-small">gRPC server :9095</text>
+
+  <!-- Notification recipient lookup -->
+  <path d="M902 534 V519 H815 V502" class="m1-purple-line m1-dashed" marker-end="url(#m1-purple-arrow)" />
+  <path d="M1080 534 V519 H1055 V300 H1076" class="m1-purple-line m1-dashed" marker-end="url(#m1-purple-arrow)" />
+  <text x="975" y="522" class="m1-small" text-anchor="middle" fill="#4d2ca7">recipient lookup RPC</text>
+
+  <!-- gRPC stream back to Gateway -->
+  <path d="M770 577 H548 V488 H492" class="m1-green-line m1-dashed" marker-end="url(#m1-green-arrow)" />
+  <rect x="514" y="542" width="238" height="47" rx="20" fill="#ecfaf5" stroke="#a8ddcb" />
+  <text x="633" y="561" class="m1-small" text-anchor="middle" fill="#08745a">gRPC server-streaming :9095</text>
+  <text x="633" y="579" class="m1-small" text-anchor="middle" fill="#08745a">Protobuf over HTTP/2 (h2c)</text>
+
+  <!-- Shared infrastructure -->
+  <rect x="48" y="690" width="1504" height="220" rx="20" fill="#f8fbff" stroke="#c7d5e8" stroke-width="1.5" />
+  <path d="M68 690 H1532 Q1552 690 1552 710 V744 H48 V710 Q48 690 68 690 Z" fill="#eef4fb" />
+  <text x="80" y="724" class="m1-card-title">SHARED INFRASTRUCTURE</text>
+
+  <!-- Kafka -->
+  <g filter="url(#m1-shadow)">
+    <rect x="88" y="770" width="430" height="106" rx="17" fill="#ffffff" stroke="#8b70d6" stroke-width="1.5" />
+  </g>
+  <circle cx="139" cy="815" r="8" fill="none" stroke="#5c3bb5" stroke-width="5" />
+  <circle cx="139" cy="790" r="6" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="167" cy="801" r="6" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="167" cy="831" r="6" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="139" cy="842" r="6" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="139" y1="798" x2="139" y2="807" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="146" y1="811" x2="161" y2="804" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="146" y1="820" x2="161" y2="828" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="139" y1="823" x2="139" y2="836" stroke="#5c3bb5" stroke-width="4" />
+  <text x="204" y="802" class="m1-card-title" fill="#4d2ca7">Kafka Event Bus</text>
+  <text x="204" y="829" class="m1-body">Host :9092 · Docker network :29092</text>
+  <text x="204" y="852" class="m1-small">Order / payment / partner / review / refund events</text>
+
+  <!-- PostgreSQL -->
+  <g filter="url(#m1-shadow)">
+    <rect x="585" y="770" width="430" height="106" rx="17" fill="#ffffff" stroke="#43a9c0" stroke-width="1.5" />
+  </g>
+  <ellipse cx="641" cy="797" rx="34" ry="13" fill="url(#m1-cyan)" />
+  <path d="M607 797 V842 C607 850 622 856 641 856 C660 856 675 850 675 842 V797" fill="url(#m1-cyan)" opacity=".92" />
+  <ellipse cx="641" cy="820" rx="34" ry="13" fill="none" stroke="#ffffff" stroke-width="3" opacity=".85" />
+  <ellipse cx="641" cy="842" rx="34" ry="13" fill="none" stroke="#ffffff" stroke-width="3" opacity=".85" />
+  <text x="700" y="802" class="m1-card-title" fill="#14758e">PostgreSQL :5432</text>
+  <text x="700" y="825" class="m1-body">Schemas: auth · orders · inventory</text>
+  <text x="700" y="849" class="m1-small">payment · notification; no direct cross-schema access</text>
+
+  <!-- Redis -->
+  <g filter="url(#m1-shadow)">
+    <rect x="1082" y="770" width="430" height="106" rx="17" fill="#ffffff" stroke="#e06b6b" stroke-width="1.5" />
+  </g>
+  <path d="M1132 798 L1163 786 L1193 798 L1163 810 Z M1132 815 L1163 827 L1193 815 M1132 833 L1163 845 L1193 833" fill="none" stroke="#d64e4e" stroke-width="5" stroke-linejoin="round" />
+  <text x="1220" y="802" class="m1-card-title" fill="#bc3b3b">Redis :6379</text>
+  <text x="1220" y="825" class="m1-body">Inventory cache</text>
+  <text x="1220" y="849" class="m1-small">Payment idempotency locks + duplicate protection</text>
+
+  <!-- Infrastructure connectors -->
+  <path d="M930 644 V670 H303 V770" class="m1-purple-line" marker-end="url(#m1-purple-arrow)" />
+  <text x="506" y="666" class="m1-small" fill="#4d2ca7">publish / consume</text>
+  <path d="M1044 644 V704 H800 V770" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="858" y="700" class="m1-small">owned schemas</text>
+  <path d="M1268 644 V730 H1297 V770" fill="none" stroke="#d64e4e" stroke-width="2.4" marker-end="url(#m1-blue-arrow)" />
+  <text x="1308" y="724" class="m1-small">cache / locks</text>
+
+  <!-- Facts -->
+  <rect x="48" y="932" width="1504" height="78" rx="16" fill="#ffffff" stroke="#c7d5e8" stroke-width="1.3" />
+  <line x1="542" y1="948" x2="542" y2="994" stroke="#d6e0ed" />
+  <line x1="1058" y1="948" x2="1058" y2="994" stroke="#d6e0ed" />
+  <circle cx="82" cy="970" r="18" fill="#e7f2ff" />
+  <path d="M70 970 H94 M82 958 C76 964 76 976 82 982 M82 958 C88 964 88 976 82 982 M67 970 C67 962 74 955 82 955 C90 955 97 962 97 970 C97 978 90 985 82 985 C74 985 67 978 67 970 Z" fill="none" stroke="#1768b5" stroke-width="2" />
+  <text x="112" y="964" class="m1-body">Client traffic enters only through API Gateway.</text>
+  <text x="112" y="986" class="m1-small">Public APIs use /api/v1/*; browser realtime uses SSE.</text>
+  <circle cx="578" cy="970" r="18" fill="#ecfaf5" />
+  <path d="M568 970 L576 978 L589 961" fill="none" stroke="#169370" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="608" y="964" class="m1-body">Cross-service state stays behind service boundaries.</text>
+  <text x="608" y="986" class="m1-small">Internal JSON RPC or Kafka; each service owns its data.</text>
+  <circle cx="1094" cy="970" r="18" fill="#f2edff" />
+  <path d="M1084 974 L1090 967 L1097 974 L1105 962" fill="none" stroke="#5c3bb5" stroke-width="3" stroke-linecap="round" />
+  <text x="1124" y="964" class="m1-body">Realtime internal transport is gRPC server-streaming.</text>
+  <text x="1124" y="986" class="m1-small">Notification :9095 -> Gateway -> SSE browser clients.</text>
+
+  <!-- Compact legend -->
+  <line x1="75" y1="1025" x2="118" y2="1025" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="130" y="1030" class="m1-small">HTTP/REST</text>
+  <line x1="260" y1="1025" x2="303" y2="1025" class="m1-purple-line m1-dashed" marker-end="url(#m1-purple-arrow)" />
+  <text x="315" y="1030" class="m1-small">Internal JSON RPC</text>
+  <line x1="490" y1="1025" x2="533" y2="1025" class="m1-green-line m1-dashed" marker-end="url(#m1-green-arrow)" />
+  <text x="545" y="1030" class="m1-small">gRPC / HTTP/2</text>
+  <line x1="720" y1="1025" x2="763" y2="1025" class="m1-blue-line" marker-end="url(#m1-blue-arrow)" />
+  <text x="775" y="1030" class="m1-small">SSE</text>
+  <line x1="870" y1="1025" x2="913" y2="1025" class="m1-purple-line" marker-end="url(#m1-purple-arrow)" />
+  <text x="925" y="1030" class="m1-small">Kafka events</text>
+</svg>
