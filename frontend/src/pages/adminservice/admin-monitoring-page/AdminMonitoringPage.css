@@ -1,0 +1,303 @@
+.admin-monitoring-page {
+  color: var(--role-text);
+}
+
+.admin-monitoring-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-monitoring-eyebrow {
+  margin: 0 0 6px;
+  color: #72d8ff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-monitoring-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-monitoring-actions label {
+  display: grid;
+  gap: 5px;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-monitoring-actions select {
+  min-height: 38px;
+  border: 1px solid rgba(133, 169, 214, 0.34);
+  border-radius: 10px;
+  color: var(--role-text);
+  background: rgba(8, 24, 40, 0.86);
+  padding: 0 10px;
+}
+
+.admin-monitoring-summary-grid,
+.admin-monitoring-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-monitoring-overall-card {
+  position: relative;
+}
+
+.admin-monitoring-status {
+  width: max-content;
+  border: 1px solid rgba(133, 169, 214, 0.28);
+  border-radius: 999px;
+  padding: 3px 8px;
+  color: var(--role-text-sub);
+  background: rgba(133, 169, 214, 0.12);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-monitoring-status-up,
+.admin-monitoring-status-healthy {
+  border-color: rgba(57, 217, 138, 0.36);
+  color: #8cf4c3;
+  background: rgba(28, 129, 83, 0.18);
+}
+
+.admin-monitoring-status-down,
+.admin-monitoring-status-watch {
+  border-color: rgba(255, 117, 117, 0.4);
+  color: #ffb4b4;
+  background: rgba(151, 48, 48, 0.2);
+}
+
+.admin-monitoring-status-unknown,
+.admin-monitoring-status-pending {
+  border-color: rgba(255, 209, 102, 0.38);
+  color: #ffe19b;
+  background: rgba(154, 115, 24, 0.2);
+}
+
+.admin-monitoring-section-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-monitoring-section-header h3,
+.admin-monitoring-service-card h4,
+.admin-monitoring-signal-card h4 {
+  margin: 0;
+}
+
+.admin-monitoring-service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-monitoring-service-card,
+.admin-monitoring-signal-card,
+.admin-monitoring-internal-list section {
+  min-width: 0;
+  border: 1px solid rgba(133, 169, 214, 0.24);
+  border-radius: 12px;
+  background: rgba(8, 24, 40, 0.66);
+  padding: 12px;
+}
+
+.admin-monitoring-service-card header,
+.admin-monitoring-signal-card header,
+.admin-monitoring-internal-list header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-monitoring-service-card header span {
+  display: block;
+  margin-top: 4px;
+  color: var(--role-text-sub);
+  font-size: 0.78rem;
+}
+
+.admin-monitoring-service-card dl {
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-monitoring-service-card dt {
+  color: var(--role-text-sub);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-monitoring-service-card dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.admin-monitoring-contract {
+  margin: 0 0 10px;
+  color: #8acbff;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-monitoring-chip-row,
+.admin-monitoring-component-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-monitoring-chip-row span,
+.admin-monitoring-component-row span,
+.admin-monitoring-internal-list header span {
+  border: 1px solid rgba(133, 169, 214, 0.22);
+  border-radius: 999px;
+  padding: 3px 7px;
+  color: var(--role-text-sub);
+  background: rgba(133, 169, 214, 0.1);
+  font-size: 0.7rem;
+}
+
+.admin-monitoring-component-row {
+  margin-top: 9px;
+}
+
+.admin-monitoring-component-row .admin-monitoring-component-up {
+  color: #8cf4c3;
+}
+
+.admin-monitoring-component-row .admin-monitoring-component-down {
+  color: #ffb4b4;
+}
+
+.admin-monitoring-signal-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.admin-monitoring-signal-card {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-monitoring-signal-card strong {
+  color: #f7fbff;
+  font-size: 1rem;
+}
+
+.admin-monitoring-signal-card p,
+.admin-monitoring-internal-list p {
+  margin: 0;
+  color: var(--role-text-sub);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-monitoring-two-column {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 12px;
+}
+
+.admin-monitoring-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-monitoring-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.admin-monitoring-table th,
+.admin-monitoring-table td {
+  border-bottom: 1px solid rgba(133, 169, 214, 0.18);
+  padding: 9px 8px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 0.82rem;
+}
+
+.admin-monitoring-table th {
+  color: var(--role-text-sub);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin-monitoring-table code,
+.admin-monitoring-internal-list code {
+  color: #e8f4ff;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.admin-monitoring-internal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-monitoring-internal-list section {
+  display: grid;
+  gap: 7px;
+}
+
+@media (max-width: 1280px) {
+  .admin-monitoring-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-monitoring-service-grid,
+  .admin-monitoring-signal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-monitoring-two-column {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-monitoring-hero {
+    flex-direction: column;
+  }
+
+  .admin-monitoring-actions {
+    width: 100%;
+  }
+
+  .admin-monitoring-actions label,
+  .admin-monitoring-actions button {
+    width: 100%;
+  }
+
+  .admin-monitoring-summary-grid,
+  .admin-monitoring-service-grid,
+  .admin-monitoring-signal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-monitoring-service-card dl {
+    grid-template-columns: 1fr;
+  }
+}

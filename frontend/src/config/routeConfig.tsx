@@ -7,6 +7,7 @@ import UserProductsPage from '../pages/userservice/user-products-page/UserProduc
 import UserProfilePage from '../pages/userservice/user-profile-page/UserProfilePage'
 import UserSupportPage from '../pages/userservice/user-support-page/UserSupportPage'
 import AdminDashboardPage from '../pages/adminservice/admin-dashboard-page/AdminDashboardPage'
+import AdminMonitoringPage from '../pages/adminservice/admin-monitoring-page/AdminMonitoringPage'
 import AdminAdministrationPage from '../pages/adminservice/admin-administration-page/AdminAdministrationPage'
 import AdminProductManagementPage from '../pages/adminservice/admin-product-management-page/AdminProductManagementPage'
 import AdminCategoryManagementPage from '../pages/adminservice/admin-category-management-page/AdminCategoryManagementPage'
@@ -71,6 +72,13 @@ export const roleRouteConfig: AppRouteItem[] = [
     title: 'Admin Dashboard',
     permission: PermissionKey.VIEW_ADMIN_DASHBOARD,
     component: AdminDashboardPage,
+  },
+  {
+    path: '/admin/monitoring',
+    role: AppRole.ADMIN,
+    title: 'System Monitoring',
+    permission: PermissionKey.VIEW_SYSTEM_MONITORING,
+    component: AdminMonitoringPage,
   },
   {
     path: '/admin/administration',

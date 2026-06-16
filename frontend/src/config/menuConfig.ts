@@ -49,6 +49,12 @@ export const menuConfig: Record<AppRole, MenuItem[]> = {
       permission: PermissionKey.VIEW_ADMIN_DASHBOARD,
     },
     {
+      key: 'admin-monitoring',
+      label: 'System Monitoring',
+      path: '/admin/monitoring',
+      permission: PermissionKey.VIEW_SYSTEM_MONITORING,
+    },
+    {
       key: 'user-dashboard',
       label: 'User Dashboard',
       path: '/user/dashboard',
