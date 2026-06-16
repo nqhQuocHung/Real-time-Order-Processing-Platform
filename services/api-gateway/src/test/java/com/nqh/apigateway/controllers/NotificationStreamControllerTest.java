@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.nqh.apigateway.services.NotificationGrpcStreamClient;
+import com.nqh.apigateway.services.MonitoringStreamState;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.codec.ServerSentEvent;
@@ -15,8 +16,9 @@ class NotificationStreamControllerTest {
 
     private final NotificationGrpcStreamClient streamClient =
             org.mockito.Mockito.mock(NotificationGrpcStreamClient.class);
+    private final MonitoringStreamState monitoringStreamState = new MonitoringStreamState();
     private final NotificationStreamController controller =
-            new NotificationStreamController(streamClient);
+            new NotificationStreamController(streamClient, monitoringStreamState);
 
     @Test
     void forwardsJwtIdentityAndAdminRoleToGrpcClient() {
