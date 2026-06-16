@@ -1,6 +1,7 @@
 package com.nqh.apigateway.controllers;
 
 import com.nqh.apigateway.services.NotificationGrpcStreamClient;
+import com.nqh.apigateway.services.MonitoringStreamState;
 import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -16,6 +17,7 @@ import reactor.core.publisher.Flux;
 public class NotificationStreamController {
 
     private final NotificationGrpcStreamClient notificationGrpcStreamClient;
+    private final MonitoringStreamState monitoringStreamState;
 
     @GetMapping(
             value = "/api/v1/notifications/stream",
@@ -31,9 +33,11 @@ public class NotificationStreamController {
         }
 
         return notificationGrpcStreamClient.subscribe(
-                jwt.getSubject().trim(),
-                isAdminUser(jwt)
-        );
+                        jwt.getSubject().trim(),
+                        isAdminUser(jwt)
+                )
+                .doOnSubscribe(subscription -> monitoringStreamState.notificationConnected())
+                .doFinally(signalType -> monitoringStreamState.notificationDisconnected());
     }
 
     private boolean isAdminUser(Jwt jwt) {

@@ -235,6 +235,10 @@ const endpoints = {
     markConversationRead: (conversationId: string) =>
       `/api/v1/messages/conversations/${conversationId}/read`,
   },
+  monitoring: {
+    summary: '/api/v1/admin/monitoring/summary',
+    stream: '/api/v1/admin/monitoring/stream',
+  },
 }
 
 function getLocalStorageValue(key: string): string {

@@ -29,7 +29,12 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .cors(Customizer.withDefaults())
                 .authorizeExchange(ex -> ex
-                        .pathMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .pathMatchers(
+                                "/actuator/health",
+                                "/actuator/info",
+                                "/actuator/metrics",
+                                "/actuator/metrics/**"
+                        ).permitAll()
 
                         .pathMatchers(
                                 "/api/v1/auth/login",

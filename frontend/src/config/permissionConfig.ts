@@ -10,6 +10,7 @@ export const PermissionKey = {
   VIEW_SUPPORT: 'VIEW_SUPPORT',
 
   VIEW_ADMIN_DASHBOARD: 'VIEW_ADMIN_DASHBOARD',
+  VIEW_SYSTEM_MONITORING: 'VIEW_SYSTEM_MONITORING',
   MANAGE_USERS: 'MANAGE_USERS',
   MANAGE_PARTNERS: 'MANAGE_PARTNERS',
   MANAGE_PRODUCTS: 'MANAGE_PRODUCTS',
@@ -37,6 +38,7 @@ export const permissionConfig: Record<AppRole, PermissionKey[]> = {
   ],
   [Role.ADMIN]: [
     PermissionKey.VIEW_ADMIN_DASHBOARD,
+    PermissionKey.VIEW_SYSTEM_MONITORING,
     PermissionKey.MANAGE_USERS,
     PermissionKey.MANAGE_PARTNERS,
     PermissionKey.MANAGE_PRODUCTS,

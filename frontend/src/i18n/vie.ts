@@ -386,11 +386,43 @@ const vie = {
     },
     commonAbout: {
       title: 'Giới thiệu',
-      subtitle: 'Tổng quan hệ thống, kiến trúc và năng lực chính.',
+      subtitle: 'Kiến trúc hệ thống, luồng nghiệp vụ và cơ chế realtime qua Kafka, gRPC/HTTP2 và SSE.',
       mission: 'Sứ mệnh',
       highlights: 'Điểm nổi bật',
       technologies: 'Công nghệ sử dụng',
       contact: 'Liên hệ',
+      sections: {
+        diagrams: {
+          title: 'Sơ đồ hệ thống',
+          subtitle: 'Kiến trúc, realtime transport, domain, sequence và Kafka topics',
+        },
+        transport: {
+          title: 'Realtime và giao tiếp nội bộ',
+          subtitle: 'Ranh giới Kafka, JSON RPC, gRPC/HTTP2 và SSE',
+        },
+        coreServices: {
+          title: 'Các dịch vụ cốt lõi',
+          subtitle: 'Trách nhiệm theo domain',
+          hint: 'Bấm để xem chi tiết dịch vụ',
+        },
+        featuredFlows: {
+          title: 'Các luồng nổi bật',
+          subtitle: 'Những luồng nghiệp vụ quan trọng',
+        },
+        technology: {
+          title: 'Công nghệ sử dụng',
+          subtitle: 'Implementation hiện tại',
+        },
+        specs: {
+          title: 'Tài liệu đặc tả trong repository',
+          subtitle: 'Nguồn tham chiếu cho kiến trúc và luồng xử lý',
+        },
+      },
+      actions: {
+        createAccount: 'Tạo tài khoản',
+        backToLogin: 'Quay lại đăng nhập',
+        closeServiceOverview: 'Đóng cửa sổ thông tin dịch vụ',
+      },
     },
     commonForbidden: {
       title: 'Truy cập bị từ chối',

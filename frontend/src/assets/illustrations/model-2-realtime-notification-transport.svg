@@ -1,0 +1,213 @@
+<svg width="1664" height="960" viewBox="0 0 1664 960" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="m2-page" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f5f9ff" />
+    </linearGradient>
+    <linearGradient id="m2-blue" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#174da4" />
+      <stop offset="100%" stop-color="#2675d0" />
+    </linearGradient>
+    <linearGradient id="m2-green" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3bb88f" />
+      <stop offset="100%" stop-color="#16836b" />
+    </linearGradient>
+    <linearGradient id="m2-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7955d9" />
+      <stop offset="100%" stop-color="#4d2ca7" />
+    </linearGradient>
+    <filter id="m2-shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="#143b68" flood-opacity="0.12" />
+    </filter>
+    <marker id="m2-blue-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#2367bd" />
+    </marker>
+    <marker id="m2-green-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#168b6d" />
+    </marker>
+    <marker id="m2-purple-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 Z" fill="#5c3bb5" />
+    </marker>
+    <style>
+      .m2-title { font: 700 35px Inter, "Segoe UI", Arial, sans-serif; fill: #071b3d; }
+      .m2-badge { font: 700 18px Inter, "Segoe UI", Arial, sans-serif; fill: #ffffff; letter-spacing: .4px; }
+      .m2-card-title { font: 700 18px Inter, "Segoe UI", Arial, sans-serif; fill: #0a2450; }
+      .m2-body { font: 500 14px Inter, "Segoe UI", Arial, sans-serif; fill: #263d60; }
+      .m2-small { font: 500 12px Inter, "Segoe UI", Arial, sans-serif; fill: #536985; }
+      .m2-green-text { font: 700 13px Inter, "Segoe UI", Arial, sans-serif; fill: #08745a; }
+      .m2-blue-text { font: 700 13px Inter, "Segoe UI", Arial, sans-serif; fill: #145cae; }
+      .m2-purple-text { font: 700 13px Inter, "Segoe UI", Arial, sans-serif; fill: #5330ad; }
+      .m2-card { fill: #ffffff; stroke: #c7d5e8; stroke-width: 1.5; }
+      .m2-blue-line { fill: none; stroke: #2367bd; stroke-width: 2.5; }
+      .m2-green-line { fill: none; stroke: #168b6d; stroke-width: 2.5; }
+      .m2-purple-line { fill: none; stroke: #5c3bb5; stroke-width: 2.5; }
+      .m2-dashed { stroke-dasharray: 8 6; }
+    </style>
+  </defs>
+
+  <rect x="8" y="8" width="1648" height="944" rx="24" fill="url(#m2-page)" stroke="#d3deed" stroke-width="1.5" />
+
+  <rect x="60" y="38" width="142" height="44" rx="22" fill="url(#m2-blue)" />
+  <text x="131" y="67" class="m2-badge" text-anchor="middle">MODEL 2</text>
+  <text x="232" y="72" class="m2-title">Realtime Delivery: Internal gRPC/HTTP2 to Browser SSE</text>
+
+  <!-- Kafka -->
+  <g filter="url(#m2-shadow)">
+    <rect x="54" y="142" width="246" height="244" rx="20" fill="#ffffff" stroke="#6f50c5" stroke-width="1.8" />
+  </g>
+  <circle cx="177" cy="197" r="9" fill="none" stroke="#5c3bb5" stroke-width="5" />
+  <circle cx="177" cy="166" r="7" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="210" cy="180" r="7" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="210" cy="214" r="7" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <circle cx="177" cy="229" r="7" fill="none" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="177" y1="173" x2="177" y2="188" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="186" y1="192" x2="203" y2="183" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="186" y1="202" x2="203" y2="211" stroke="#5c3bb5" stroke-width="4" />
+  <line x1="177" y1="206" x2="177" y2="222" stroke="#5c3bb5" stroke-width="4" />
+  <text x="177" y="267" class="m2-card-title" text-anchor="middle" fill="#4d2ca7">Kafka Event Bus</text>
+  <text x="177" y="296" class="m2-body" text-anchor="middle">Docker broker :29092</text>
+  <text x="177" y="326" class="m2-small" text-anchor="middle">order / payment / partner</text>
+  <text x="177" y="348" class="m2-small" text-anchor="middle">review / refund topics</text>
+
+  <!-- Notification service -->
+  <g filter="url(#m2-shadow)">
+    <rect x="394" y="142" width="278" height="244" rx="20" fill="#ffffff" stroke="#23906f" stroke-width="1.8" />
+  </g>
+  <path d="M504 212 H562 C552 202 552 188 552 176 C552 156 539 146 533 146 C527 146 514 156 514 176 C514 188 514 202 504 212 Z" fill="url(#m2-green)" />
+  <path d="M524 221 C527 232 539 232 542 221" fill="none" stroke="#16836b" stroke-width="5" stroke-linecap="round" />
+  <text x="533" y="265" class="m2-card-title" text-anchor="middle">Notification Service</text>
+  <text x="533" y="293" class="m2-body" text-anchor="middle">Kafka consumer + recipient fanout</text>
+  <text x="533" y="321" class="m2-green-text" text-anchor="middle">gRPC server :9095</text>
+  <text x="533" y="346" class="m2-small" text-anchor="middle">NotificationStreamService/Subscribe</text>
+  <text x="533" y="368" class="m2-small" text-anchor="middle">persists notification log</text>
+
+  <!-- Kafka flow -->
+  <line x1="300" y1="264" x2="394" y2="264" class="m2-purple-line" marker-end="url(#m2-purple-arrow)" />
+  <text x="347" y="250" class="m2-purple-text" text-anchor="middle">events</text>
+
+  <!-- gRPC transport panel -->
+  <rect x="734" y="128" width="310" height="272" rx="22" fill="#f2fbf7" stroke="#8bcdb7" stroke-width="1.5" />
+  <rect x="772" y="151" width="234" height="38" rx="19" fill="#dff5ec" />
+  <text x="889" y="176" class="m2-green-text" text-anchor="middle">INTERNAL REALTIME STREAM</text>
+  <text x="889" y="223" class="m2-card-title" text-anchor="middle">gRPC server-streaming</text>
+  <text x="889" y="251" class="m2-body" text-anchor="middle">Protobuf over HTTP/2</text>
+  <text x="889" y="276" class="m2-small" text-anchor="middle">h2c inside local Docker network</text>
+  <line x1="774" y1="302" x2="1004" y2="302" stroke="#c7e6da" />
+  <text x="889" y="331" class="m2-small" text-anchor="middle">Request: SubscribeRequest(userId, admin)</text>
+  <text x="889" y="354" class="m2-small" text-anchor="middle">Response stream: NotificationEvent</text>
+  <text x="889" y="377" class="m2-small" text-anchor="middle">event_id · event_name · data_json · occurred_at</text>
+
+  <!-- Notification -> stream -> Gateway response -->
+  <line x1="672" y1="224" x2="734" y2="224" class="m2-green-line" marker-end="url(#m2-green-arrow)" />
+
+  <!-- API Gateway -->
+  <g filter="url(#m2-shadow)">
+    <rect x="1106" y="142" width="268" height="244" rx="20" fill="#ffffff" stroke="#276cca" stroke-width="1.8" />
+  </g>
+  <path d="M1240 154 L1282 172 V207 C1282 240 1264 264 1240 277 C1216 264 1198 240 1198 207 V172 Z" fill="url(#m2-blue)" />
+  <path d="M1219 211 L1233 225 L1262 189" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="1240" y="310" class="m2-card-title" text-anchor="middle">API Gateway :8080</text>
+  <text x="1240" y="338" class="m2-body" text-anchor="middle">JWT + gRPC client + SSE bridge</text>
+  <text x="1240" y="365" class="m2-blue-text" text-anchor="middle">public stream endpoint</text>
+
+  <!-- Stream response -->
+  <line x1="1044" y1="224" x2="1106" y2="224" class="m2-green-line" marker-end="url(#m2-green-arrow)" />
+  <text x="1075" y="208" class="m2-green-text" text-anchor="middle">events</text>
+
+  <!-- Subscribe request + metadata -->
+  <rect x="770" y="408" width="240" height="46" rx="20" fill="#eef5ff" stroke="#c2d8f3" />
+  <text x="890" y="427" class="m2-blue-text" text-anchor="middle">SubscribeRequest + metadata</text>
+  <text x="890" y="445" class="m2-small" text-anchor="middle">x-internal-token</text>
+  <path d="M1106 331 H1030 V431 H1010" class="m2-blue-line m2-dashed" />
+  <path d="M770 431 H692 V331 H672" class="m2-blue-line m2-dashed" marker-end="url(#m2-blue-arrow)" />
+
+  <!-- React clients -->
+  <g filter="url(#m2-shadow)">
+    <rect x="1450" y="142" width="164" height="244" rx="20" fill="#ffffff" stroke="#276cca" stroke-width="1.8" />
+  </g>
+  <circle cx="1516" cy="188" r="17" fill="#397bc9" />
+  <circle cx="1548" cy="188" r="17" fill="#397bc9" opacity=".92" />
+  <path d="M1487 233 C1489 207 1501 200 1516 200 C1532 200 1543 210 1545 233 Z" fill="#397bc9" />
+  <path d="M1522 233 C1524 210 1534 201 1548 201 C1564 201 1575 211 1577 233 Z" fill="#397bc9" opacity=".92" />
+  <text x="1532" y="276" class="m2-card-title" text-anchor="middle">React Clients</text>
+  <text x="1532" y="304" class="m2-body" text-anchor="middle">Customer / Partner</text>
+  <text x="1532" y="325" class="m2-body" text-anchor="middle">Admin</text>
+  <text x="1532" y="353" class="m2-blue-text" text-anchor="middle">notifications + chat</text>
+
+  <!-- SSE -->
+  <line x1="1374" y1="264" x2="1450" y2="264" class="m2-blue-line" marker-end="url(#m2-blue-arrow)" />
+  <text x="1412" y="242" class="m2-blue-text" text-anchor="middle">SSE</text>
+  <text x="1412" y="284" class="m2-small" text-anchor="middle">text/event-stream</text>
+
+  <!-- Recipient resolution -->
+  <rect x="54" y="486" width="1034" height="213" rx="20" fill="#f8fcfa" stroke="#a9d7c7" stroke-width="1.5" />
+  <rect x="82" y="508" width="285" height="36" rx="18" fill="#e4f6ef" />
+  <text x="224" y="532" class="m2-green-text" text-anchor="middle">PARTNER RECIPIENT RESOLUTION</text>
+  <path d="M533 386 V520 H423 V569" class="m2-green-line" marker-end="url(#m2-green-arrow)" />
+  <text x="520" y="506" class="m2-small" text-anchor="end">only when event context requires partner fanout</text>
+
+  <g filter="url(#m2-shadow)">
+    <rect x="150" y="563" width="380" height="116" rx="17" class="m2-card" stroke="#40a27f" />
+  </g>
+  <path d="M214 597 H226 L235 625 H267 L274 604 H232" fill="none" stroke="#199276" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="241" cy="637" r="5" fill="#199276" />
+  <circle cx="263" cy="637" r="5" fill="#199276" />
+  <text x="296" y="594" class="m2-card-title">Order Service :8082</text>
+  <text x="296" y="620" class="m2-small">GET /internal/v1/orders/</text>
+  <text x="296" y="641" class="m2-small">{orderCode}/products</text>
+  <text x="296" y="665" class="m2-small">orderCode -> productIds</text>
+
+  <g filter="url(#m2-shadow)">
+    <rect x="668" y="563" width="380" height="116" rx="17" class="m2-card" stroke="#40a27f" />
+  </g>
+  <path d="M711 598 L735 584 L759 598 L735 612 Z M711 598 V629 L735 643 V612 M759 598 V629 L735 643" fill="none" stroke="#199276" stroke-width="4" stroke-linejoin="round" />
+  <text x="786" y="594" class="m2-card-title">Inventory Service :8083</text>
+  <text x="786" y="620" class="m2-small">POST /internal/v1/inventories/</text>
+  <text x="786" y="641" class="m2-small">product-owners</text>
+  <text x="786" y="665" class="m2-small">productIds -> shop user IDs</text>
+
+  <line x1="530" y1="621" x2="668" y2="621" class="m2-purple-line m2-dashed" marker-end="url(#m2-purple-arrow)" />
+  <text x="599" y="602" class="m2-purple-text" text-anchor="middle">JSON RPC</text>
+  <text x="599" y="645" class="m2-small" text-anchor="middle">X-Internal-Token</text>
+
+  <!-- Security boundary -->
+  <rect x="1126" y="486" width="488" height="213" rx="20" fill="#fbfcfe" stroke="#7489a7" stroke-width="1.6" stroke-dasharray="5 4" />
+  <rect x="1156" y="508" width="226" height="36" rx="18" fill="#eef2f7" />
+  <text x="1269" y="532" class="m2-card-title" text-anchor="middle" font-size="15">SECURITY BOUNDARY</text>
+  <rect x="1190" y="574" width="52" height="47" rx="8" fill="#5b6f8c" />
+  <path d="M1201 574 V561 C1201 546 1231 546 1231 561 V574" fill="none" stroke="#5b6f8c" stroke-width="7" stroke-linecap="round" />
+  <circle cx="1216" cy="593" r="5" fill="#ffffff" />
+  <line x1="1216" y1="598" x2="1216" y2="608" stroke="#ffffff" stroke-width="4" />
+  <text x="1270" y="574" class="m2-card-title">Public edge</text>
+  <text x="1270" y="598" class="m2-body">JWT protects the SSE endpoint.</text>
+  <text x="1270" y="630" class="m2-card-title">Internal edge</text>
+  <text x="1270" y="654" class="m2-body">x-internal-token protects gRPC/RPC.</text>
+  <text x="1370" y="680" class="m2-small" text-anchor="middle">Browser never connects to :9095 directly.</text>
+
+  <!-- Clarification strip -->
+  <rect x="54" y="726" width="1560" height="76" rx="17" fill="#ffffff" stroke="#c4d5e9" stroke-width="1.5" />
+  <circle cx="96" cy="764" r="22" fill="#e8f2ff" />
+  <text x="96" y="772" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="700" fill="#1768b5">i</text>
+  <text x="132" y="756" class="m2-body">Order -> Inventory/Payment and Notification -> Order/Inventory use synchronous JSON RPC with X-Internal-Token.</text>
+  <text x="132" y="780" class="m2-body">Only the realtime Notification -> Gateway path uses gRPC server-streaming with Protobuf over HTTP/2.</text>
+
+  <!-- Legend -->
+  <rect x="54" y="824" width="1560" height="96" rx="17" fill="#ffffff" stroke="#c4d5e9" stroke-width="1.5" />
+  <line x1="94" y1="858" x2="142" y2="858" class="m2-blue-line" marker-end="url(#m2-blue-arrow)" />
+  <text x="160" y="853" class="m2-blue-text">SSE</text>
+  <text x="160" y="875" class="m2-small">GET /api/v1/notifications/stream</text>
+
+  <line x1="400" y1="858" x2="448" y2="858" class="m2-green-line" marker-end="url(#m2-green-arrow)" />
+  <text x="466" y="853" class="m2-green-text">gRPC response stream</text>
+  <text x="466" y="875" class="m2-small">NotificationEvent over HTTP/2</text>
+
+  <line x1="760" y1="858" x2="808" y2="858" class="m2-blue-line m2-dashed" marker-end="url(#m2-blue-arrow)" />
+  <text x="826" y="853" class="m2-blue-text">gRPC request metadata</text>
+  <text x="826" y="875" class="m2-small">SubscribeRequest + x-internal-token</text>
+
+  <line x1="1135" y1="858" x2="1183" y2="858" class="m2-purple-line m2-dashed" marker-end="url(#m2-purple-arrow)" />
+  <text x="1201" y="853" class="m2-purple-text">Internal JSON RPC</text>
+  <text x="1201" y="875" class="m2-small">recipient lookup over HTTP client</text>
+
+  <text x="54" y="943" class="m2-small">Verified against current Spring configuration, protobuf contract, Gateway controller, gRPC client/server, and recipient resolver.</text>
+</svg>

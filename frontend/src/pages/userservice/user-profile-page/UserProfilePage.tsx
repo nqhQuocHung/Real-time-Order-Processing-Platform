@@ -65,13 +65,6 @@ function formatDateTime(value?: string) {
   return parsed.toLocaleString('vi-VN')
 }
 
-function formatBoolean(value?: boolean) {
-  if (typeof value !== 'boolean') {
-    return '-'
-  }
-  return value ? 'true' : 'false'
-}
-
 function UserProfilePage() {
   const { t } = useI18n()
   const [profile, setProfile] = useState<UserProfile | null>(null)
