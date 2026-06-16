@@ -16,7 +16,7 @@
 }
 
 .about-page-container {
-  width: min(1080px, 100%);
+  width: min(1440px, 100%);
   margin: 0 auto;
   color: #e7f1ff;
   display: grid;
@@ -106,10 +106,18 @@
 .about-page-diagram-card {
   border: 1px solid rgba(140, 183, 245, 0.28);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   background: linear-gradient(160deg, rgba(7, 34, 74, 0.88) 0%, rgba(6, 20, 45, 0.84) 100%);
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.about-page-diagram-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .about-page-diagram-card h3 {
@@ -118,11 +126,33 @@
   font-size: 0.94rem;
 }
 
-.about-page-architecture-image {
-  width: 100%;
-  border-radius: 14px;
+.about-page-diagram-card-header span {
+  max-width: 100%;
+  border: 1px solid rgba(115, 213, 255, 0.28);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: #aee9ff;
+  background: rgba(10, 58, 105, 0.38);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.about-page-diagram-figure {
+  margin: 0;
+  overflow-x: auto;
   border: 1px solid rgba(145, 187, 247, 0.35);
-  background: rgba(3, 18, 40, 0.9);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(1, 8, 22, 0.22);
+}
+
+.about-page-architecture-image {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  background: #fff;
 }
 
 .about-page-diagram-highlights {

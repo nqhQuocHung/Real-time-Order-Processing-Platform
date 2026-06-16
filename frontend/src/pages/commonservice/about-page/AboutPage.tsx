@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import PageTransition from '../../../components/transition/PageTransition'
 import realtimeLogo from '../../../assets/logo/RealtimeLogo.png'
 import vnptBackground from '../../../assets/logo/vnpt_bg.png'
-import model1OverallArchitecture from '../../../assets/illustrations/model-1-overall-system-architecture.svg'
-import model2RealtimeTransport from '../../../assets/illustrations/model-2-realtime-notification-transport.svg'
+import architectureModel1 from '../../../assets/illustrations/architecture-model-1.png'
 import architectureModel2 from '../../../assets/illustrations/architecture-model-2.png'
 import architectureModel3 from '../../../assets/illustrations/architecture-model-3.png'
 import architectureModel4 from '../../../assets/illustrations/architecture-model-4.png'
+import architectureModel5 from '../../../assets/illustrations/architecture-model-5.png'
 import { useI18n } from '../../../i18n/I18nProvider'
 import './AboutPage.css'
 
@@ -32,6 +32,7 @@ type DiagramItem = {
   title: string
   image: string
   alt: string
+  verification: string
   highlights: string[]
 }
 
@@ -118,7 +119,7 @@ function AboutPage() {
           'Streams protobuf NotificationEvent messages over HTTP/2 on internal port 9095.',
           'Requires x-internal-token metadata before opening the gRPC stream.',
           'API Gateway bridges the internal gRPC stream to /api/v1/notifications/stream (SSE).',
-          'Resolves recipients by order/review context and supports chat updates.',
+          'Resolves recipients by order/refund/review context and supports chat updates.',
         ],
       },
     ],
@@ -131,7 +132,7 @@ function AboutPage() {
         step: '01',
         title: 'Domain events',
         protocol: 'Kafka',
-        description: 'Order, payment, partner, review, and refund events enter the asynchronous realtime delivery path.',
+        description: 'Order, payment, refund, partner, and review events enter the asynchronous realtime delivery path.',
       },
       {
         step: '02',
@@ -230,11 +231,15 @@ function AboutPage() {
       },
       {
         title: 'Realtime notifications and deep-link',
-        description: 'Notification Service consumes Kafka events and streams protobuf updates to API Gateway through gRPC/HTTP2. Gateway bridges them to SSE with navigation context for the frontend.',
+        description: 'Notification Service consumes Kafka events, including order/payment/refund/review signals, and streams protobuf updates to API Gateway through gRPC/HTTP2. Gateway bridges them to SSE with navigation context for the frontend.',
       },
       {
         title: 'Partner recipient resolution',
         description: 'Notification Service calls token-protected Order and Inventory internal JSON RPC APIs to map order products to shop owners before targeted fanout.',
+      },
+      {
+        title: 'Refund decision and compensation updates',
+        description: 'Order Service publishes order.refund.* topics and calls Payment Service for refund execution. Payment Service publishes payment.refund.* topics, then Notification Service fans updates out through the realtime stream.',
       },
       {
         title: 'Realtime chat delivery',
@@ -256,7 +261,7 @@ function AboutPage() {
       },
       {
         name: 'Messaging',
-        note: 'Apache Kafka event bus using topic naming convention <domain>.<entity>.<event>.v1.',
+        note: 'Apache Kafka event bus using topic naming convention <domain>.<entity>.<event>.v1 for lifecycle, payment, refund, partner, and review events.',
       },
       {
         name: 'Realtime',
@@ -286,8 +291,9 @@ function AboutPage() {
     () => [
       {
         title: 'Model 1 - Overall System Architecture',
-        image: model1OverallArchitecture,
+        image: architectureModel1,
         alt: 'Model 1 - Overall System Architecture showing clients, gateway, microservices, gRPC HTTP/2, Kafka, PostgreSQL, and Redis',
+        verification: 'Verified against architecture, ports, and Docker Compose',
         highlights: [
           'Gateway is the only client entry point to /api/v1/* routes.',
           'Each service owns its PostgreSQL schema; cross-service sync uses RPC or events.',
@@ -295,9 +301,10 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 2 - Realtime Notification Transport',
-        image: model2RealtimeTransport,
+        title: 'Model 2 - Realtime gRPC/HTTP2 to Browser SSE',
+        image: architectureModel2,
         alt: 'Model 2 - Realtime Notification Transport from Kafka through gRPC HTTP/2 and API Gateway to browser SSE',
+        verification: 'Verified against gRPC proto, gateway client, and notification server',
         highlights: [
           'The internal stream is a real gRPC server-streaming RPC running on HTTP/2.',
           'x-internal-token protects the service channel while JWT protects the public SSE endpoint.',
@@ -305,9 +312,10 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 3 - Domain Responsibilities',
-        image: architectureModel2,
+        title: 'Model 3 - System Functions and Domains',
+        image: architectureModel3,
         alt: 'Model 3 - Domain Responsibilities showing functional boundaries across microservices',
+        verification: 'Verified against service boundaries and public/internal routes',
         highlights: [
           'Auth, Inventory, Order, Payment, and Notification responsibilities are separated by domain.',
           'Order Service coordinates state transitions and timeout scheduler.',
@@ -315,9 +323,10 @@ function AboutPage() {
         ],
       },
       {
-        title: 'Model 4 - Order and Payment Sequence',
-        image: architectureModel3,
+        title: 'Model 4 - Order and Payment Processing Flow',
+        image: architectureModel4,
         alt: 'Model 4 - Order and Payment Sequence from order creation to realtime notification',
+        verification: 'Verified against key flows and payment/order consumers',
         highlights: [
           'Payment confirmation starts at Payment Service, then publishes payment.transaction.succeeded.v1.',
           'Order Service consumes payment events and calls inventory confirm-deduct.',
@@ -326,11 +335,13 @@ function AboutPage() {
       },
       {
         title: 'Model 5 - Kafka Producer and Consumer Map',
-        image: architectureModel4,
+        image: architectureModel5,
         alt: 'Model 5 - Kafka Producer and Consumer Map showing topics and service mappings',
+        verification: 'Verified against Kafka topic docs and application properties',
         highlights: [
           'Primary producers are Auth, Order, Payment, and Inventory services.',
-          'Notification Service is mainly a consumer for order/payment/partner/review topics.',
+          'Notification Service consumes order, payment, refund, partner, and review topics.',
+          'The diagram covers the main topic families; refund topics are also present in code as order.refund.* and payment.refund.*.',
           'Chat updates use the same gRPC-to-SSE stream path without a dedicated Kafka chat topic.',
         ],
       },
@@ -370,13 +381,18 @@ function AboutPage() {
               <div className="about-page-diagram-grid">
                 {diagrams.map((diagram) => (
                   <article key={diagram.title} className="about-page-diagram-card">
-                    <h3>{diagram.title}</h3>
-                    <img
-                      src={diagram.image}
-                      alt={diagram.alt}
-                      className="about-page-architecture-image"
-                      loading="lazy"
-                    />
+                    <header className="about-page-diagram-card-header">
+                      <h3>{diagram.title}</h3>
+                      <span>{diagram.verification}</span>
+                    </header>
+                    <figure className="about-page-diagram-figure">
+                      <img
+                        src={diagram.image}
+                        alt={diagram.alt}
+                        className="about-page-architecture-image"
+                        loading="lazy"
+                      />
+                    </figure>
                     <ul className="about-page-diagram-highlights">
                       {diagram.highlights.map((highlight) => (
                         <li key={highlight}>{highlight}</li>
