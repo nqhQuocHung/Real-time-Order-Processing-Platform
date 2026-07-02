@@ -580,6 +580,138 @@ type MenuTreeNode = NavigationMenuItem & {
   children: MenuTreeNode[]
 }
 
+type MenuSymbolName =
+  | 'dashboard'
+  | 'orders'
+  | 'products'
+  | 'support'
+  | 'monitoring'
+  | 'administration'
+  | 'access'
+  | 'categories'
+  | 'reports'
+  | 'settings'
+  | 'inventory'
+  | 'partner'
+  | 'menu'
+
+function resolveMenuSymbol(node: NavigationMenuItem): MenuSymbolName {
+  const identity = `${node.key} ${node.path || ''}`.toLowerCase()
+
+  if (identity.includes('dashboard')) return 'dashboard'
+  if (identity.includes('order')) return 'orders'
+  if (identity.includes('product')) return 'products'
+  if (identity.includes('support')) return 'support'
+  if (identity.includes('monitor')) return 'monitoring'
+  if (identity.includes('access')) return 'access'
+  if (identity.includes('administration') || identity.includes('user')) return 'administration'
+  if (identity.includes('categor')) return 'categories'
+  if (identity.includes('report') || identity.includes('revenue')) return 'reports'
+  if (identity.includes('setting')) return 'settings'
+  if (identity.includes('inventory')) return 'inventory'
+  if (identity.includes('partner')) return 'partner'
+  return 'menu'
+}
+
+function MenuSymbol({ node }: { node: NavigationMenuItem }) {
+  const symbol = resolveMenuSymbol(node)
+
+  const paths: Record<MenuSymbolName, React.ReactNode> = {
+    dashboard: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+      </>
+    ),
+    orders: (
+      <>
+        <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" />
+        <path d="M9 8h6M9 12h6M9 16h4" />
+      </>
+    ),
+    products: (
+      <>
+        <path d="m4 7 8-4 8 4-8 4-8-4Z" />
+        <path d="m4 7 8 4 8-4v10l-8 4-8-4V7Z" />
+        <path d="M12 11v10" />
+      </>
+    ),
+    support: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8.5 9a3.5 3.5 0 1 1 5.7 2.7c-1.2.9-2.2 1.5-2.2 3.3M12 18h.01" />
+      </>
+    ),
+    monitoring: (
+      <>
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="m6 12 3-3 3 3 3-5 3 3M8 21h8M12 17v4" />
+      </>
+    ),
+    administration: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 20a5.5 5.5 0 0 1 11 0M17 10v6M14 13h6" />
+      </>
+    ),
+    access: (
+      <>
+        <rect x="4" y="10" width="16" height="11" rx="2" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
+      </>
+    ),
+    categories: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <path d="M14 17.5h7M17.5 14v7" />
+      </>
+    ),
+    reports: (
+      <>
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z" />
+      </>
+    ),
+    inventory: (
+      <>
+        <path d="M4 7h16v14H4V7ZM3 3h18v4H3V3Z" />
+        <path d="M9 11h6" />
+      </>
+    ),
+    partner: (
+      <>
+        <path d="M8 12 4 8l3-3 4 4M16 12l4-4-3-3-4 4" />
+        <path d="m8 12 3 3a2 2 0 0 0 3 0l2-3M5 9l-2 2 6 6M19 9l2 2-6 6" />
+      </>
+    ),
+    menu: (
+      <>
+        <circle cx="5" cy="6" r="1" />
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="5" cy="18" r="1" />
+        <path d="M9 6h11M9 12h11M9 18h11" />
+      </>
+    ),
+  }
+
+  return (
+    <span className="role-menu-symbol" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        {paths[symbol]}
+      </svg>
+    </span>
+  )
+}
+
 function compareMenuOrder(first: Pick<NavigationMenuItem, 'displayOrder' | 'key'>, second: Pick<NavigationMenuItem, 'displayOrder' | 'key'>) {
   const firstOrder = typeof first.displayOrder === 'number' ? first.displayOrder : 100
   const secondOrder = typeof second.displayOrder === 'number' ? second.displayOrder : 100
@@ -619,21 +751,6 @@ function buildMenuTree(menuItems: NavigationMenuItem[]): MenuTreeNode[] {
 
 function nodeHasPath(node: NavigationMenuItem) {
   return Boolean(node.path && node.path.trim())
-}
-
-function findActiveMenuKeyChain(nodes: MenuTreeNode[], pathname: string): string[] {
-  for (const node of nodes) {
-    const childChain = findActiveMenuKeyChain(node.children, pathname)
-    if (childChain.length > 0) {
-      return [node.key, ...childChain]
-    }
-
-    if (node.path === pathname) {
-      return [node.key]
-    }
-  }
-
-  return []
 }
 
 function nodeContainsPath(node: MenuTreeNode, pathname: string): boolean {
@@ -876,12 +993,6 @@ function RoleLayout() {
   }, [roleMenuSource, currentRole])
 
   const menuTree = useMemo(() => buildMenuTree(currentMenu), [currentMenu])
-
-  const activeMenuKeyChain = useMemo(
-    () => findActiveMenuKeyChain(menuTree, location.pathname),
-    [menuTree, location.pathname],
-  )
-  const activeMenuChainKey = activeMenuKeyChain.join('::')
 
   const editProfilePath = useMemo(() => {
     if (currentRole === AppRole.SHOPEE_PARTNER) {
@@ -1642,24 +1753,6 @@ function RoleLayout() {
   }, [isMessagingEnabled, openMessageConversationFromProduct])
 
   useEffect(() => {
-    if (!activeMenuChainKey) {
-      return
-    }
-
-    setOpenMenuGroups((prev) => {
-      const next = { ...prev }
-      let changed = false
-      activeMenuChainKey.split('::').forEach((menuKey) => {
-        if (!next[menuKey]) {
-          next[menuKey] = true
-          changed = true
-        }
-      })
-      return changed ? next : prev
-    })
-  }, [activeMenuChainKey])
-
-  useEffect(() => {
     if (!isUserMenuOpen && !isNotificationOpen && !isMessageOpen) {
       return
     }
@@ -1879,7 +1972,7 @@ function RoleLayout() {
     const nodePath = normalizePath(node.path)
     const pathActive = isCurrentPathActive(nodePath, location.pathname)
     const nodeOrChildActive = hasChildren ? nodeContainsPath(node, location.pathname) : pathActive
-    const isOpen = hasChildren ? (openMenuGroups[node.key] ?? nodeOrChildActive) : false
+    const isOpen = hasChildren ? Boolean(openMenuGroups[node.key]) : false
 
     if (!hasChildren && isContainerNode(node) && !nodeHasPath(node)) {
       return null
@@ -1894,10 +1987,15 @@ function RoleLayout() {
             onClick={() => toggleMenuGroup(node.key)}
             aria-expanded={hasChildren ? isOpen : false}
           >
-            <span>{translateMenuLabel(node)}</span>
+            <span className="role-menu-item-content">
+              <MenuSymbol node={node} />
+              <span>{translateMenuLabel(node)}</span>
+            </span>
             {hasChildren && (
               <span className={`role-menu-group-caret ${isOpen ? 'open' : ''}`}>
-                v
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                  <path d="m7 10 5 5 5-5" />
+                </svg>
               </span>
             )}
           </button>
@@ -1921,7 +2019,10 @@ function RoleLayout() {
         to={nodePath}
         className={({ isActive }) => `role-menu-item ${isActive ? 'active' : ''}`}
       >
-        {translateMenuLabel(node)}
+        <span className="role-menu-item-content">
+          <MenuSymbol node={node} />
+          <span>{translateMenuLabel(node)}</span>
+        </span>
       </NavLink>
     )
   }

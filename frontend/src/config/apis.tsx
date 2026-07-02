@@ -6,6 +6,14 @@ import type {
 } from 'axios'
 import type { AppRole } from '../constants/roles'
 
+declare global {
+  interface Window {
+    __APP_CONFIG__?: {
+      VITE_API_BASE_URL?: string
+    }
+  }
+}
+
 const API_LOADING_EVENT = 'app-api-loading'
 
 type ApiLoadingEventDetail = {
@@ -68,6 +76,9 @@ function resolveDefaultApiBaseUrl(): string {
 }
 
 const BASE_URL =
+  (typeof window !== 'undefined'
+    ? window.__APP_CONFIG__?.VITE_API_BASE_URL?.trim()
+    : undefined) ||
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   resolveDefaultApiBaseUrl()
 

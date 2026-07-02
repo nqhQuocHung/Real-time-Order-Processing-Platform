@@ -52,6 +52,7 @@ $RECYCLE.BIN/
 .env
 .env.*
 !.env.example
+infra/env-deploy
 *.local
 **/application-local.properties
 **/application-local.yml
