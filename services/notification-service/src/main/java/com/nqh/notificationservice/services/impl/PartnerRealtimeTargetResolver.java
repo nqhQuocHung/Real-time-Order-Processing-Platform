@@ -28,7 +28,7 @@ public class PartnerRealtimeTargetResolver {
             ObjectMapper objectMapper,
             @Value("${app.notification.rpc.order-base-url:http://localhost:8082}") String orderBaseUrl,
             @Value("${app.notification.rpc.inventory-base-url:http://localhost:8083}") String inventoryBaseUrl,
-            @Value("${app.notification.rpc.internal-token:change-me}") String internalToken
+            @Value("${app.notification.rpc.internal-token}") String internalToken
     ) {
         this.objectMapper = objectMapper;
         this.orderRpcClient = buildHttp2RestClient(orderBaseUrl);

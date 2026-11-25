@@ -33,7 +33,7 @@ public class InternalOrderController {
     private final OrderService orderService;
     private final ApiResponseFactory apiResponseFactory;
 
-    @Value("${app.internal.token:change-me}")
+    @Value("${app.internal.token}")
     private String expectedInternalToken;
 
     @GetMapping("/{orderCode}/products")

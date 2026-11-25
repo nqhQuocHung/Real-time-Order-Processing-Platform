@@ -36,7 +36,7 @@ public class InternalInventoryController {
     private final InventoryService inventoryService;
     private final ApiResponseFactory apiResponseFactory;
 
-    @Value("${app.internal.token:change-me}")
+    @Value("${app.internal.token}")
     private String expectedInternalToken;
 
     @PostMapping("/reserve")
