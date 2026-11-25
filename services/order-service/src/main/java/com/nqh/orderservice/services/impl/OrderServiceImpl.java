@@ -125,7 +125,7 @@ public class OrderServiceImpl implements OrderService {
             @Value("${app.order.default-currency:VND}") String defaultCurrency,
             @Value("${app.order.rpc.inventory-base-url:http://localhost:8083}") String inventoryBaseUrl,
             @Value("${app.order.rpc.payment-base-url:http://localhost:8084}") String paymentBaseUrl,
-            @Value("${app.order.rpc.internal-token:change-me}") String internalRpcToken,
+            @Value("${app.order.rpc.internal-token}") String internalRpcToken,
             @Value("${app.order.rpc.default-payment-method:VNPAY}") String defaultPaymentMethod,
             @Value("${app.order.payment-timeout-minutes:15}") long paymentTimeoutMinutes,
             @Value("${app.order.topic.created:order.lifecycle.created.v1}") String topicOrderCreated,

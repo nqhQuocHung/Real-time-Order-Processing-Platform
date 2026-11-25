@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -105,32 +104,16 @@ public class NotificationController {
             value = "/stream",
             produces = MediaType.TEXT_EVENT_STREAM_VALUE
     )
-    public SseEmitter streamNotifications(
-            @RequestHeader(name = "X-User-Id", required = false) String forwardedUserId,
-            @RequestHeader(name = "X-User-Role", required = false) String forwardedUserRole,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
+    public SseEmitter streamNotifications(@AuthenticationPrincipal Jwt jwt) {
         String userId = jwt != null ? normalize(jwt.getSubject()) : null;
-        if (userId == null) {
-            userId = normalize(forwardedUserId);
-        }
         if (userId == null) {
             throw new IllegalStateException("Cannot resolve userId for notification stream.");
         }
 
-        boolean isAdmin = isAdminUser(forwardedUserRole, jwt);
-        return adminSseService.subscribe(userId, isAdmin);
+        return adminSseService.subscribe(userId, isAdminUser(jwt));
     }
 
-    private boolean isAdminUser(String forwardedUserRole, Jwt jwt) {
-        String normalizedForwardedRole = normalize(forwardedUserRole);
-        if (normalizedForwardedRole != null) {
-            if ("ADMIN".equalsIgnoreCase(normalizedForwardedRole)
-                    || "ROLE_ADMIN".equalsIgnoreCase(normalizedForwardedRole)) {
-                return true;
-            }
-        }
-
+    private boolean isAdminUser(Jwt jwt) {
         if (jwt == null) {
             return false;
         }
@@ -159,7 +142,7 @@ public class NotificationController {
 
     private String resolveRecipientForList(String requestedRecipient, Jwt jwt) {
         String normalizedRequestedRecipient = normalize(requestedRecipient);
-        if (isAdminUser(null, jwt)) {
+        if (isAdminUser(jwt)) {
             return normalizedRequestedRecipient;
         }
 

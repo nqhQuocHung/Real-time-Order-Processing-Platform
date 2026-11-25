@@ -36,7 +36,7 @@ public class InternalPaymentController {
     private final PaymentService paymentService;
     private final ApiResponseFactory apiResponseFactory;
 
-    @Value("${app.internal.token:change-me}")
+    @Value("${app.internal.token}")
     private String expectedInternalToken;
 
     @PostMapping("/intents")

@@ -17,7 +17,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
-    @Value("${app.cors.allowed-origin-patterns:http://localhost:5173,http://127.0.0.1:5173,http://10.53.68.80:5173,http://172.26.0.1:5173}")
+    @Value("${app.cors.allowed-origin-patterns:http://localhost:5173,http://127.0.0.1:5173}")
     private String allowedOriginPatterns;
 
     @Value("${app.cors.allow-credentials:true}")
